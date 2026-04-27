@@ -4371,8 +4371,11 @@ window.saveBracketMatchToFirebase = async () => {
 
   const snap = await getDoc(doc(db,'tournaments',t.id));
   if(!snap.exists()) return;
-  const events = (snap.data().events||[]).map(e => {
-    if(e.id!==ev.id) return e;
+  const allEvents = snap.data().events||[];
+  // ev.id로 찾거나, bracketMatches 있는 이벤트 찾기
+  const targetEvId = ev.id || (allEvents.find(e=>e.bracketMatches)||{}).id;
+  const events = allEvents.map(e => {
+    if(e.id!==targetEvId) return e;
     const bm = {...(e.bracketMatches||{})};
     bm[matchKey] = {teamA, teamB, results, status:'pending', winner:winnerIdx};
     return {...e, bracketMatches:bm};
