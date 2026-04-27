@@ -1153,6 +1153,16 @@ body { font-family: 'Noto Sans KR', sans-serif; background: var(--bg); color: va
   </div>
 </div>
 
+<!-- ==================== 게임 기권 모달 ==================== -->
+<div class="modal-bg hidden" id="modal-game-forfeit">
+  <div class="modal">
+    <div class="modal-handle"></div>
+    <button class="modal-close" onclick="closeModal('modal-game-forfeit')">✕</button>
+    <div class="modal-title">기권 처리</div>
+    <div id="game-forfeit-content"></div>
+  </div>
+</div>
+
 <!-- ==================== 경기별 선수 순서 모달 ==================== -->
 <div class="modal-bg hidden" id="modal-match-lineup">
   <div class="modal">
@@ -1189,32 +1199,34 @@ body { font-family: 'Noto Sans KR', sans-serif; background: var(--bg); color: va
       <span id="sb-current-set">1세트</span>
     </div>
 
-    <!-- 점수 (클릭=+1, 길게누르기=-1) -->
-    <div style="display:flex;align-items:center;gap:12px;margin-bottom:20px">
+    <!-- 점수 -->
+    <div style="display:flex;align-items:center;gap:8px;margin-bottom:20px">
       <!-- A팀 -->
       <div style="flex:1;text-align:center">
-        <div id="sb-score-a"
-          style="font-size:88px;font-weight:700;color:var(--accent);line-height:1;
-          cursor:pointer;user-select:none;-webkit-user-select:none;
-          padding:16px;border-radius:16px;background:rgba(37,99,235,0.08)"
-          ontouchstart="sbStartLong('a')" ontouchend="sbEndLong('a')"
-          ontouchmove="sbCancelLong()"
-          onclick="sbTap('a')">0</div>
-        <div style="font-size:11px;color:var(--text3);margin-top:6px">탭=+1 · 길게=-1</div>
+        <button onclick="sbScore('a',1)"
+          style="width:100%;height:100px;border-radius:16px;background:rgba(37,99,235,0.1);
+          border:2px solid var(--accent);cursor:pointer;font-family:inherit">
+          <div id="sb-score-a" style="font-size:64px;font-weight:700;color:var(--accent);line-height:1">0</div>
+        </button>
+        <button onclick="sbScore('a',-1)"
+          style="margin-top:6px;width:100%;height:36px;border-radius:10px;
+          background:var(--surface2);border:1px solid var(--border2);
+          font-size:18px;font-weight:700;color:var(--text2);cursor:pointer;font-family:inherit">−1</button>
       </div>
 
-      <div style="font-size:28px;color:var(--text3);font-weight:700">:</div>
+      <div style="font-size:24px;color:var(--text3);font-weight:700">:</div>
 
       <!-- B팀 -->
       <div style="flex:1;text-align:center">
-        <div id="sb-score-b"
-          style="font-size:88px;font-weight:700;color:var(--pink);line-height:1;
-          cursor:pointer;user-select:none;-webkit-user-select:none;
-          padding:16px;border-radius:16px;background:rgba(219,39,119,0.08)"
-          ontouchstart="sbStartLong('b')" ontouchend="sbEndLong('b')"
-          ontouchmove="sbCancelLong()"
-          onclick="sbTap('b')">0</div>
-        <div style="font-size:11px;color:var(--text3);margin-top:6px">탭=+1 · 길게=-1</div>
+        <button onclick="sbScore('b',1)"
+          style="width:100%;height:100px;border-radius:16px;background:rgba(219,39,119,0.1);
+          border:2px solid var(--pink);cursor:pointer;font-family:inherit">
+          <div id="sb-score-b" style="font-size:64px;font-weight:700;color:var(--pink);line-height:1">0</div>
+        </button>
+        <button onclick="sbScore('b',-1)"
+          style="margin-top:6px;width:100%;height:36px;border-radius:10px;
+          background:var(--surface2);border:1px solid var(--border2);
+          font-size:18px;font-weight:700;color:var(--text2);cursor:pointer;font-family:inherit">−1</button>
       </div>
     </div>
 
@@ -1669,6 +1681,10 @@ const getTourneyStatus = (t) => {
   const today = now.toISOString().slice(0,10);
   const nowStr = now.toISOString().slice(0,16);
 
+  // 수동 마감/잠금 우선
+  if(t.status === 'closed' || t.status === 'locked') return 'closed';
+  if(t.status === 'draft') return 'draft';
+
   // 접수 시작 전
   if(t.regStart && t.regStart > today) return 'pre';
   // 접수 마감일시 있으면 자동 계산
@@ -1676,8 +1692,9 @@ const getTourneyStatus = (t) => {
     if(nowStr > t.regEnd) return 'closed';
     return 'open';
   }
-  // 마감일시 없으면 수동 상태 사용
-  return t.status || 'draft';
+  // 마감일시 없고 배포된 상태면 접수중
+  if(t.status === 'open') return 'open';
+  return 'draft';
 };
 
 const getStatusText = (t) => {
@@ -3899,6 +3916,42 @@ window.closeMatchLineupModal = () => {
   renderMatchList();
 };
 
+window.openGameForfeitModal = (mi, gi, nameA, nameB) => {
+  document.getElementById('game-forfeit-content').innerHTML = `
+    <div style="font-size:13px;color:var(--text2);margin-bottom:16px">${mi+1}경기 ${gi+1}게임 기권 처리</div>
+    <button class="btn btn-ghost btn-full" style="margin-bottom:8px;justify-content:flex-start;text-align:left"
+      onclick="setGameForfeit(${mi},${gi},'a')">
+      <span style="color:var(--accent);font-weight:700">${nameA}</span> 기권 (0:3 패)
+    </button>
+    <button class="btn btn-ghost btn-full" style="justify-content:flex-start;text-align:left"
+      onclick="setGameForfeit(${mi},${gi},'b')">
+      <span style="color:var(--pink);font-weight:700">${nameB}</span> 기권 (0:3 패)
+    </button>`;
+  openModal('modal-game-forfeit');
+};
+
+window.setGameForfeit = (mi, gi, side) => {
+  if(!window._gameForfeit) window._gameForfeit = {};
+  window._gameForfeit[mi+'_'+gi] = side;
+  // 기권 점수 저장 (0:3)
+  if(!window._matchScores) window._matchScores = {};
+  const key = mi+'_'+gi;
+  window._matchScores[key] = {
+    '0a': side==='a'?0:11, '0b': side==='a'?11:0,
+    '1a': side==='a'?0:11, '1b': side==='a'?11:0,
+    '2a': side==='a'?0:11, '2b': side==='a'?11:0,
+  };
+  closeModal('modal-game-forfeit');
+  renderMatchList();
+  showToast('기권 처리됐어요');
+};
+
+window.cancelGameForfeit = (mi, gi) => {
+  if(window._gameForfeit) delete window._gameForfeit[mi+'_'+gi];
+  if(window._matchScores) delete window._matchScores[mi+'_'+gi];
+  renderMatchList();
+};
+
 window.openTeamGameScoreboard = (mi, gi, nameA, nameB) => {
   const key = mi+'_'+gi;
   const existingSets = [];
@@ -4974,16 +5027,32 @@ window.renderMatchList = () => {
           };
           const pNameA = getPlayerName(0, gi);
           const pNameB = getPlayerName(1, gi);
-          const disabled = !matchDone && (gameWinsA>=(formatArr.length+1)/2||gameWinsB>=(formatArr.length+1)/2) && !gdone;
+          const gameForfeit = (window._gameForfeit||{})[mi+'_'+gi];
+          const disabled = !matchDone && (gameWinsA>=(formatArr.length+1)/2||gameWinsB>=(formatArr.length+1)/2) && !gdone && !gameForfeit;
+
+          if(gameForfeit) {
+            return `<div style="background:var(--surface2);border-radius:10px;padding:10px;margin-bottom:8px;opacity:0.6">
+              <div style="display:flex;justify-content:space-between;align-items:center">
+                <span style="font-size:11px;color:var(--accent);font-weight:700">${gi+1}게임 · ${type}식</span>
+                <div style="display:flex;gap:6px;align-items:center">
+                  <span style="font-size:11px;color:var(--pink);font-weight:700">${gameForfeit==='a'?pNameA:pNameB} 기권 (0:3)</span>
+                  <button class="btn btn-ghost btn-sm" style="font-size:10px" onclick="cancelGameForfeit(${mi},${gi})">취소</button>
+                </div>
+              </div>
+            </div>`;
+          }
 
           return `<div style="background:var(--surface2);border-radius:10px;padding:10px;margin-bottom:8px;
             ${gdone?(wa>wb?'border-left:3px solid var(--accent)':'border-left:3px solid var(--pink)'):''}
             opacity:${disabled?0.4:1}">
             <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:8px">
               <span style="font-size:11px;color:var(--accent);font-weight:700">${gi+1}게임 · ${type}식</span>
-              <div style="display:flex;gap:6px">
-                ${!disabled?`<button class="btn btn-primary btn-sm" style="font-size:10px"
-                  onclick="openTeamGameScoreboard(${mi},${gi},'${pNameA}','${pNameB}')">🏓 점수판</button>`:''}
+              <div style="display:flex;gap:4px">
+                ${!disabled?`
+                  <button class="btn btn-primary btn-sm" style="font-size:10px"
+                    onclick="openTeamGameScoreboard(${mi},${gi},'${pNameA}','${pNameB}')">🏓 점수판</button>
+                  <button class="btn btn-ghost btn-sm" style="font-size:10px;color:var(--pink)"
+                    onclick="openGameForfeitModal(${mi},${gi},'${pNameA}','${pNameB}')">기권</button>`:''}
               </div>
             </div>
             <div style="display:flex;align-items:center;gap:6px">
