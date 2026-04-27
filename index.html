@@ -4379,8 +4379,12 @@ window.saveBracketMatchToFirebase = async () => {
   });
   await updateDoc(doc(db,'tournaments',t.id),{events});
   t.events = events;
+  _cache.del('tourney_'+t.id);
   _cache.set('tourney_'+t.id, t);
-  window._bracketEv = {...ev, bracketMatches: {...(ev.bracketMatches||{}), [matchKey]:{teamA,teamB,results,status:'pending',winner:winnerIdx}}};
+  // _bracketEv 업데이트
+  const updatedEv = events.find(e=>e.id===ev.id) || ev;
+  window._bracketEv = updatedEv;
+  window._curGroupEv = updatedEv;
 };
 
 window.saveMatchResultsToFirebase = async () => {
@@ -6091,7 +6095,21 @@ window.showBracketPage = (page) => {
   document.getElementById('bracket-content').innerHTML = html + nav;
 };
 
-window.openBracketMatch = (matchKey, matchIdx, roundIdx) => {
+window.openBracketMatch = async (matchKey, matchIdx, roundIdx) => {
+  // Firebase에서 최신 데이터 로드
+  const t = window.curTourney || window._statusTourney || window._bracketTourney;
+  if(t) {
+    try {
+      _cache.del('tourney_'+t.id);
+      const snap = await getDoc(doc(db,'tournaments',t.id));
+      if(snap.exists()) {
+        const data = {id:t.id,...snap.data()};
+        const ev = (data.events||[]).find(e=>e.id===(window._bracketEv||{}).id);
+        if(ev) window._bracketEv = ev;
+      }
+    } catch(e) {}
+  }
+
   const ev = window._bracketEv || {};
   const bracket = window._bracketData || [];
   const size = window._bracketSize || 0;
