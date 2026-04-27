@@ -4391,7 +4391,7 @@ window.saveBracketMatchToFirebase = async () => {
     const events2 = allEvents2.map(e => {
       if(e.id!==targetEvId2) return e;
       const bm = {...(e.bracketMatches||{})};
-      bm[matchKey] = {teamA:teamA2, teamB:teamB2, results:results2, status:'pending', winner:winnerIdx2};
+      bm[matchKey] = {teamA:teamA2, teamB:teamB2, results:results2, status: (t.allowGuest===true)?'approved':'pending', winner:winnerIdx2, lineups: window._teamMatchLineups||{}};
       return {...e, bracketMatches:bm};
     });
     await updateDoc(doc(db,'tournaments',t.id),{events:events2});
@@ -4424,7 +4424,7 @@ window.saveBracketMatchToFirebase = async () => {
   const events = allEvents.map(e => {
     if(e.id!==targetEvId) return e;
     const bm = {...(e.bracketMatches||{})};
-    bm[matchKey] = {teamA, teamB, results, status:'pending', winner:winnerIdx};
+    bm[matchKey] = {teamA, teamB, results, status:(t.allowGuest===true)?'approved':'pending', winner:winnerIdx};
     return {...e, bracketMatches:bm};
   });
   await updateDoc(doc(db,'tournaments',t.id),{events});
@@ -6185,6 +6185,8 @@ window.openBracketMatch = async (matchKey, matchIdx, roundIdx) => {
   window._bracketMatchKey = matchKey;
   window._bracketMatchIdx = matchIdx;
   window._bracketRoundIdxCur = roundIdx;
+  // 선수 순서 복원
+  window._teamMatchLineups = savedMatch.lineups || {};
 
   const nameA = teamA?.members?.map(m=>`${m.name}(${m.rank}부)`).join(', ')||'?';
   const nameB = teamB?.members?.map(m=>`${m.name}(${m.rank}부)`).join(', ')||'?';
