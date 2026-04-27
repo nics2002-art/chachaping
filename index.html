@@ -3269,8 +3269,18 @@ window.openGroupRanking = (group, groupEntries, ev) => {
   matrixHtml += `</table>`;
   document.getElementById('ranking-matrix').innerHTML = matrixHtml;
 
+  // 모든 경기 완료 여부 체크
+  const totalMatches = matchOrder.length;
+  const completedMatches = results.filter(r => r && (r.isForfeit || r.winsA > 0 || r.winsB > 0)).length;
+  const allMatchesDone = completedMatches >= totalMatches && totalMatches > 0;
+
   // 순위표
   let rankHtml = '';
+  if(!allMatchesDone) {
+    rankHtml = `<div style="font-size:12px;color:var(--amber);padding:8px;text-align:center">
+      ⏳ ${completedMatches}/${totalMatches} 경기 완료 - 모든 경기가 끝나면 순위가 확정됩니다
+    </div>`;
+  }
   ranked.forEach((teamIdx, rank) => {
     const team = teams[teamIdx];
     const isFirst = rank===0;
@@ -3284,7 +3294,7 @@ window.openGroupRanking = (group, groupEntries, ev) => {
         <div style="font-size:13px;font-weight:700;color:var(--text)">${team.members.map(m=>`${m.name}(${m.rank}부)`).join(', ')}</div>
         <div style="font-size:11px;color:var(--text3)">${team.club}</div>
       </div>
-      ${rank<2?`<span style="margin-left:auto;font-size:11px;font-weight:700;color:${isFirst?'var(--accent)':'var(--amber)'}">본선 진출</span>`:''}
+      ${allMatchesDone && rank<2?`<span style="margin-left:auto;font-size:11px;font-weight:700;color:${isFirst?'var(--accent)':'var(--amber)'}">본선 진출</span>`:''}
     </div>`;
   });
   document.getElementById('ranking-table').innerHTML = rankHtml;
@@ -4187,6 +4197,24 @@ window.saveMatchResultsToFirebase = async () => {
 
   const t = window.curTourney || window._statusTourney || window._bracketTourney;
   if(!t) { showToast('대회 정보가 없어요'); return; }
+  // 모든 경기 완료 여부 체크
+  const isTeamMatch2 = ev && ev.teamSize > 1;
+  const formatArr2 = isTeamMatch2 ? (ev.teamFormat||'단단단').split('').filter(c=>c==='단'||c==='복') : [];
+  const totalMatches = matchOrder.length;
+  let completedMatches = 0;
+  results.forEach((r, mi) => {
+    if(!r) return;
+    if(r.isForfeit) { completedMatches++; return; }
+    if(isTeamMatch2) {
+      const gameResults = r.gameResults || [];
+      const allGames = gameResults.length >= formatArr2.length &&
+        gameResults.every(gr => gr.wa >= 3 || gr.wb >= 3);
+      if(allGames) completedMatches++;
+    } else {
+      if(r.winsA >= 3 || r.winsB >= 3) completedMatches++;
+    }
+  });
+  const allDone = completedMatches >= totalMatches;
   const isg = t.allowGuest===true;
   const snap = await getDoc(doc(db,'tournaments',t.id));
   if(!snap.exists()) return;
@@ -4195,7 +4223,7 @@ window.saveMatchResultsToFirebase = async () => {
     const groups = (e.groups||[]).map(g => {
       if(g.no!==group.no) return g;
       const lineups = window._teamMatchLineups||{};
-      return {...g, matchResults:results, teamMatchLineups:lineups, matchStatus:isg?'approved':'pending', submittedAt:Date.now()};
+      return {...g, matchResults:results, teamMatchLineups:lineups, matchStatus:(allDone&&isg)?'approved':'pending', submittedAt:Date.now()};
     });
     return {...e, groups};
   });
@@ -5413,7 +5441,7 @@ window.submitMatchResults = async () => {
           if(g.no!==group.no) return g;
           const isg = window.curTourney && window.curTourney.allowGuest===true;
           const lineups = window._teamMatchLineups||{};
-          return {...g, matchResults:results, teamMatchLineups:lineups, matchStatus:isg?'approved':'pending', submittedAt:Date.now()};
+          return {...g, matchResults:results, teamMatchLineups:lineups, matchStatus:(allDone&&isg)?'approved':'pending', submittedAt:Date.now()};
         });
         return {...e, groups};
       });
@@ -5479,22 +5507,28 @@ window.approveMatchResults = async () => {
 window.rejectMatchResults = async () => {
   const group = window._curGroup;
   const ev = window._curGroupEv;
+  const t = window.curTourney || window._statusTourney || window._bracketTourney;
+  if(!t) { showToast('대회 정보가 없어요'); return; }
   try {
-    const snap = await getDoc(doc(db, 'tournaments', window.curTourney.id));
+    const snap = await getDoc(doc(db, 'tournaments', t.id));
     if(!snap.exists()) return;
     const events = (snap.data().events||[]).map(e => {
       if(e.id !== ev.id) return e;
       const groups = (e.groups||[]).map(g => {
         if(g.no !== group.no) return g;
-        return {...g, matchStatus: 'rejected'};
+        return {...g, matchStatus: 'pending', matchResults: []};
       });
       return {...e, groups};
     });
-    await updateDoc(doc(db,'tournaments',window.curTourney.id),{events});
-    window._curGroup = {...group, matchStatus: 'rejected'};
+    await updateDoc(doc(db,'tournaments',t.id),{events});
+    t.events = events;
+    _cache.set('tourney_'+t.id, t);
+    window._curGroup = {...group, matchStatus: 'pending', matchResults: []};
+    window._matchScores = {};
+    window._matchForfeits = {};
     renderMatchList();
-    showToast('반려됐어요. 수정 후 재제출하세요');
-  } catch(e) { showToast('저장 실패: ' + e.message); }
+    showToast('수정 모드로 전환됐어요 ✏️');
+  } catch(e) { showToast('실패: ' + e.message); }
 };
 
 // ── 본선 대진표 ──────────────────────────────────────────
