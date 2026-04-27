@@ -3859,6 +3859,19 @@ window.openMatchLineup = (mi, ai, bi, targetTi) => {
 
   const renderLineupModal = () => {
     const lineup = window._teamMatchLineups[mi];
+
+    // 이미 다른 게임에서 선택된 단식 선수 인덱스 수집
+    const usedInSingle = {};
+    formatArr.forEach((t, gi2) => {
+      if(t==='단') {
+        const key = targetTi+'_'+gi2;
+        const sel = lineup[key];
+        if(sel !== undefined && sel !== null) {
+          if(!usedInSingle[gi2]) usedInSingle[gi2] = sel;
+        }
+      }
+    });
+
     let html = `<div style="font-size:14px;font-weight:700;color:${color};margin-bottom:12px">
       ${mi+1}경기 · ${teamLabel} 선수 순서</div>
     <div style="font-size:12px;color:var(--text3);margin-bottom:12px">${targetTeam.members.map(m=>m.name).join(', ')}</div>`;
@@ -3866,6 +3879,16 @@ window.openMatchLineup = (mi, ai, bi, targetTi) => {
     formatArr.forEach((type, gi) => {
       const key = targetTi+'_'+gi;
       const sel = lineup[key]||null;
+
+      // 이 게임 제외 다른 단식 게임에서 사용된 선수
+      const otherUsed = new Set();
+      formatArr.forEach((t2, gi2) => {
+        if(gi2!==gi && t2==='단') {
+          const otherSel = lineup[targetTi+'_'+gi2];
+          if(otherSel!==undefined && otherSel!==null) otherUsed.add(String(otherSel));
+        }
+      });
+
       html += `<div style="margin-bottom:12px">
         <div style="font-size:12px;color:var(--text2);font-weight:700;margin-bottom:6px">${gi+1}게임 (${type}식)</div>
         <div style="display:flex;gap:6px;flex-wrap:wrap">`;
@@ -3885,17 +3908,18 @@ window.openMatchLineup = (mi, ai, bi, targetTi) => {
       } else {
         targetTeam.members.forEach((m,idx) => {
           const isSelected = sel===String(idx);
-          html += `<button class="btn ${isSelected?'btn-primary':'btn-ghost'} btn-sm"
-            onclick="selectMatchLineup(${mi},${targetTi},${gi},'${idx}')">
-            ${m.name}
+          const isUsed = otherUsed.has(String(idx));
+          html += `<button class="btn ${isSelected?'btn-primary':isUsed?'btn-ghost':'btn-ghost'} btn-sm"
+            style="${isUsed&&!isSelected?'opacity:0.35;cursor:not-allowed':''}"
+            onclick="${isUsed&&!isSelected?'showToast(\"이미 다른 게임에 배정된 선수예요\")':'selectMatchLineup('+mi+','+targetTi+','+gi+',\''+idx+'\')'}"
+            >
+            ${m.name}${isUsed&&!isSelected?' ✗':''}
           </button>`;
         });
       }
       html += `</div></div>`;
     });
 
-    // 헤더 버튼 제거
-    const topBtns = document.querySelector('#match-lineup-content + .btn-row');
     html += `<button class="btn btn-success btn-full" onclick="closeMatchLineupModal()">확인</button>`;
     document.getElementById('match-lineup-content').innerHTML = html;
     document.getElementById('modal-match-lineup').classList.remove('hidden');
