@@ -1027,11 +1027,11 @@ body { font-family: 'Noto Sans KR', sans-serif; background: var(--bg); color: va
     </div>
     <div class="form-group">
       <label class="form-label">시작일</label>
-      <input class="form-input" id="edit-tourney-date" type="date">
+      <input class="form-input" id="edit-tourney-date" type="text" placeholder="YYYYMMDD" maxlength="8" inputmode="numeric" oninput="autoFormatDate(this)">
     </div>
     <div class="form-group">
       <label class="form-label">종료일 <span style="color:var(--text3);font-size:11px">(하루면 비워두세요)</span></label>
-      <input class="form-input" id="edit-tourney-date-end" type="date">
+      <input class="form-input" id="edit-tourney-date-end" type="text" placeholder="YYYYMMDD" maxlength="8" inputmode="numeric" oninput="autoFormatDate(this)">
     </div>
     <div class="form-group">
       <label class="form-label">대회 유형</label>
@@ -1048,12 +1048,12 @@ body { font-family: 'Noto Sans KR', sans-serif; background: var(--bg); color: va
     </div>
     <div class="form-group">
       <label class="form-label">접수 시작일</label>
-      <input class="form-input" id="edit-tourney-reg-start" type="date">
+      <input class="form-input" id="edit-tourney-reg-start" type="text" placeholder="YYYYMMDD" maxlength="8" inputmode="numeric" oninput="autoFormatDate(this)">
     </div>
     <div class="form-group">
       <label class="form-label">접수 마감일시</label>
       <div class="btn-row">
-        <input class="form-input" id="edit-tourney-reg-end-date" type="date">
+        <input class="form-input" id="edit-tourney-reg-end-date" type="text" placeholder="YYYYMMDD" maxlength="8" inputmode="numeric" oninput="autoFormatDate(this)">
         <input class="form-input" id="edit-tourney-reg-end-time" type="time" value="23:59" style="width:110px">
       </div>
     </div>
@@ -1307,20 +1307,20 @@ body { font-family: 'Noto Sans KR', sans-serif; background: var(--bg); color: va
     </div>
     <div class="form-group">
       <label class="form-label">대회 시작일</label>
-      <input class="form-input" id="new-tourney-date" type="date">
+      <input class="form-input" id="new-tourney-date" type="text" placeholder="YYYYMMDD" maxlength="8" inputmode="numeric" oninput="autoFormatDate(this)">
     </div>
     <div class="form-group">
       <label class="form-label">대회 종료일 <span style="color:var(--text3);font-size:11px">(하루면 비워두세요)</span></label>
-      <input class="form-input" id="new-tourney-date-end" type="date">
+      <input class="form-input" id="new-tourney-date-end" type="text" placeholder="YYYYMMDD" maxlength="8" inputmode="numeric" oninput="autoFormatDate(this)">
     </div>
     <div class="form-group">
       <label class="form-label">접수 시작일</label>
-      <input class="form-input" id="new-tourney-reg-start" type="date">
+      <input class="form-input" id="new-tourney-reg-start" type="text" placeholder="YYYYMMDD" maxlength="8" inputmode="numeric" oninput="autoFormatDate(this)">
     </div>
     <div class="form-group">
       <label class="form-label">접수 마감일시 <span style="color:var(--text3);font-size:11px">(없으면 수동 마감)</span></label>
       <div class="btn-row">
-        <input class="form-input" id="new-tourney-reg-end-date" type="date">
+        <input class="form-input" id="new-tourney-reg-end-date" type="text" placeholder="YYYYMMDD" maxlength="8" inputmode="numeric" oninput="autoFormatDate(this)">
         <input class="form-input" id="new-tourney-reg-end-time" type="time" value="23:59" style="width:110px">
       </div>
     </div>
@@ -2399,7 +2399,7 @@ window.renderEvents = () => {
   el.innerHTML = events.map(ev => {
     const etype = ev.etype || getEtype(ev.teamSize);
     const entryCount = (ev.entries||[]).filter(en=>en.memberIds.some(mid=>(ev.players||[]).find(p=>p.id===mid))).length;
-    const maxEntries = ev.numGroups * 4; // 조수 × 넉넉한 팀수
+    const maxEntries = ev.maxTeams || 999;
     return `
     <div class="event-item" onclick="openEvent('${ev.id}')">
       <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:8px">
@@ -2412,7 +2412,7 @@ window.renderEvents = () => {
       <div class="event-tags">
         <span class="etag etag-blue">${rankLabel(ev.ranks)}</span>
         <span class="etag etag-green">팀당 ${ev.teamSize}명</span>
-        <span class="etag etag-amber">${ev.numGroups}조</span>
+        <span class="etag etag-amber">${(ev.groups||[]).length||"?"}조</span>
         <span class="etag etag-pink">접수 ${entryCount}/${ev.maxTeams||'∞'}팀</span>
         <span class="etag etag-pink">선수 ${(ev.players||[]).length}명</span>
         ${ev.closed ? '<span class="etag etag-red">🔒 마감</span>' : ''}
@@ -2552,7 +2552,7 @@ window.openEvent = async (eid) => {
   const isOwner = window.currentUser && window.curTourney.createdBy === window.currentUser.uid;
 
   document.getElementById('eh-name').textContent = ev.gender + ' ' + ev.etype;
-  document.getElementById('eh-sub').textContent = rankLabel(ev.ranks) + ' · 팀당 ' + ev.teamSize + '명 · ' + ev.numGroups + '조';
+  document.getElementById('eh-sub').textContent = rankLabel(ev.ranks) + ' · 팀당 ' + ev.teamSize + '명 · 조당 ' + (ev.groupTeamSize||4) + '팀';
   document.getElementById('event-cfg-summary').innerHTML = `<div style="display:flex;flex-wrap:wrap;gap:6px">
     <span class="etag etag-blue">${rankLabel(ev.ranks)}</span>
     <span class="etag etag-green">${ev.gender} ${ev.etype}</span>
@@ -2595,7 +2595,7 @@ window.openEvent = async (eid) => {
   document.getElementById('solo-form').style.display = isTeam ? 'none' : '';
   document.getElementById('team-form').style.display = isTeam ? '' : 'none';
 
-  document.getElementById('group-info-box').textContent = `${ev.numGroups}개 조 설정 · 균등 배분 · 같은 클럽 다른 조`;
+  document.getElementById('group-info-box').textContent = `조당 ${ev.groupTeamSize||4}팀 · 균등 배분 · 같은 클럽 다른 조`;
 
   showEventTab(0); renderPlayers();
   document.getElementById('groups-result').innerHTML='';
@@ -2665,8 +2665,8 @@ window._batchEntries = [];
 
 window.addClubMemberToBatch = (name, rank, club) => {
   const ev = window.curEvent;
-  if(window._batchEntries.some(e=>e.name===name)){ showToast(`${name}은 이미 목록에 있어요`); return; }
-  if((ev.players||[]).some(p=>p.name===name)){ showToast(`${name}은 이미 접수됐어요`); return; }
+  if(window._batchEntries.some(e=>e.name===name&&e.club===club&&e.rank===rank)){ showToast(`${name}(${rank}부)은 이미 목록에 있어요`); return; }
+  if((ev.players||[]).some(p=>p.name===name&&p.club===club&&p.rank===rank)){ showToast(`${name}(${rank}부/${club})은 이미 접수됐어요`); return; }
   window._batchEntries.push({name, rank, club});
   renderBatchEntries();
 };
@@ -2677,8 +2677,8 @@ window.addBatchEntry = () => {
   const club = document.getElementById('inp-club').value.trim() || (window.currentUserData?.club||'개인');
   if(!name){ showToast('이름을 입력해주세요'); return; }
   const ev = window.curEvent;
-  if(window._batchEntries.some(e=>e.name===name)){ showToast(`${name}은 이미 목록에 있어요`); return; }
-  if((ev.players||[]).some(p=>p.name===name)){ showToast(`${name}은 이미 접수됐어요`); return; }
+  if(window._batchEntries.some(e=>e.name===name&&e.club===club&&e.rank===rank)){ showToast(`${name}(${rank}부)은 이미 목록에 있어요`); return; }
+  if((ev.players||[]).some(p=>p.name===name&&p.club===club&&p.rank===rank)){ showToast(`${name}(${rank}부/${club})은 이미 접수됐어요`); return; }
   window._batchEntries.push({name, rank, club});
   document.getElementById('inp-name').value = '';
   renderBatchEntries();
@@ -2804,7 +2804,7 @@ window.addTeamEntry = async () => {
 
     if(!name){showToast(`${i+1}번 선수 이름을 입력해주세요`);return;}
     if(!ev.ranks.includes(rank)){showToast(`${i+1}번 선수: ${rankLabel(ev.ranks)} 선수만 참가 가능`);return;}
-    if((ev.players||[]).some(p=>p.name===name)){showToast(`${name} 선수는 이미 접수됐어요`);return;}
+    if((ev.players||[]).some(p=>p.name===name&&p.club===club&&parseInt(p.rank)===parseInt(rank))){showToast(`${name}(${rank}부) 선수는 이미 접수됐어요`);return;}
 
     // 협회 대회: 같은 클럽만 허용
     if(isOfficialTourney && isLoggedIn && club !== myClub){
@@ -2846,7 +2846,7 @@ window.addPlayer = async () => {
   const cur = (ev.players||[]).length, max = maxCapacity(ev);
   if (cur >= max) { showToast(`정원(${ev.maxTeams||999}팀)이 초과됩니다`); return; }
   // 중복 접수 체크
-  if((ev.players||[]).some(p=>p.name===name)){ showToast(`${name} 선수는 이미 접수됐어요`); return; }
+  if((ev.players||[]).some(p=>p.name===name&&p.club===club&&parseInt(p.rank)===parseInt(rank))){ showToast(`${name}(${rank}부) 선수는 이미 접수됐어요`); return; }
 
   const pid = 'P'+Date.now()+Math.random();
   const player = {id:pid, name, rank, club, addedBy: window.currentUser?.uid||'guest'};
@@ -3161,6 +3161,15 @@ window.updateGroupCourt = async (groupNo, court) => {
   _cache.set('tourney_'+window.curTourney.id, window.curTourney);
   window.curEvent={...ev,groups};
   showToast(`${groupNo}조 코트 ${courtNum?courtNum+'번':'미정'}으로 설정됐어요`);
+};
+
+// ── 날짜 자동 포맷 ──────────────────────────────────────
+window.autoFormatDate = (input) => {
+  let val = input.value.replace(/\D/g, '').slice(0,8);
+  // YYYYMMDD → YYYY-MM-DD 변환
+  if(val.length >= 5) val = val.slice(0,4)+'-'+val.slice(4);
+  if(val.length >= 8) val = val.slice(0,7)+'-'+val.slice(7);
+  input.value = val;
 };
 
 // ── 유틸 ────────────────────────────────────────────────
