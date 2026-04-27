@@ -6113,23 +6113,44 @@ window.showBracketPage = (page) => {
                         status==='pending'?'<span style="font-size:10px;color:var(--amber);font-weight:700">⏳대기</span>':'';
     const clickable = teamA && teamB && !isBye;
 
+    // 결과 점수 계산
+    const results = savedMatch.results || [];
+    const r0 = results[0] || {};
+    const isTeamBracket = r0.gameResults && r0.gameResults.length > 0;
+    let scoreA = 0, scoreB = 0;
+    if(status === 'approved' || status === 'pending') {
+      scoreA = r0.winsA || 0;
+      scoreB = r0.winsB || 0;
+    }
+    const hasResult = (scoreA > 0 || scoreB > 0) && results.length > 0;
+    const winnerA = hasResult && scoreA > scoreB;
+    const winnerB = hasResult && scoreB > scoreA;
+
     html += `<div class="card" style="margin-bottom:10px;${clickable?'cursor:pointer':''}"
       ${clickable?`onclick="openBracketMatch('${matchKey}', ${mi}, ${roundIdx})"`:''}>
       <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:8px">
         <span style="font-size:11px;color:var(--text3)">${mi+1}경기</span>
-        ${isBye?'<span style="font-size:10px;color:var(--text3)">🎫 부전승</span>':statusBadge}
+        ${isBye?'<span style="font-size:10px;color:var(--text3)">🎫 부전승</span>':
+          hasResult?`<span style="font-size:11px;font-weight:700;color:var(--green)">✅ 완료</span>`:statusBadge}
       </div>
       <div style="display:flex;gap:8px;align-items:stretch">
-        <div style="flex:1;background:${teamA?'var(--surface2)':'var(--surface3)'};border-radius:8px;padding:10px;border:1px solid ${status==='approved'&&savedMatch.winner===0?'var(--green)':'var(--border)'}">
+        <div style="flex:1;background:${teamA?'var(--surface2)':'var(--surface3)'};border-radius:8px;padding:10px;
+          border:2px solid ${winnerA?'var(--green)':winnerB?'var(--border)':'var(--border)'}">
           <div style="font-size:13px;font-weight:700;color:${teamA?'var(--text)':'var(--text3)'}">${nameA}</div>
           ${clubA?`<div style="font-size:11px;color:var(--text3)">${clubA}</div>`:''}
           ${rankA?`<div style="font-size:10px;color:var(--accent);margin-top:2px">${rankA}</div>`:''}
+          ${hasResult?`<div style="font-size:20px;font-weight:900;color:${winnerA?'var(--green)':'var(--pink)'};margin-top:4px">${scoreA}</div>`:''}
         </div>
-        <div style="display:flex;align-items:center;font-size:12px;font-weight:700;color:var(--text3)">VS</div>
-        <div style="flex:1;background:${teamB?'var(--surface2)':'var(--surface3)'};border-radius:8px;padding:10px;border:1px solid ${status==='approved'&&savedMatch.winner===1?'var(--green)':'var(--border)'}">
+        <div style="display:flex;flex-direction:column;align-items:center;justify-content:center;font-size:12px;font-weight:700;color:var(--text3)">
+          ${hasResult?'<div style="font-size:10px;margin-bottom:2px">vs</div>':'VS'}
+          ${hasResult?`<div style="font-size:10px">:</div>`:''}
+        </div>
+        <div style="flex:1;background:${teamB?'var(--surface2)':'var(--surface3)'};border-radius:8px;padding:10px;
+          border:2px solid ${winnerB?'var(--green)':winnerA?'var(--border)':'var(--border)'}">
           <div style="font-size:13px;font-weight:700;color:${teamB?'var(--text)':'var(--text3)'}">${nameB}</div>
           ${clubB?`<div style="font-size:11px;color:var(--text3)">${clubB}</div>`:''}
           ${rankB?`<div style="font-size:10px;color:var(--pink);margin-top:2px">${rankB}</div>`:''}
+          ${hasResult?`<div style="font-size:20px;font-weight:900;color:${winnerB?'var(--green)':'var(--pink)'};margin-top:4px">${scoreB}</div>`:''}
         </div>
       </div>
     </div>`;
