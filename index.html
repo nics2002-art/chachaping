@@ -4185,7 +4185,7 @@ window.saveMatchResultsToFirebase = async () => {
     }
   });
 
-  const isg = window.curTourney?.allowGuest===true;
+  const isg = window.curTourney && window.curTourney.allowGuest===true;
   const snap = await getDoc(doc(db,'tournaments',window.curTourney.id));
   if(!snap.exists()) return;
   const events = (snap.data().events||[]).map(e => {
@@ -4209,8 +4209,18 @@ window.sbSave = async () => {
   if(!window._matchScores) window._matchScores = {};
   if(!window._matchScores[key]) window._matchScores[key] = {};
 
+  // 현재 진행중 세트 자동 종료
   const allSets = [...sb.sets];
-  if(sb.curA>0||sb.curB>0) allSets.push({a:sb.curA, b:sb.curB});
+  if(sb.curA>0||sb.curB>0) {
+    allSets.push({a:sb.curA, b:sb.curB});
+  }
+
+  // 세트가 하나도 없으면 저장 안함
+  if(allSets.length === 0) {
+    showToast('점수를 입력해주세요');
+    return;
+  }
+
   allSets.forEach((s,si)=>{
     window._matchScores[key][`${si}a`] = s.a;
     window._matchScores[key][`${si}b`] = s.b;
@@ -4223,7 +4233,8 @@ window.sbSave = async () => {
     await saveMatchResultsToFirebase();
     showToast('점수가 저장됐어요 🏓');
   } catch(e) {
-    showToast('저장 실패: ' + e.message);
+    console.error('저장 실패:', e);
+    showToast('저장 실패: ' + (e.message||e));
   }
 };
 
@@ -4236,7 +4247,10 @@ window.autoSaveMatchScores = async () => {
   const forfeits = window._matchForfeits || {};
   const isBracket = window._isBracketMatch;
   if(isBracket) return; // 본선은 별도 처리
-  if(!group || !teams || !ev) return;
+  if(!group || !teams || !ev || !matchOrder) {
+    showToast('경기 정보가 없어요. 다시 시도해주세요');
+    return;
+  }
 
   const isTeamMatch = ev.teamSize > 1;
   const formatArr = (ev.teamFormat||'단단단').split('').filter(c=>c==='단'||c==='복');
@@ -5395,7 +5409,7 @@ window.submitMatchResults = async () => {
         if(e.id!==ev.id) return e;
         const groups = (e.groups||[]).map(g => {
           if(g.no!==group.no) return g;
-          const isg = window.curTourney?.allowGuest===true;
+          const isg = window.curTourney && window.curTourney.allowGuest===true;
           const lineups = window._teamMatchLineups||{};
           return {...g, matchResults:results, teamMatchLineups:lineups, matchStatus:isg?'approved':'pending', submittedAt:Date.now()};
         });
