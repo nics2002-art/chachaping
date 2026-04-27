@@ -3328,21 +3328,39 @@ window.showMatchDetail = (mi) => {
   const nameA = teams[ai]?.members.map(m=>m.name).join(', ')||'?';
   const nameB = teams[bi]?.members.map(m=>m.name).join(', ')||'?';
   const wA = r.winsA, wB = r.winsB;
-  const sets = (r.sets||[]).filter(s=>s.a>0||s.b>0);
 
   let html = `<div style="font-size:13px;font-weight:700;color:var(--text);margin-bottom:10px">
     ${nameA} <span style="color:${wA>wB?'var(--green)':'var(--pink)'}">${wA}</span> : <span style="color:${wB>wA?'var(--green)':'var(--pink)'}">${wB}</span> ${nameB}
   </div>`;
 
-  sets.forEach((s,i)=>{
-    const aWin = s.a>s.b;
-    html += `<div style="display:flex;align-items:center;gap:8px;padding:6px 0;border-bottom:1px solid var(--border)">
-      <span style="font-size:11px;color:var(--text3);width:40px">${i+1}세트</span>
-      <span style="font-size:15px;font-weight:700;color:${aWin?'var(--green)':'var(--pink)'}">${s.a}</span>
-      <span style="color:var(--text3)">:</span>
-      <span style="font-size:15px;font-weight:700;color:${!aWin?'var(--green)':'var(--pink)'}">${s.b}</span>
-    </div>`;
-  });
+  // 단체전: 게임별 표시
+  if(r.gameResults && r.gameResults.length) {
+    r.gameResults.forEach((gr,gi) => {
+      const sets = (gr.sets||[]).filter(s=>s.a>0||s.b>0);
+      const aWin = gr.wa > gr.wb;
+      html += `<div style="padding:8px 0;border-bottom:1px solid var(--border)">
+        <div style="font-size:11px;color:var(--accent);font-weight:700;margin-bottom:4px">${gi+1}게임</div>
+        <div style="display:flex;align-items:center;gap:8px;margin-bottom:4px">
+          <span style="font-size:13px;font-weight:700;color:${aWin?'var(--green)':'var(--pink)'}">${gr.wa}</span>
+          <span style="color:var(--text3)">:</span>
+          <span style="font-size:13px;font-weight:700;color:${!aWin?'var(--green)':'var(--pink)'}">${gr.wb}</span>
+        </div>
+        ${sets.map((s,si)=>`<div style="font-size:11px;color:var(--text3)">${si+1}세트 ${s.a}:${s.b}</div>`).join('')}
+      </div>`;
+    });
+  } else {
+    // 개인전: 세트별 표시
+    const sets = (r.sets||[]).filter(s=>s.a>0||s.b>0);
+    sets.forEach((s,i)=>{
+      const aWin = s.a>s.b;
+      html += `<div style="display:flex;align-items:center;gap:8px;padding:6px 0;border-bottom:1px solid var(--border)">
+        <span style="font-size:11px;color:var(--text3);width:40px">${i+1}세트</span>
+        <span style="font-size:15px;font-weight:700;color:${aWin?'var(--green)':'var(--pink)'}">${s.a}</span>
+        <span style="color:var(--text3)">:</span>
+        <span style="font-size:15px;font-weight:700;color:${!aWin?'var(--green)':'var(--pink)'}">${s.b}</span>
+      </div>`;
+    });
+  }
 
   document.getElementById('ranking-match-content').innerHTML = html;
   document.getElementById('ranking-match-detail').style.display = '';
@@ -6054,13 +6072,45 @@ window.showPlayerRecord = (idx) => {
         const myW = iAmA?r.winsA:r.winsB;
         const oppW = iAmA?r.winsB:r.winsA;
         const iWon = myW>oppW;
-        const totalSets = (r.sets||[]).filter(s=>s.a>0||s.b>0);
-        const myPts = totalSets.reduce((s,set)=>s+(iAmA?set.a:set.b),0);
-        const oppPts = totalSets.reduce((s,set)=>s+(iAmA?set.b:set.a),0);
+
+        // 단체전(gameResults) vs 개인전(sets) 구분
+        let myPts = 0, oppPts = 0;
+        if(r.gameResults && r.gameResults.length) {
+          // 단체전: 게임 승수로 표시
+          myPts = myW;
+          oppPts = oppW;
+        } else {
+          const totalSets = (r.sets||[]).filter(s=>s.a>0||s.b>0);
+          myPts = totalSets.reduce((s,set)=>s+(iAmA?set.a:set.b),0);
+          oppPts = totalSets.reduce((s,set)=>s+(iAmA?set.b:set.a),0);
+        }
 
         const h2hPre = (window._headToHead||{})[oppNames]||{wins:0,losses:0};
         const h2hPreTotal = h2hPre.wins+h2hPre.losses;
         const h2hPreBadge = h2hPreTotal>0 ? `<div style="font-size:10px;color:var(--text3);text-align:center;margin-top:4px">통산 ${h2hPreTotal}전 ${h2hPre.wins}승 ${h2hPre.losses}패</div>` : '';
+
+        // 세트/게임 상세
+        let detailHtml = '';
+        if(r.gameResults && r.gameResults.length) {
+          // 단체전: 게임별 세트 표시
+          detailHtml = r.gameResults.map((gr,gi) => {
+            const gSets = (gr.sets||[]).filter(s=>s.a>0||s.b>0);
+            const gWinA = iAmA ? gr.wa > gr.wb : gr.wb > gr.wa;
+            return `<div style="margin-top:6px;font-size:11px;color:var(--text3)">
+              ${gi+1}게임 <span style="color:${gWinA?'var(--green)':'var(--pink)'};">${gWinA?'승':'패'}</span>
+              ${gSets.map(s=>`<span style="margin-left:4px">${iAmA?s.a:s.b}:${iAmA?s.b:s.a}</span>`).join('')}
+            </div>`;
+          }).join('');
+        } else {
+          // 개인전: 세트별 점수
+          const totalSets2 = (r.sets||[]).filter(s=>s.a>0||s.b>0);
+          if(totalSets2.length) {
+            detailHtml = `<div style="margin-top:6px;font-size:11px;color:var(--text3)">
+              ${totalSets2.map((s,si)=>`<span style="margin-right:6px">${si+1}세트 ${iAmA?s.a:s.b}:${iAmA?s.b:s.a}</span>`).join('')}
+            </div>`;
+          }
+        }
+
         html += `<div style="padding:14px 0;border-bottom:1px solid var(--border)">
           <div style="font-size:13px;font-weight:700;color:var(--accent);margin-bottom:10px">예선 ${myGroup.no}조</div>
           <div style="display:flex;align-items:center;gap:8px">
@@ -6082,6 +6132,7 @@ window.showPlayerRecord = (idx) => {
               <div style="font-size:13px;font-weight:600;color:var(--text);white-space:pre-line">${oppNames}</div>
             </div>
           </div>
+          ${detailHtml}
         </div>`;
       });
       html += `</div>`;
