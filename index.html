@@ -1153,6 +1153,15 @@ body { font-family: 'Noto Sans KR', sans-serif; background: var(--bg); color: va
   </div>
 </div>
 
+<!-- ==================== 경기별 선수 순서 모달 ==================== -->
+<div class="modal-bg hidden" id="modal-match-lineup">
+  <div class="modal">
+    <div class="modal-handle"></div>
+    <button class="modal-close" onclick="closeMatchLineupModal()">✕</button>
+    <div id="match-lineup-content"></div>
+  </div>
+</div>
+
 <!-- ==================== 점수판 모달 ==================== -->
 <div class="modal-bg hidden" id="modal-scoreboard">
   <div class="modal" style="max-height:90vh;overflow-y:auto">
@@ -3819,9 +3828,88 @@ window._sb = {
   setA: 0, setB: 0
 };
 
+window.openMatchLineup = (mi, ai, bi) => {
+  const teams = window._curGroupTeams;
+  const ev = window._curGroupEv;
+  const teamFormat = ev.teamFormat || '단단단';
+  const formatArr = teamFormat.split('').filter(c=>c==='단'||c==='복');
+  const tA = teams[ai], tB = teams[bi];
+
+  // 임시 lineup 상태
+  if(!window._teamMatchLineups) window._teamMatchLineups = {};
+  if(!window._teamMatchLineups[mi]) window._teamMatchLineups[mi] = {};
+
+  const renderLineupModal = () => {
+    const lineup = window._teamMatchLineups[mi];
+    let html = `<div style="font-size:14px;font-weight:700;color:var(--text);margin-bottom:12px">
+      ${mi+1}경기 선수 순서</div>`;
+
+    [tA, tB].forEach((team, ti) => {
+      const teamLabel = ti===0 ? 'A팀' : 'B팀';
+      const color = ti===0 ? 'var(--accent)' : 'var(--pink)';
+      html += `<div style="margin-bottom:16px">
+        <div style="font-size:13px;font-weight:700;color:${color};margin-bottom:8px">${teamLabel}: ${team.members.map(m=>m.name).join(', ')}</div>`;
+
+      formatArr.forEach((type, gi) => {
+        const key = ti+'_'+gi;
+        const sel = (lineup[key])||null;
+        html += `<div style="margin-bottom:8px">
+          <div style="font-size:12px;color:var(--text3);margin-bottom:4px">${gi+1}경기 (${type}식)</div>
+          <div style="display:flex;gap:6px;flex-wrap:wrap">`;
+
+        if(type==='복') {
+          // 복식: 2명 선택
+          const pairs = [];
+          const members = team.members;
+          for(let a=0;a<members.length;a++){
+            for(let b=a+1;b<members.length;b++){
+              pairs.push([a,b]);
+            }
+          }
+          pairs.forEach(([a,b]) => {
+            const pairKey = a+'-'+b;
+            const isSelected = sel===pairKey;
+            html += `<button class="btn ${isSelected?'btn-primary':'btn-ghost'} btn-sm"
+              onclick="selectMatchLineup(${mi},${ti},${gi},'${pairKey}')">
+              ${members[a].name}+${members[b].name}
+            </button>`;
+          });
+        } else {
+          // 단식: 1명 선택
+          team.members.forEach((m,idx) => {
+            const isSelected = sel===String(idx);
+            html += `<button class="btn ${isSelected?'btn-primary':'btn-ghost'} btn-sm"
+              onclick="selectMatchLineup(${mi},${ti},${gi},'${idx}')">
+              ${m.name}
+            </button>`;
+          });
+        }
+        html += `</div></div>`;
+      });
+      html += `</div>`;
+    });
+
+    html += `<button class="btn btn-success btn-full" onclick="closeMatchLineupModal()">확인</button>`;
+    document.getElementById('match-lineup-content').innerHTML = html;
+    document.getElementById('modal-match-lineup').classList.remove('hidden');
+  };
+
+  renderLineupModal();
+  window._curMatchLineupMi = mi;
+  window._renderMatchLineupFn = renderLineupModal;
+};
+
+window.selectMatchLineup = (mi, ti, gi, val) => {
+  if(!window._teamMatchLineups[mi]) window._teamMatchLineups[mi] = {};
+  window._teamMatchLineups[mi][ti+'_'+gi] = val;
+  if(window._renderMatchLineupFn) window._renderMatchLineupFn();
+};
+
+window.closeMatchLineupModal = () => {
+  document.getElementById('modal-match-lineup').classList.add('hidden');
+};
+
 window.openScoreboard = (matchIdx, nameA, nameB) => {
-  existingSets = [];
-  // 기존 입력된 점수 불러오기
   const mscores = (window._matchScores||{})[matchIdx]||{};
   for(let s=0;s<5;s++){
     const a=parseInt(mscores[`${s}a`]||0), b=parseInt(mscores[`${s}b`]||0);
@@ -4708,6 +4796,8 @@ window.proceedToTeamMatch = () => {
   const n = teams.length;
   const matchOrder = generateMatchOrder(n);
   window._curMatchOrder = matchOrder;
+  // 단체전은 경기별로 순서 정하게
+  window._teamMatchLineups = {}; // {matchIdx: {teamAIdx: lineup, teamBIdx: lineup}}
   openMatchPage(group, teams, ev, matchOrder);
 };
 
@@ -4788,12 +4878,17 @@ window.renderMatchList = () => {
       </div>`;
     }
 
+    const ev = window._curGroupEv;
+    const isTeamMatch = ev && ev.teamSize > 1;
+    const lineupForMatch = (window._teamMatchLineups||{})[mi];
+
     return `<div class="card" style="margin-bottom:12px">
       <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:10px">
         <span style="font-size:13px;font-weight:700;color:var(--text2)">${mi+1}경기</span>
         <div style="display:flex;align-items:center;gap:8px">
           ${done ? `<span style="font-size:12px;font-weight:700;color:var(--green)">${winsA>winsB?nameA:nameB} 승 (${winsA}:${winsB})</span>` : ''}
-          <button class="btn btn-ghost btn-sm" style="font-size:11px" onclick="openScoreboard(${mi},'${nameA.replace(/'/g,"\\'")}','${nameB.replace(/'/g,"\\'")}')">🏓 점수판</button>
+          ${isTeamMatch ? `<button class="btn btn-ghost btn-sm" style="font-size:11px" onclick="openMatchLineup(${mi},${ai},${bi})">👥 순서</button>` : ''}
+          <button class="btn btn-primary btn-sm" style="font-size:11px" onclick="openScoreboard(${mi},'${nameA.replace(/'/g,"\\'")}','${nameB.replace(/'/g,"\\'")}')">🏓 점수판</button>
           <button class="btn btn-ghost btn-sm" style="height:28px;font-size:11px;color:var(--pink)" onclick="setForfeit(${mi})">기권</button>
         </div>
       </div>
