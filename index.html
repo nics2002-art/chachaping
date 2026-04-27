@@ -4344,6 +4344,45 @@ window.sbUndo = () => {
   sbRender();
 };
 
+window.saveBracketMatchToFirebase = async () => {
+  const ev = window._curGroupEv;
+  const matchKey = window._bracketMatchKey;
+  const matchIdx = window._bracketMatchIdx;
+  const roundIdx = window._bracketRoundIdxCur;
+  const teams = window._curGroupTeams;
+  const scores = window._matchScores || {};
+  const forfeits = window._matchForfeits || {};
+  const t = window.curTourney || window._statusTourney || window._bracketTourney;
+  if(!t || !matchKey) return;
+
+  const mscores = scores[0] || {};
+  const isForfeit = !!forfeits[0];
+  const sets = [];
+  for(let s=0;s<5;s++){
+    const a=parseInt(mscores[`${s}a`]||0), b=parseInt(mscores[`${s}b`]||0);
+    if(a>0||b>0) sets.push({a,b});
+  }
+  let winsA=0, winsB=0;
+  if(isForfeit){ winsA=0; winsB=3; }
+  else { sets.forEach(({a,b})=>{ if(a>b)winsA++;else if(b>a)winsB++; }); }
+  const results = [{sets, winsA, winsB, isForfeit}];
+  const winnerIdx = winsA>winsB ? 0 : 1;
+  const teamA = teams[0], teamB = teams[1];
+
+  const snap = await getDoc(doc(db,'tournaments',t.id));
+  if(!snap.exists()) return;
+  const events = (snap.data().events||[]).map(e => {
+    if(e.id!==ev.id) return e;
+    const bm = {...(e.bracketMatches||{})};
+    bm[matchKey] = {teamA, teamB, results, status:'pending', winner:winnerIdx};
+    return {...e, bracketMatches:bm};
+  });
+  await updateDoc(doc(db,'tournaments',t.id),{events});
+  t.events = events;
+  _cache.set('tourney_'+t.id, t);
+  window._bracketEv = {...ev, bracketMatches: {...(ev.bracketMatches||{}), [matchKey]:{teamA,teamB,results,status:'pending',winner:winnerIdx}}};
+};
+
 window.saveMatchResultsToFirebase = async () => {
   const group = window._curGroup;
   const teams = window._curGroupTeams;
@@ -4452,8 +4491,12 @@ window.sbSave = async () => {
   renderMatchList();
 
   try {
-    await saveMatchResultsToFirebase();
-    renderMatchList(); // Firebase 저장 후 다시 갱신
+    if(window._isBracketMatch) {
+      await saveBracketMatchToFirebase();
+    } else {
+      await saveMatchResultsToFirebase();
+      renderMatchList();
+    }
     showToast('점수가 저장됐어요 🏓');
   } catch(e) {
     console.error('저장 실패:', e);
