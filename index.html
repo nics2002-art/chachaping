@@ -6096,24 +6096,25 @@ window.showBracketPage = (page) => {
 };
 
 window.openBracketMatch = async (matchKey, matchIdx, roundIdx) => {
-  // Firebase에서 최신 데이터 로드
+  // Firebase에서 최신 bracketMatches 로드
   const t = window.curTourney || window._statusTourney || window._bracketTourney;
+  let bracketMatches = (window._bracketEv||{}).bracketMatches || {};
   if(t) {
     try {
-      _cache.del('tourney_'+t.id);
       const snap = await getDoc(doc(db,'tournaments',t.id));
       if(snap.exists()) {
-        const data = {id:t.id,...snap.data()};
-        const ev = (data.events||[]).find(e=>e.id===(window._bracketEv||{}).id);
-        if(ev) window._bracketEv = ev;
+        const evId = (window._bracketEv||{}).id;
+        const ev = (snap.data().events||[]).find(e=>e.id===evId);
+        if(ev) {
+          window._bracketEv = ev;
+          bracketMatches = ev.bracketMatches || {};
+        }
       }
     } catch(e) {}
   }
 
   const ev = window._bracketEv || {};
   const bracket = window._bracketData || [];
-  const size = window._bracketSize || 0;
-  const bracketMatches = ev.bracketMatches || {};
   const savedMatch = bracketMatches[matchKey] || {};
 
   let teamA, teamB;
@@ -6128,46 +6129,45 @@ window.openBracketMatch = async (matchKey, matchIdx, roundIdx) => {
   window._curGroup = {no:`본선 ${matchIdx+1}경기`, matchStatus: savedMatch.status||'', matchResults: savedMatch.results||[]};
   window._curGroupTeams = [teamA, teamB];
   window._curGroupEv = ev;
-  window._curMatchOrder = [[0,1]]; // 1경기만
-  window._curMatchIsOwner = window.currentUser && window.curTourney && window.curTourney.createdBy === window.currentUser.uid;
+  window._curMatchOrder = [[0,1]];
+  window._curMatchIsOwner = window.currentUser && t && t.createdBy === window.currentUser.uid;
   window._isBracketMatch = true;
   window._bracketMatchKey = matchKey;
   window._bracketMatchIdx = matchIdx;
   window._bracketRoundIdxCur = roundIdx;
 
-  const nameA = teamA.members.map(m=>`${m.name}(${m.rank}부)`).join(', ');
-  const nameB = teamB.members.map(m=>`${m.name}(${m.rank}부)`).join(', ');
+  const nameA = teamA?.members?.map(m=>`${m.name}(${m.rank}부)`).join(', ')||'?';
+  const nameB = teamB?.members?.map(m=>`${m.name}(${m.rank}부)`).join(', ')||'?';
 
   document.getElementById('match-title').textContent = `본선 ${matchIdx+1}경기`;
   document.getElementById('match-sub').textContent = `${nameA} vs ${nameB}`;
   document.getElementById('match-back-btn').onclick = () => goPage('pg-bracket');
 
-  // 선수 헤더
   document.getElementById('match-players-header').innerHTML = `
     <div style="display:flex;gap:6px">
       <div style="flex:1;background:var(--surface2);border-radius:8px;padding:8px;border:1px solid var(--border)">
         <div style="font-size:11px;color:var(--accent);font-weight:700;margin-bottom:2px">A</div>
         <div style="font-size:12px;font-weight:700">${nameA}</div>
-        <div style="font-size:11px;color:var(--text3)">${teamA.club}</div>
+        <div style="font-size:11px;color:var(--text3)">${teamA?.club||''}</div>
       </div>
       <div style="flex:1;background:var(--surface2);border-radius:8px;padding:8px;border:1px solid var(--border)">
         <div style="font-size:11px;color:var(--pink);font-weight:700;margin-bottom:2px">B</div>
         <div style="font-size:12px;font-weight:700">${nameB}</div>
-        <div style="font-size:11px;color:var(--text3)">${teamB.club}</div>
+        <div style="font-size:11px;color:var(--text3)">${teamB?.club||''}</div>
       </div>
     </div>`;
 
-  // 기존 점수 불러오기
+  // 예선과 동일한 방식으로 점수 복원
   window._matchScores = {};
   window._matchForfeits = {};
-  if(savedMatch.results && savedMatch.results[0]) {
-    const r = savedMatch.results[0];
-    if(r.isForfeit) window._matchForfeits[0] = true;
+  const existingResults = savedMatch.results || [];
+  existingResults.forEach((r,mi) => {
+    if(r.isForfeit) window._matchForfeits[mi] = true;
     else {
-      window._matchScores[0] = {};
-      (r.sets||[]).forEach((s,si)=>{ if(s.a>0||s.b>0){ window._matchScores[0][`${si}a`]=s.a; window._matchScores[0][`${si}b`]=s.b; } });
+      window._matchScores[mi] = {};
+      (r.sets||[]).forEach((s,si)=>{ if(s.a>0||s.b>0){ window._matchScores[mi][`${si}a`]=s.a; window._matchScores[mi][`${si}b`]=s.b; } });
     }
-  }
+  });
 
   renderMatchList();
   goPage('pg-match');
