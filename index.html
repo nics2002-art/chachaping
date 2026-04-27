@@ -1681,20 +1681,28 @@ const getTourneyStatus = (t) => {
   const today = now.toISOString().slice(0,10);
   const nowStr = now.toISOString().slice(0,16);
 
-  // 수동 마감/잠금 우선
-  if(t.status === 'closed' || t.status === 'locked') return 'closed';
+  // 준비중
   if(t.status === 'draft') return 'draft';
+  // 잠금
+  if(t.status === 'locked') return 'locked';
 
   // 접수 시작 전
   if(t.regStart && t.regStart > today) return 'pre';
-  // 접수 마감일시 있으면 자동 계산
-  if(t.regEnd) {
-    if(nowStr > t.regEnd) return 'closed';
+  // 접수 마감일시 자동 계산
+  if(t.regEnd && nowStr > t.regEnd) return 'closed';
+
+  // 종목별 마감 체크 - 모든 종목이 마감됐으면 closed
+  const events = t.events || [];
+  if(events.length > 0) {
+    const allClosed = events.every(ev => ev.closed);
+    if(allClosed) return 'closed';
+    // 하나라도 열려있으면 open
     return 'open';
   }
-  // 마감일시 없고 배포된 상태면 접수중
-  if(t.status === 'open') return 'open';
-  return 'draft';
+
+  // 종목 없으면 대회 status 따름
+  if(t.status === 'closed') return 'closed';
+  return 'open';
 };
 
 const getStatusText = (t) => {
@@ -4136,9 +4144,9 @@ window.sbUndo = () => {
   sbRender();
 };
 
-window.sbSave = () => {
+window.sbSave = async () => {
   const sb = window._sb;
-  const key = sb.matchIdx; // 개인전: 숫자, 단체전: "mi_gi"
+  const key = sb.matchIdx;
   if(!window._matchScores) window._matchScores = {};
   if(!window._matchScores[key]) window._matchScores[key] = {};
 
@@ -4152,7 +4160,75 @@ window.sbSave = () => {
 
   closeModal('modal-scoreboard');
   renderMatchList();
-  showToast('점수가 저장됐어요 🏓');
+
+  // Firebase에 즉시 저장
+  try {
+    await autoSaveMatchScores();
+    showToast('점수가 저장됐어요 🏓');
+  } catch(e) {
+    showToast('저장 실패: ' + e.message);
+  }
+};
+
+window.autoSaveMatchScores = async () => {
+  const group = window._curGroup;
+  const teams = window._curGroupTeams;
+  const ev = window._curGroupEv;
+  const matchOrder = window._curMatchOrder;
+  const scores = window._matchScores || {};
+  const forfeits = window._matchForfeits || {};
+  const isBracket = window._isBracketMatch;
+  if(isBracket) return; // 본선은 별도 처리
+  if(!group || !teams || !ev) return;
+
+  const isTeamMatch = ev.teamSize > 1;
+  const formatArr = (ev.teamFormat||'단단단').split('').filter(c=>c==='단'||c==='복');
+
+  const results = matchOrder.map((pair, mi) => {
+    if(forfeits[mi]) return {isForfeit:true, winsA:0, winsB:3, sets:[]};
+
+    if(isTeamMatch) {
+      // 단체전: 게임별 결과 합산
+      let gameWinsA=0, gameWinsB=0;
+      const gameResults = formatArr.map((type, gi) => {
+        const key = mi+'_'+gi;
+        const mscores = scores[key]||{};
+        let wa=0, wb=0;
+        const sets=[];
+        for(let s=0;s<5;s++){
+          const sa=parseInt(mscores[`${s}a`]||0), sb=parseInt(mscores[`${s}b`]||0);
+          if(sa>0||sb>0){ sets.push({a:sa,b:sb}); if(sa>sb)wa++; else if(sb>sa)wb++; }
+        }
+        if(wa>wb)gameWinsA++; else if(wb>wa)gameWinsB++;
+        return {winsA:wa, winsB:wb, sets};
+      });
+      return {winsA:gameWinsA, winsB:gameWinsB, sets:[], gameResults};
+    } else {
+      const mscores = scores[mi]||{};
+      let winsA=0, winsB=0;
+      const sets=[];
+      for(let s=0;s<5;s++){
+        const sa=parseInt(mscores[`${s}a`]||0), sb=parseInt(mscores[`${s}b`]||0);
+        if(sa>0||sb>0){ sets.push({a:sa,b:sb}); if(sa>sb)winsA++; else if(sb>sa)winsB++; }
+      }
+      return {winsA, winsB, sets};
+    }
+  });
+
+  const t = window.curTourney;
+  const isGubang = t?.allowGuest===true;
+  const events = (t.events||[]).map(e=>{
+    if(e.id!==ev.id) return e;
+    const groups = (e.groups||[]).map(g=>{
+      if(g.no!==group.no) return g;
+      return {...g, matchResults:results, matchStatus:isGubang?'approved':'pending', submittedAt:Date.now()};
+    });
+    return {...e, groups};
+  });
+  await updateDoc(doc(db,'tournaments',t.id),{events});
+  t.events=events;
+  _cache.set('tourney_'+t.id, t);
+  window._curGroup = {...group, matchResults:results, matchStatus:isGubang?'approved':'pending'};
 };
 
 window.closeTourneyScores = async () => {
