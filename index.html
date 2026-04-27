@@ -3316,7 +3316,7 @@ window.openGroupRanking = (group, groupEntries, ev) => {
         matrixHtml += `<td ${clickHandler} style="width:${cellSize}px;height:${cellSize}px;
           text-align:center;vertical-align:middle;
           background:${cellBg};border:1px solid var(--border2);
-          ${borderLeft};cursor:${r?'pointer':'default'};
+          cursor:${r?'pointer':'default'};
           transition:opacity 0.1s" ${r?'onmousedown="this.style.opacity=0.7" onmouseup="this.style.opacity=1"':''}>
           ${cellContent}
         </td>`;
