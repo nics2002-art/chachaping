@@ -4144,6 +4144,43 @@ window.sbUndo = () => {
   sbRender();
 };
 
+window.saveMatchResultsToFirebase = async () => {
+  const group = window._curGroup;
+  const teams = window._curGroupTeams;
+  const matchOrder = window._curMatchOrder;
+  const scores = window._matchScores || {};
+  const forfeits = window._matchForfeits || {};
+  const ev = window._curGroupEv;
+
+  const results = matchOrder.map((pair, mi) => {
+    const [ai, bi] = pair;
+    const isForfeit = !!forfeits[mi];
+    const mscores = scores[mi] || {};
+    const sets = [0,1,2,3,4].map(s=>({a:parseInt(mscores[`${s}a`]||0),b:parseInt(mscores[`${s}b`]||0)}));
+    let winsA=0, winsB=0;
+    if(isForfeit){ winsA=0; winsB=3; }
+    else { sets.forEach(({a,b})=>{ if(a>0||b>0){if(a>b)winsA++;else if(b>a)winsB++;} }); }
+    return {matchNo:mi+1, teamA:teams[ai]?.entryNo, teamB:teams[bi]?.entryNo, sets, winsA, winsB,
+      winner:winsA>winsB?teams[ai]?.entryNo:teams[bi]?.entryNo, isForfeit};
+  });
+
+  const isg = window.curTourney?.allowGuest===true;
+  const snap = await getDoc(doc(db,'tournaments',window.curTourney.id));
+  if(!snap.exists()) return;
+  const events = (snap.data().events||[]).map(e => {
+    if(e.id!==ev.id) return e;
+    const groups = (e.groups||[]).map(g => {
+      if(g.no!==group.no) return g;
+      return {...g, matchResults:results, matchStatus:isg?'approved':'pending', submittedAt:Date.now()};
+    });
+    return {...e, groups};
+  });
+  await updateDoc(doc(db,'tournaments',window.curTourney.id),{events});
+  window.curTourney.events = events;
+  _cache.set('tourney_'+window.curTourney.id, window.curTourney);
+  window._curGroup = {...group, matchResults:results, matchStatus:isg?'approved':'pending'};
+};
+
 window.sbSave = async () => {
   const sb = window._sb;
   const key = sb.matchIdx;
@@ -4152,7 +4189,6 @@ window.sbSave = async () => {
 
   const allSets = [...sb.sets];
   if(sb.curA>0||sb.curB>0) allSets.push({a:sb.curA, b:sb.curB});
-
   allSets.forEach((s,si)=>{
     window._matchScores[key][`${si}a`] = s.a;
     window._matchScores[key][`${si}b`] = s.b;
@@ -4161,9 +4197,8 @@ window.sbSave = async () => {
   closeModal('modal-scoreboard');
   renderMatchList();
 
-  // Firebase에 즉시 저장
   try {
-    await autoSaveMatchScores();
+    await saveMatchResultsToFirebase();
     showToast('점수가 저장됐어요 🏓');
   } catch(e) {
     showToast('저장 실패: ' + e.message);
