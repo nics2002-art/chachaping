@@ -4192,7 +4192,8 @@ window.saveMatchResultsToFirebase = async () => {
     if(e.id!==ev.id) return e;
     const groups = (e.groups||[]).map(g => {
       if(g.no!==group.no) return g;
-      return {...g, matchResults:results, matchStatus:isg?'approved':'pending', submittedAt:Date.now()};
+      const lineups = window._teamMatchLineups||{};
+          return {...g, matchResults:results, teamMatchLineups:lineups, matchStatus:isg?'approved':'pending', submittedAt:Date.now()};
     });
     return {...e, groups};
   });
@@ -5068,6 +5069,8 @@ window.openMatchPage = (group, teams, ev, matchOrder) => {
   const formatArr = isTeamMatch ? (ev.teamFormat||'단단단').split('').filter(c=>c==='단'||c==='복') : [];
   window._matchScores = {};
   window._matchForfeits = {};
+  // 선수 순서 복원
+  window._teamMatchLineups = group.teamMatchLineups || {};
   existingResults.forEach((r,mi)=>{
     if(r.isForfeit) window._matchForfeits[mi]=true;
     else if(isTeamMatch && r.gameResults) {
@@ -5393,7 +5396,8 @@ window.submitMatchResults = async () => {
         const groups = (e.groups||[]).map(g => {
           if(g.no!==group.no) return g;
           const isg = window.curTourney?.allowGuest===true;
-          return {...g, matchResults:results, matchStatus:isg?'approved':'pending', submittedAt:Date.now()};
+          const lineups = window._teamMatchLineups||{};
+          return {...g, matchResults:results, teamMatchLineups:lineups, matchStatus:isg?'approved':'pending', submittedAt:Date.now()};
         });
         return {...e, groups};
       });
