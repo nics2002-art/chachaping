@@ -3909,6 +3909,30 @@ window.closeMatchLineupModal = () => {
   document.getElementById('modal-match-lineup').classList.add('hidden');
 };
 
+window.openTeamGameScoreboard = (mi, gi, nameA, nameB) => {
+  const key = mi+'_'+gi;
+  const existingSets = [];
+  const mscores = (window._matchScores||{})[key]||{};
+  for(let s=0;s<5;s++){
+    const a=parseInt(mscores[`${s}a`]||0), b=parseInt(mscores[`${s}b`]||0);
+    if(a>0||b>0) existingSets.push({a,b});
+  }
+  const sb = window._sb;
+  sb.matchIdx = key;
+  sb.nameA = nameA;
+  sb.nameB = nameB;
+  sb.sets = existingSets.map(s=>({...s}));
+  sb.setA = sb.sets.filter(s=>s.a>s.b).length;
+  sb.setB = sb.sets.filter(s=>s.b>s.a).length;
+  sb.curA = 0;
+  sb.curB = 0;
+  document.getElementById('sb-title').textContent = nameA+' vs '+nameB;
+  document.getElementById('sb-name-a').textContent = nameA;
+  document.getElementById('sb-name-b').textContent = nameB;
+  sbRender();
+  openModal('modal-scoreboard');
+};
+
 window.openScoreboard = (matchIdx, nameA, nameB) => {
   const existingSets = [];
   const mscores = (window._matchScores||{})[matchIdx]||{};
@@ -4032,17 +4056,16 @@ window.sbUndo = () => {
 
 window.sbSave = () => {
   const sb = window._sb;
-  const mi = sb.matchIdx;
+  const key = sb.matchIdx; // 개인전: 숫자, 단체전: "mi_gi"
   if(!window._matchScores) window._matchScores = {};
-  if(!window._matchScores[mi]) window._matchScores[mi] = {};
+  if(!window._matchScores[key]) window._matchScores[key] = {};
 
-  // 현재 진행중 세트도 포함
   const allSets = [...sb.sets];
   if(sb.curA>0||sb.curB>0) allSets.push({a:sb.curA, b:sb.curB});
 
   allSets.forEach((s,si)=>{
-    window._matchScores[mi][`${si}a`] = s.a;
-    window._matchScores[mi][`${si}b`] = s.b;
+    window._matchScores[key][`${si}a`] = s.a;
+    window._matchScores[key][`${si}b`] = s.b;
   });
 
   closeModal('modal-scoreboard');
@@ -4889,7 +4912,89 @@ window.renderMatchList = () => {
 
     const ev = window._curGroupEv;
     const isTeamMatch = ev && ev.teamSize > 1;
-    const lineupForMatch = (window._teamMatchLineups||{})[mi];
+    const teamFormat = (ev && ev.teamFormat) || '단단단';
+    const formatArr = teamFormat.split('').filter(c=>c==='단'||c==='복');
+    const lineupForMatch = (window._teamMatchLineups||{})[mi] || {};
+
+    if(isTeamMatch) {
+      // 단체전: 게임별(단단단) 점수 입력
+      let gameWinsA = 0, gameWinsB = 0;
+      const gameResults = formatArr.map((type, gi) => {
+        const gmscores = (window._matchScores||{})[`${mi}_${gi}`] || {};
+        let wa=0, wb=0;
+        for(let s=0;s<5;s++){
+          const sa=parseInt(gmscores[`${s}a`]||0), sb=parseInt(gmscores[`${s}b`]||0);
+          if(sa>0||sb>0){ if(sa>sb)wa++; else if(sb>sa)wb++; }
+        }
+        const done = wa>=3||wb>=3;
+        if(done){ if(wa>wb)gameWinsA++; else gameWinsB++; }
+        return {type, wa, wb, done, gmscores};
+      });
+      const matchDone = gameWinsA >= Math.ceil(formatArr.length/2) || gameWinsB >= Math.ceil(formatArr.length/2);
+
+      return `<div class="card" style="margin-bottom:12px">
+        <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:10px">
+          <span style="font-size:13px;font-weight:700;color:var(--text2)">${mi+1}경기</span>
+          <div style="display:flex;align-items:center;gap:8px">
+            ${matchDone?`<span style="font-size:12px;font-weight:700;color:var(--green)">${gameWinsA>gameWinsB?nameA:nameB} 승 (${gameWinsA}:${gameWinsB})</span>`:''}
+            <button class="btn btn-ghost btn-sm" style="font-size:11px" onclick="openMatchLineup(${mi},${ai},${bi})">👥 순서</button>
+            <button class="btn btn-ghost btn-sm" style="height:28px;font-size:11px;color:var(--pink)" onclick="setForfeit(${mi})">기권</button>
+          </div>
+        </div>
+        <div style="display:flex;align-items:center;gap:8px;margin-bottom:12px">
+          <div style="flex:1;text-align:center">
+            <div style="font-size:14px;font-weight:700;color:var(--accent)">${labels[ai]}</div>
+            <div style="font-size:11px;color:var(--text)">${nameA}</div>
+          </div>
+          <div style="font-size:18px;font-weight:700;color:var(--text3)">${gameWinsA} : ${gameWinsB}</div>
+          <div style="flex:1;text-align:center">
+            <div style="font-size:14px;font-weight:700;color:var(--pink)">${labels[bi]}</div>
+            <div style="font-size:11px;color:var(--text)">${nameB}</div>
+          </div>
+        </div>
+        ${formatArr.map((type, gi) => {
+          const {wa, wb, done: gdone, gmscores} = gameResults[gi];
+          // 선수 이름 가져오기
+          const tA = teams[ai], tB = teams[bi];
+          const getPlayerName = (ti, gi2) => {
+            const lineup = lineupForMatch[ti+'_'+gi2];
+            const team = ti===0?tA:tB;
+            if(!lineup) return '?';
+            if(type==='복'){
+              const [a,b] = lineup.split('-');
+              return (team.members[a]?.name||'?')+'/'+( team.members[b]?.name||'?');
+            }
+            return team.members[parseInt(lineup)]?.name||'?';
+          };
+          const pNameA = getPlayerName(0, gi);
+          const pNameB = getPlayerName(1, gi);
+          const disabled = !matchDone && (gameWinsA>=(formatArr.length+1)/2||gameWinsB>=(formatArr.length+1)/2) && !gdone;
+
+          return `<div style="background:var(--surface2);border-radius:10px;padding:10px;margin-bottom:8px;
+            ${gdone?(wa>wb?'border-left:3px solid var(--accent)':'border-left:3px solid var(--pink)'):''}
+            opacity:${disabled?0.4:1}">
+            <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:8px">
+              <span style="font-size:11px;color:var(--accent);font-weight:700">${gi+1}게임 · ${type}식</span>
+              <div style="display:flex;gap:6px">
+                ${!disabled?`<button class="btn btn-primary btn-sm" style="font-size:10px"
+                  onclick="openTeamGameScoreboard(${mi},${gi},'${pNameA}','${pNameB}')">🏓 점수판</button>`:''}
+              </div>
+            </div>
+            <div style="display:flex;align-items:center;gap:6px">
+              <div style="flex:1;text-align:center">
+                <div style="font-size:12px;color:${wa>wb?'var(--accent)':'var(--text3)'};font-weight:${wa>wb?700:400}">${pNameA}</div>
+                <div style="font-size:18px;font-weight:700;color:var(--accent)">${wa}</div>
+              </div>
+              <div style="font-size:13px;color:var(--text3)">:</div>
+              <div style="flex:1;text-align:center">
+                <div style="font-size:12px;color:${wb>wa?'var(--pink)':'var(--text3)'};font-weight:${wb>wa?700:400}">${pNameB}</div>
+                <div style="font-size:18px;font-weight:700;color:var(--pink)">${wb}</div>
+              </div>
+            </div>
+          </div>`;
+        }).join('')}
+      </div>`;
+    }
 
     return `<div class="card" style="margin-bottom:12px">
       <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:10px">
