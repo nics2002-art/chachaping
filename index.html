@@ -4355,14 +4355,61 @@ window.saveBracketMatchToFirebase = async () => {
   const t = window.curTourney || window._statusTourney || window._bracketTourney;
   if(!t || !matchKey) return;
 
-  const mscores = scores[0] || {};
   const isForfeit = !!forfeits[0];
-  const sets = [];
+  const ev2 = window._curGroupEv || {};
+  const isTeamMatch3 = ev2.teamSize > 1;
+  const formatArr3 = isTeamMatch3 ? (ev2.teamFormat||'단단단').split('').filter(c=>c==='단'||c==='복') : [];
+
+  let sets = [], winsA = 0, winsB = 0;
+
+  if(isTeamMatch3 && formatArr3.length) {
+    // 단체전: 게임별(0_gi 키) 결과 합산
+    let gameWinsA=0, gameWinsB=0;
+    const gameResults = formatArr3.map((type, gi) => {
+      const key2 = '0_'+gi;
+      const mscores2 = scores[key2]||{};
+      let wa=0, wb=0;
+      const gameSets=[];
+      for(let s=0;s<5;s++){
+        const a=parseInt(mscores2[`${s}a`]||0), b=parseInt(mscores2[`${s}b`]||0);
+        if(a>0||b>0){ gameSets.push({a,b}); if(a>b)wa++; else if(b>a)wb++; }
+      }
+      if(wa>wb) gameWinsA++; else if(wb>wa) gameWinsB++;
+      return {winsA:wa, winsB:wb, sets:gameSets};
+    });
+    winsA = gameWinsA;
+    winsB = gameWinsB;
+    sets = [];
+    const results2 = [{sets, winsA, winsB, gameResults, isForfeit}];
+    const winnerIdx2 = winsA>winsB ? 0 : 1;
+    const teamA2 = teams[0], teamB2 = teams[1];
+
+    const snap2 = await getDoc(doc(db,'tournaments',t.id));
+    if(!snap2.exists()) return;
+    const allEvents2 = snap2.data().events||[];
+    const targetEvId2 = ev.id || (allEvents2.find(e=>e.bracketMatches)||{}).id;
+    const events2 = allEvents2.map(e => {
+      if(e.id!==targetEvId2) return e;
+      const bm = {...(e.bracketMatches||{})};
+      bm[matchKey] = {teamA:teamA2, teamB:teamB2, results:results2, status:'pending', winner:winnerIdx2};
+      return {...e, bracketMatches:bm};
+    });
+    await updateDoc(doc(db,'tournaments',t.id),{events:events2});
+    t.events = events2;
+    _cache.del('tourney_'+t.id);
+    _cache.set('tourney_'+t.id, t);
+    const updatedEv2 = events2.find(e=>e.id===targetEvId2) || ev;
+    window._bracketEv = updatedEv2;
+    window._curGroupEv = updatedEv2;
+    return;
+  }
+
+  // 개인전
+  const mscores = scores[0] || {};
   for(let s=0;s<5;s++){
     const a=parseInt(mscores[`${s}a`]||0), b=parseInt(mscores[`${s}b`]||0);
     if(a>0||b>0) sets.push({a,b});
   }
-  let winsA=0, winsB=0;
   if(isForfeit){ winsA=0; winsB=3; }
   else { sets.forEach(({a,b})=>{ if(a>b)winsA++;else if(b>a)winsB++; }); }
   const results = [{sets, winsA, winsB, isForfeit}];
@@ -6166,7 +6213,14 @@ window.openBracketMatch = async (matchKey, matchIdx, roundIdx) => {
   const existingResults = savedMatch.results || [];
   existingResults.forEach((r,mi) => {
     if(r.isForfeit) window._matchForfeits[mi] = true;
-    else {
+    else if(r.gameResults && r.gameResults.length) {
+      // 단체전: 0_gi 키로 복원
+      r.gameResults.forEach((gr,gi) => {
+        const key2 = mi+'_'+gi;
+        window._matchScores[key2] = {};
+        (gr.sets||[]).forEach((s,si)=>{ if(s.a>0||s.b>0){ window._matchScores[key2][`${si}a`]=s.a; window._matchScores[key2][`${si}b`]=s.b; } });
+      });
+    } else {
       window._matchScores[mi] = {};
       (r.sets||[]).forEach((s,si)=>{ if(s.a>0||s.b>0){ window._matchScores[mi][`${si}a`]=s.a; window._matchScores[mi][`${si}b`]=s.b; } });
     }
