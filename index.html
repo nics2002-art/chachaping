@@ -746,6 +746,26 @@ body { font-family: 'Noto Sans KR', sans-serif; background: var(--bg); color: va
   </div>
 </div>
 
+<!-- ==================== 탁구 다이어리 페이지 ==================== -->
+<div class="page" id="pg-diary">
+  <div class="header">
+    <div class="back-btn" onclick="goPage('pg-calendar')">←</div>
+    <div class="header-info">
+      <div class="header-title" id="diary-title">다이어리</div>
+    </div>
+    <button class="btn btn-ghost btn-sm" onclick="saveDiary()">저장</button>
+  </div>
+  <div class="content">
+    <div class="card" style="margin-bottom:12px">
+      <textarea class="form-input" id="diary-input" rows="10"
+        placeholder="오늘의 경기 내용, 느낀점, 연습 메모 등을 자유롭게 기록해보세요 🏓"
+        style="min-height:200px;resize:none;font-size:14px;line-height:1.8"></textarea>
+    </div>
+    <button class="btn btn-primary btn-full" onclick="saveDiary()">저장하기</button>
+    <button class="btn btn-ghost btn-full" style="margin-top:8px;color:var(--pink)" id="diary-delete-btn" onclick="deleteDiary()" style="display:none">삭제</button>
+  </div>
+</div>
+
 <!-- ==================== 대회 달력 페이지 ==================== -->
 <div class="page" id="pg-calendar">
   <div class="header">
@@ -798,6 +818,7 @@ body { font-family: 'Noto Sans KR', sans-serif; background: var(--bg); color: va
       <button id="admin-mgr-btn" class="btn btn-ghost btn-sm" onclick="openAdminMgrModal()" style="display:none">👥</button>
       <button class="btn btn-ghost btn-sm" onclick="openNoticeModal()">📋 요강</button>
       <button class="btn btn-ghost btn-sm" onclick="showQrCode()">QR</button>
+      <button id="tourney-notice-btn" class="btn btn-ghost btn-sm" onclick="openTourneyNoticeModal()" style="display:none">📢</button>
       <button id="deploy-btn" class="btn deploy-btn btn-sm" onclick="deployTourney()" style="display:none">배포</button>
     </div>
   </div>
@@ -1058,6 +1079,25 @@ body { font-family: 'Noto Sans KR', sans-serif; background: var(--bg); color: va
       </div>
     </div>
     <button class="btn btn-primary btn-full" onclick="saveEditTourney()" style="margin-top:8px">수정 완료</button>
+  </div>
+</div>
+
+<!-- ==================== 대회 공지 모달 ==================== -->
+<div class="modal-bg hidden" id="modal-tourney-notice">
+  <div class="modal">
+    <div class="modal-handle"></div>
+    <button class="modal-close" onclick="closeModal('modal-tourney-notice')">✕</button>
+    <div class="modal-title">📢 대회 공지 발송</div>
+    <div class="info-box" style="margin-bottom:12px">앱 열고 있는 모든 사용자에게 즉시 전송됩니다</div>
+    <div class="form-group">
+      <input class="form-input" id="tourney-notice-input" placeholder="공지 내용 입력">
+    </div>
+    <div style="display:flex;gap:6px;flex-wrap:wrap;margin-bottom:12px">
+      ${['경기 입장하세요','잠시 대기 바랍니다','점심 식사 후 속개','접수 마감됩니다','시상식 준비 바랍니다'].map(t=>
+        `<button class="btn btn-ghost btn-sm" onclick="document.getElementById('tourney-notice-input').value='${t}'">${t}</button>`
+      ).join('')}
+    </div>
+    <button class="btn btn-primary btn-full" onclick="sendTourneyNotice()">📢 공지 전송</button>
   </div>
 </div>
 
@@ -2352,6 +2392,7 @@ window.openTourney = async (id, force) => {
   document.getElementById('fab-event').style.display = isTourneyAdmin(t) ? 'flex' : 'none';
   document.getElementById('deploy-btn').style.display = (isOwner && t.status === 'draft') ? 'flex' : 'none';
   document.getElementById('admin-mgr-btn').style.display = isOwner ? '' : 'none';
+  document.getElementById('tourney-notice-btn').style.display = isOwner ? '' : 'none';
   // 상태바
   const statusBar = document.getElementById('tourney-status-bar');
   if (t.status === 'draft') {
@@ -3216,58 +3257,67 @@ window.openGroupRanking = (group, groupEntries, ev) => {
   document.getElementById('ranking-sub').textContent = ev.gender + ' ' + (ev.etype||'');
 
   // 대각선 매트릭스
-  const cellSize = 52;
-  let matrixHtml = `<table style="border-collapse:collapse;min-width:${(n+1)*cellSize}px">`;
+  const cellSize = 56;
+  const labelWidth = 80;
+  let matrixHtml = `<div style="overflow-x:auto;-webkit-overflow-scrolling:touch">
+  <table style="border-collapse:collapse;margin:0 auto">`;
 
   // 헤더행
   matrixHtml += `<tr>
-    <th style="width:${cellSize}px;height:${cellSize}px;background:var(--surface3)"></th>
+    <th style="width:${labelWidth}px;background:var(--surface3);border:1px solid var(--border2)"></th>
     ${teams.map((t,i)=>`<th style="width:${cellSize}px;height:${cellSize}px;text-align:center;
-      font-size:11px;font-weight:700;color:var(--accent);background:var(--surface2);
-      border:1px solid var(--border2);padding:4px">
-      ${t.members.map(m=>m.name).join('/')}</th>`).join('')}
+      font-size:12px;font-weight:700;color:var(--accent);background:var(--surface2);
+      border:1px solid var(--border2);padding:6px;vertical-align:middle">
+      ${t.members.map(m=>m.name).join('<br>')}</th>`).join('')}
   </tr>`;
 
   // 데이터행
   teams.forEach((teamA, ai) => {
     matrixHtml += `<tr>
-      <td style="font-size:11px;font-weight:700;color:var(--text);background:var(--surface2);
-        border:1px solid var(--border2);padding:4px;text-align:center;white-space:nowrap">
-        ${teamA.members.map(m=>m.name).join('/')}</td>`;
+      <td style="font-size:12px;font-weight:700;color:var(--text);background:var(--surface2);
+        border:1px solid var(--border2);padding:6px 8px;text-align:center;vertical-align:middle;
+        white-space:nowrap;max-width:${labelWidth}px">
+        ${teamA.members.map(m=>m.name).join('<br>')}</td>`;
 
     teams.forEach((teamB, bi) => {
       if(ai === bi) {
-        // 대각선
-        matrixHtml += `<td style="background:var(--surface3);border:1px solid var(--border2);
-          position:relative;overflow:hidden">
+        matrixHtml += `<td style="width:${cellSize}px;height:${cellSize}px;background:var(--surface3);
+          border:1px solid var(--border2);position:relative;overflow:hidden">
           <div style="position:absolute;top:0;left:0;width:100%;height:100%;
-            background:linear-gradient(to bottom right, transparent calc(50% - 0.5px), var(--border2) calc(50%), transparent calc(50% + 0.5px))">
+            background:linear-gradient(to bottom right, transparent calc(50% - 0.5px),
+            var(--border) calc(50%), transparent calc(50% + 0.5px))">
           </div>
         </td>`;
       } else {
-        // 해당 경기 찾기
         const mi = matchOrder.findIndex(([a,b]) => (a===ai&&b===bi)||(a===bi&&b===ai));
         const r = results[mi];
         let cellContent = '';
         let cellBg = 'var(--surface)';
         let clickHandler = '';
+        let borderLeft = '';
 
         if(r && !r.isForfeit) {
           const iAmA = matchOrder[mi][0]===ai;
           const myW = iAmA?r.winsA:r.winsB;
           const oppW = iAmA?r.winsB:r.winsA;
-          cellContent = `${myW}`;
-          cellBg = myW>oppW?'rgba(22,163,74,0.12)':'rgba(219,39,119,0.12)';
+          const won = myW>oppW;
+          cellContent = `<div style="font-size:22px;font-weight:900;color:${won?'var(--green)':'var(--pink)'}">
+            ${myW}</div><div style="font-size:10px;color:var(--text3)">${won?'승':'패'}</div>`;
+          cellBg = won?'rgba(22,163,74,0.1)':'rgba(219,39,119,0.1)';
+          borderLeft = won?'border-left:3px solid var(--green)':'border-left:3px solid var(--pink)';
           clickHandler = `onclick="showMatchDetail(${mi})"`;
         } else if(r && r.isForfeit) {
           const iAmA = matchOrder[mi][0]===ai;
-          cellContent = iAmA?'0':'W';
-          cellBg = iAmA?'rgba(219,39,119,0.12)':'rgba(22,163,74,0.12)';
+          cellContent = `<div style="font-size:16px;font-weight:700;color:${iAmA?'var(--pink)':'var(--green)'}">
+            ${iAmA?'기권':'부전승'}</div>`;
+          cellBg = iAmA?'rgba(219,39,119,0.08)':'rgba(22,163,74,0.08)';
         }
 
         matrixHtml += `<td ${clickHandler} style="width:${cellSize}px;height:${cellSize}px;
-          text-align:center;vertical-align:middle;font-size:16px;font-weight:700;
-          background:${cellBg};border:1px solid var(--border2);cursor:${r?'pointer':'default'}">
+          text-align:center;vertical-align:middle;
+          background:${cellBg};border:1px solid var(--border2);
+          ${borderLeft};cursor:${r?'pointer':'default'};
+          transition:opacity 0.1s" ${r?'onmousedown="this.style.opacity=0.7" onmouseup="this.style.opacity=1"':''}>
           ${cellContent}
         </td>`;
       }
@@ -3275,7 +3325,7 @@ window.openGroupRanking = (group, groupEntries, ev) => {
     matrixHtml += `</tr>`;
   });
 
-  matrixHtml += `</table>`;
+  matrixHtml += `</table></div>`;
   document.getElementById('ranking-matrix').innerHTML = matrixHtml;
 
   // 모든 경기 완료 여부 체크
@@ -3329,8 +3379,23 @@ window.showMatchDetail = (mi) => {
   const nameB = teams[bi]?.members.map(m=>m.name).join(', ')||'?';
   const wA = r.winsA, wB = r.winsB;
 
-  let html = `<div style="font-size:13px;font-weight:700;color:var(--text);margin-bottom:10px">
-    ${nameA} <span style="color:${wA>wB?'var(--green)':'var(--pink)'}">${wA}</span> : <span style="color:${wB>wA?'var(--green)':'var(--pink)'}">${wB}</span> ${nameB}
+  // 헤더: 팀명 + 스코어
+  let html = `<div style="text-align:center;padding:12px 0;margin-bottom:12px;border-bottom:2px solid var(--border)">
+    <div style="display:flex;align-items:center;justify-content:space-between;gap:8px">
+      <div style="flex:1;text-align:center">
+        <div style="font-size:13px;font-weight:700;color:var(--accent);margin-bottom:4px">${nameA}</div>
+      </div>
+      <div style="text-align:center;min-width:80px">
+        <div style="font-size:32px;font-weight:900">
+          <span style="color:${wA>wB?'var(--green)':'var(--pink)'}">${wA}</span>
+          <span style="color:var(--text3);font-size:20px"> : </span>
+          <span style="color:${wB>wA?'var(--green)':'var(--pink)'}">${wB}</span>
+        </div>
+      </div>
+      <div style="flex:1;text-align:center">
+        <div style="font-size:13px;font-weight:700;color:var(--pink);margin-bottom:4px">${nameB}</div>
+      </div>
+    </div>
   </div>`;
 
   // 단체전: 게임별 표시
@@ -3338,14 +3403,20 @@ window.showMatchDetail = (mi) => {
     r.gameResults.forEach((gr,gi) => {
       const sets = (gr.sets||[]).filter(s=>s.a>0||s.b>0);
       const aWin = gr.wa > gr.wb;
-      html += `<div style="padding:8px 0;border-bottom:1px solid var(--border)">
-        <div style="font-size:11px;color:var(--accent);font-weight:700;margin-bottom:4px">${gi+1}게임</div>
-        <div style="display:flex;align-items:center;gap:8px;margin-bottom:4px">
-          <span style="font-size:13px;font-weight:700;color:${aWin?'var(--green)':'var(--pink)'}">${gr.wa}</span>
-          <span style="color:var(--text3)">:</span>
-          <span style="font-size:13px;font-weight:700;color:${!aWin?'var(--green)':'var(--pink)'}">${gr.wb}</span>
+      html += `<div style="margin-bottom:12px;background:var(--surface2);border-radius:12px;padding:12px">
+        <div style="font-size:12px;font-weight:700;color:var(--accent);margin-bottom:8px;text-align:center">${gi+1}게임</div>
+        <div style="display:flex;align-items:center;justify-content:center;gap:16px;margin-bottom:10px">
+          <span style="font-size:28px;font-weight:900;color:${aWin?'var(--green)':'var(--pink)'}">${gr.wa}</span>
+          <span style="font-size:18px;color:var(--text3)">:</span>
+          <span style="font-size:28px;font-weight:900;color:${!aWin?'var(--green)':'var(--pink)'}">${gr.wb}</span>
         </div>
-        ${sets.map((s,si)=>`<div style="font-size:11px;color:var(--text3)">${si+1}세트 ${s.a}:${s.b}</div>`).join('')}
+        ${sets.map((s,si)=>`
+          <div style="display:flex;align-items:center;justify-content:center;gap:12px;padding:6px 0;border-top:1px solid var(--border)">
+            <span style="font-size:11px;color:var(--text3);width:40px;text-align:right">${si+1}세트</span>
+            <span style="font-size:18px;font-weight:700;color:${s.a>s.b?'var(--green)':'var(--pink)'}">${s.a}</span>
+            <span style="font-size:14px;color:var(--text3)">:</span>
+            <span style="font-size:18px;font-weight:700;color:${s.b>s.a?'var(--green)':'var(--pink)'}">${s.b}</span>
+          </div>`).join('')}
       </div>`;
     });
   } else {
@@ -3353,11 +3424,12 @@ window.showMatchDetail = (mi) => {
     const sets = (r.sets||[]).filter(s=>s.a>0||s.b>0);
     sets.forEach((s,i)=>{
       const aWin = s.a>s.b;
-      html += `<div style="display:flex;align-items:center;gap:8px;padding:6px 0;border-bottom:1px solid var(--border)">
-        <span style="font-size:11px;color:var(--text3);width:40px">${i+1}세트</span>
-        <span style="font-size:15px;font-weight:700;color:${aWin?'var(--green)':'var(--pink)'}">${s.a}</span>
-        <span style="color:var(--text3)">:</span>
-        <span style="font-size:15px;font-weight:700;color:${!aWin?'var(--green)':'var(--pink)'}">${s.b}</span>
+      html += `<div style="display:flex;align-items:center;justify-content:center;gap:16px;
+        padding:10px 0;border-bottom:1px solid var(--border)">
+        <span style="font-size:12px;color:var(--text3);width:40px;text-align:right">${i+1}세트</span>
+        <span style="font-size:24px;font-weight:800;color:${aWin?'var(--green)':'var(--pink)'}">${s.a}</span>
+        <span style="font-size:16px;color:var(--text3)">:</span>
+        <span style="font-size:24px;font-weight:800;color:${!aWin?'var(--green)':'var(--pink)'}">${s.b}</span>
       </div>`;
     });
   }
@@ -3453,6 +3525,58 @@ window.saveProfile = async () => {
   } catch(e){ showToast('저장 실패: '+e.message); }
 };
 
+// ── 탁구 다이어리 ──────────────────────────────────────────
+let _diaryData = {}; // {date: content}
+
+window.loadDiary = async () => {
+  if(!window.currentUser) return;
+  try {
+    const snap = await getDoc(doc(db,'diary',window.currentUser.uid));
+    _diaryData = snap.exists() ? snap.data() : {};
+  } catch(e) {}
+};
+
+window.openDiaryForDate = async (dateStr) => {
+  if(!window.currentUser) { showToast('로그인 후 이용할 수 있어요'); return; }
+  if(!_diaryData || Object.keys(_diaryData).length === 0) await loadDiary();
+  document.getElementById('diary-title').textContent = dateStr;
+  document.getElementById('diary-input').value = _diaryData[dateStr] || '';
+  window._curDiaryDate = dateStr;
+  const hasContent = !!_diaryData[dateStr];
+  document.getElementById('diary-delete-btn').style.display = hasContent ? '' : 'none';
+  goPage('pg-diary');
+};
+
+window.saveDiary = async () => {
+  if(!window.currentUser) return;
+  const date = window._curDiaryDate;
+  const content = document.getElementById('diary-input').value.trim();
+  try {
+    if(content) {
+      await setDoc(doc(db,'diary',window.currentUser.uid), {[date]: content}, {merge:true});
+      _diaryData[date] = content;
+      showToast('저장됐어요 📝');
+    } else {
+      await setDoc(doc(db,'diary',window.currentUser.uid), {[date]: ''}, {merge:true});
+      _diaryData[date] = '';
+      showToast('저장됐어요');
+    }
+    renderCalendar();
+  } catch(e) { showToast('저장 실패: '+e.message); }
+};
+
+window.deleteDiary = async () => {
+  if(!confirm('삭제할까요?')) return;
+  const date = window._curDiaryDate;
+  try {
+    await setDoc(doc(db,'diary',window.currentUser.uid), {[date]: ''}, {merge:true});
+    delete _diaryData[date];
+    showToast('삭제됐어요');
+    goPage('pg-calendar');
+    renderCalendar();
+  } catch(e) {}
+};
+
 // ── 대회 달력 ──────────────────────────────────────────
 let _calendarYear = new Date().getFullYear();
 let _calendarMonth = new Date().getMonth();
@@ -3462,6 +3586,7 @@ window.openCalendar = async () => {
   _calendarYear = new Date().getFullYear();
   _calendarMonth = new Date().getMonth();
   goPage('pg-calendar');
+  await loadDiary();
   try {
     const {getDocs, collection: col} = await import('https://www.gstatic.com/firebasejs/11.6.0/firebase-firestore.js');
     const snap = await getDocs(col(db,'tournaments'));
@@ -3507,17 +3632,34 @@ window.renderCalendar = () => {
     const hasEvent = eventDays[d];
     const dow = (firstDay+d-1)%7;
     const textColor = dow===0?'var(--pink)':dow===6?'var(--accent)':'var(--text)';
-    html += `<div onclick="showCalendarDay(${d})" style="min-height:44px;border-radius:8px;padding:4px;
-      text-align:center;cursor:${hasEvent?'pointer':'default'};
-      background:${isToday?'var(--accent)':hasEvent?'rgba(37,99,235,0.08)':'transparent'};
-      border:1px solid ${hasEvent?'var(--accent)':'transparent'}">
-      <div style="font-size:13px;font-weight:${isToday?700:400};color:${isToday?'#fff':textColor}">${d}</div>
-      ${hasEvent?`<div style="width:6px;height:6px;background:${isToday?'#fff':'var(--accent)'};border-radius:50%;margin:2px auto"></div>`:''}
+    const dateStr = year+'-'+String(month+1).padStart(2,'0')+'-'+String(d).padStart(2,'0');
+    const diaryContent = (_diaryData||{})[dateStr]||'';
+    const hasDiary = !!diaryContent;
+
+    html += `<div onclick="handleCalendarDayClick(${d})" style="min-height:60px;border-radius:8px;padding:4px;
+      cursor:pointer;
+      background:${isToday?'var(--accent)':hasDiary?'rgba(22,163,74,0.08)':hasEvent?'rgba(37,99,235,0.08)':'transparent'};
+      border:1px solid ${isToday?'var(--accent)':hasDiary?'var(--green)':hasEvent?'var(--accent)':'var(--border)'}">
+      <div style="font-size:12px;font-weight:${isToday?700:400};color:${isToday?'#fff':textColor}">${d}</div>
+      ${hasDiary?`<div style="font-size:9px;color:${isToday?'#ffffffcc':'var(--green)'};line-height:1.3;margin-top:2px;overflow:hidden;max-height:32px;word-break:break-all">${diaryContent.slice(0,20)}${diaryContent.length>20?'..':''}</div>`:
+      hasEvent?`<div style="width:5px;height:5px;background:${isToday?'#fff':'var(--accent)'};border-radius:50%;margin:2px auto"></div>`:''}
     </div>`;
   }
   html += '</div>';
   document.getElementById('calendar-grid').innerHTML = html;
   document.getElementById('calendar-events').innerHTML = '';
+};
+
+window.handleCalendarDayClick = (day) => {
+  const year = _calendarYear, month = _calendarMonth;
+  const dateStr = year+'-'+String(month+1).padStart(2,'0')+'-'+String(day).padStart(2,'0');
+  // 다이어리 먼저 열기 (로그인 시)
+  if(window.currentUser) {
+    openDiaryForDate(dateStr);
+    return;
+  }
+  // 비로그인: 대회만 보여주기
+  showCalendarDay(day);
 };
 
 window.showCalendarDay = (day) => {
@@ -3679,8 +3821,29 @@ window.loadMoreRecent = () => {
   window._mypageRecentPage = (window._mypageRecentPage||0) + 1;
   renderMypageRecent();
 };
-window.showQrCode = () => {
+window.openTourneyNoticeModal = () => {
   const t = window.curTourney;
+  if(!t) return;
+  document.getElementById('tourney-notice-input').value = '';
+  openModal('modal-tourney-notice');
+};
+
+window.sendTourneyNotice = async () => {
+  const msg = document.getElementById('tourney-notice-input').value.trim();
+  const t = window.curTourney;
+  if(!msg){ showToast('공지 내용을 입력해주세요'); return; }
+  try {
+    await setDoc(doc(db,'system','notice'), {
+      message: `[${t.name}] ${msg}`,
+      timestamp: Date.now(),
+      sender: window.currentUserData?.name || '주최자'
+    });
+    closeModal('modal-tourney-notice');
+    showToast('공지를 전송했어요 📢');
+  } catch(e) { showToast('전송 실패: '+e.message); }
+};
+
+window.showQrCode = () => {
   if(!t) return;
 
   // 현재 도메인 + 대회 ID로 URL 생성
@@ -4224,6 +4387,8 @@ window.saveMatchResultsToFirebase = async () => {
 
   const t = window.curTourney || window._statusTourney || window._bracketTourney;
   if(!t) { showToast('대회 정보가 없어요'); return; }
+  const isg = t.allowGuest===true;
+
   // 모든 경기 완료 여부 체크
   const isTeamMatch2 = ev && ev.teamSize > 1;
   const formatArr2 = isTeamMatch2 ? (ev.teamFormat||'단단단').split('').filter(c=>c==='단'||c==='복') : [];
@@ -4234,15 +4399,15 @@ window.saveMatchResultsToFirebase = async () => {
     if(r.isForfeit) { completedMatches++; return; }
     if(isTeamMatch2) {
       const gameResults = r.gameResults || [];
-      const allGames = gameResults.length >= formatArr2.length &&
-        gameResults.every(gr => gr.wa >= 3 || gr.wb >= 3);
+      // 게임 승수로 경기 완료 판단
+      const winThreshold = Math.ceil(formatArr2.length / 2);
+      const allGames = r.winsA >= winThreshold || r.winsB >= winThreshold;
       if(allGames) completedMatches++;
     } else {
       if(r.winsA >= 3 || r.winsB >= 3) completedMatches++;
     }
   });
-  const allDone = completedMatches >= totalMatches;
-  const isg = t.allowGuest===true;
+  const allDone = !isg ? completedMatches >= totalMatches : true; // 구장대회는 바로 승인
   const snap = await getDoc(doc(db,'tournaments',t.id));
   if(!snap.exists()) return;
   const events = (snap.data().events||[]).map(e => {
@@ -4288,6 +4453,7 @@ window.sbSave = async () => {
 
   try {
     await saveMatchResultsToFirebase();
+    renderMatchList(); // Firebase 저장 후 다시 갱신
     showToast('점수가 저장됐어요 🏓');
   } catch(e) {
     console.error('저장 실패:', e);
@@ -4887,7 +5053,15 @@ window.openGroupMatch = (group, groupEntries, ev) => {
   window._curMatchIsOwner = window.currentUser && window.curTourney && window.curTourney.createdBy === window.currentUser.uid;
   window._isBracketMatch = false;
 
-  document.getElementById('match-back-btn').onclick = () => goPage('pg-status');
+  document.getElementById('match-back-btn').onclick = async () => {
+    // 뒤로가기 시 최신 데이터 로드
+    const t = window.curTourney || window._statusTourney || window._bracketTourney;
+    if(t) {
+      _cache.del('tourney_'+t.id);
+      await openTourneyStatus(t.id, true);
+    }
+    goPage('pg-status');
+  };
   document.getElementById('lineup-back-btn').onclick = () => goPage('pg-status');
 
   if(isTeamMatch && ev.teamSize >= 2) {
@@ -5443,7 +5617,9 @@ window.submitMatchResults = async () => {
   });
 
   try {
-    const snap = await getDoc(doc(db,'tournaments',window.curTourney.id));
+    const t2 = window.curTourney || window._statusTourney || window._bracketTourney;
+    if(!t2) { showToast('대회 정보가 없어요'); return; }
+    const snap = await getDoc(doc(db,'tournaments',t2.id));
     if(!snap.exists()) return;
 
     if(isBracket) {
@@ -5458,7 +5634,7 @@ window.submitMatchResults = async () => {
         bracketMatches[matchKey] = {teamA, teamB, results, status:'pending', winner:winnerIdx};
         return {...e, bracketMatches};
       });
-      await updateDoc(doc(db,'tournaments',window.curTourney.id),{events});
+      await updateDoc(doc(db,'tournaments',t2.id),{events});
       window._bracketEv = {...ev, bracketMatches: {...(ev.bracketMatches||{}), [matchKey]:{teamA,teamB,results,status:'pending',winner:winnerIdx}}};
     } else {
       // 예선 경기 저장
@@ -5466,13 +5642,13 @@ window.submitMatchResults = async () => {
         if(e.id!==ev.id) return e;
         const groups = (e.groups||[]).map(g => {
           if(g.no!==group.no) return g;
-          const isg = window.curTourney && window.curTourney.allowGuest===true;
+          const isg = t2 && t2.allowGuest===true;
           const lineups = window._teamMatchLineups||{};
           return {...g, matchResults:results, teamMatchLineups:lineups, matchStatus:(allDone&&isg)?'approved':'pending', submittedAt:Date.now()};
         });
         return {...e, groups};
       });
-      await updateDoc(doc(db,'tournaments',window.curTourney.id),{events});
+      await updateDoc(doc(db,'tournaments',t2.id),{events});
     }
     showToast('결과 제출 완료! 관리자 승인 대기중 🏓');
     goPage(isBracket ? 'pg-bracket' : 'pg-status');
@@ -5485,7 +5661,11 @@ window.approveMatchResults = async () => {
   const isBracket = window._isBracketMatch;
 
   try {
-    const snap = await getDoc(doc(db,'tournaments',window.curTourney.id));
+    const t3 = window.curTourney || window._statusTourney || window._bracketTourney;
+    if(!t3) { showToast('대회 정보가 없어요'); return; }
+    const t2 = t3 || window._statusTourney || window._bracketTourney;
+    if(!t2) { showToast('대회 정보가 없어요'); return; }
+    const snap = await getDoc(doc(db,'tournaments',t2.id));
     if(!snap.exists()) return;
 
     if(isBracket) {
@@ -5512,7 +5692,7 @@ window.approveMatchResults = async () => {
         bm[nextKey] = nextMatch;
         return {...e, bracketMatches:bm};
       });
-      await updateDoc(doc(db,'tournaments',window.curTourney.id),{events});
+      await updateDoc(doc(db,'tournaments',t3.id),{events});
       const newBm = {...(ev.bracketMatches||{}), [matchKey]:{...((ev.bracketMatches||{})[matchKey]||{}),status:'approved'}};
       window._bracketEv = {...ev, bracketMatches:newBm};
       window._curGroup = {...group, matchStatus:'approved'};
@@ -5523,7 +5703,7 @@ window.approveMatchResults = async () => {
           g.no===group.no ? {...g, matchStatus:'approved', approvedAt:Date.now()} : g);
         return {...e, groups};
       });
-      await updateDoc(doc(db,'tournaments',window.curTourney.id),{events});
+      await updateDoc(doc(db,'tournaments',t3.id),{events});
       window._curGroup = {...group, matchStatus:'approved'};
     }
     renderMatchList();
@@ -6093,20 +6273,32 @@ window.showPlayerRecord = (idx) => {
         let detailHtml = '';
         if(r.gameResults && r.gameResults.length) {
           // 단체전: 게임별 세트 표시
-          detailHtml = r.gameResults.map((gr,gi) => {
-            const gSets = (gr.sets||[]).filter(s=>s.a>0||s.b>0);
-            const gWinA = iAmA ? gr.wa > gr.wb : gr.wb > gr.wa;
-            return `<div style="margin-top:6px;font-size:11px;color:var(--text3)">
-              ${gi+1}게임 <span style="color:${gWinA?'var(--green)':'var(--pink)'};">${gWinA?'승':'패'}</span>
-              ${gSets.map(s=>`<span style="margin-left:4px">${iAmA?s.a:s.b}:${iAmA?s.b:s.a}</span>`).join('')}
-            </div>`;
-          }).join('');
+          detailHtml = `<div style="margin-top:10px;display:flex;flex-wrap:wrap;gap:6px">` +
+            r.gameResults.map((gr,gi) => {
+              const gSets = (gr.sets||[]).filter(s=>s.a>0||s.b>0);
+              const gWinA = iAmA ? gr.wa > gr.wb : gr.wb > gr.wa;
+              return `<div style="background:var(--surface2);border-radius:8px;padding:6px 10px;font-size:12px">
+                <span style="color:var(--text3);margin-right:4px">${gi+1}게임</span>
+                <span style="color:${gWinA?'var(--green)':'var(--pink)'};font-weight:700">${gWinA?'승':'패'}</span>
+                ${gSets.length?`<div style="font-size:13px;font-weight:700;color:var(--text);margin-top:2px">
+                  ${gSets.map((s,si)=>`<span style="margin-right:6px;color:var(--text2)">${si+1}세트 <span style="color:${(iAmA?s.a:s.b)>(iAmA?s.b:s.a)?'var(--green)':'var(--pink)'}">${iAmA?s.a:s.b}</span>-<span style="color:${(iAmA?s.b:s.a)>(iAmA?s.a:s.b)?'var(--green)':'var(--pink)'}">${iAmA?s.b:s.a}</span></span>`).join('')}
+                </div>`:''}
+              </div>`;
+            }).join('') + `</div>`;
         } else {
           // 개인전: 세트별 점수
           const totalSets2 = (r.sets||[]).filter(s=>s.a>0||s.b>0);
           if(totalSets2.length) {
-            detailHtml = `<div style="margin-top:6px;font-size:11px;color:var(--text3)">
-              ${totalSets2.map((s,si)=>`<span style="margin-right:6px">${si+1}세트 ${iAmA?s.a:s.b}:${iAmA?s.b:s.a}</span>`).join('')}
+            detailHtml = `<div style="margin-top:10px;display:flex;flex-wrap:wrap;gap:6px">
+              ${totalSets2.map((s,si)=>{
+                const myS = iAmA?s.a:s.b, oppS = iAmA?s.b:s.a;
+                return `<div style="background:var(--surface2);border-radius:8px;padding:6px 10px;font-size:13px;font-weight:700">
+                  <span style="color:var(--text3);font-size:11px;font-weight:400">${si+1}세트 </span>
+                  <span style="color:${myS>oppS?'var(--green)':'var(--pink)'}">${myS}</span>
+                  <span style="color:var(--text3)">-</span>
+                  <span style="color:${oppS>myS?'var(--green)':'var(--pink)'}">${oppS}</span>
+                </div>`;
+              }).join('')}
             </div>`;
           }
         }
@@ -6217,7 +6409,7 @@ window.goPage = (id) => {
     'pg-tourney':'tourney', 'pg-event':'tourney',
     'pg-status':'tourney', 'pg-bracket':'tourney', 'pg-match':'tourney', 'pg-lineup':'tourney',
     'pg-ranking':'tourney', 'pg-club':'league', 'pg-calendar':'home',
-    'pg-profile-edit':'mypage'
+    'pg-profile-edit':'mypage', 'pg-diary':'home'
   };
   const activeTab = tabMap[id];
   if(activeTab){
