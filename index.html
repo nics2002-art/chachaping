@@ -4867,6 +4867,7 @@ window.showFullBracket = () => {
   // 각 컬럼: SLOT_W + CON_W (연결선 포함)
   // 총 컬럼 수: sideRounds*2 + 1 (결승)
   const totalCols = sideRounds * 2 + 1;
+  const finCol = sideRounds; // 결승 컬럼 인덱스 (가운데)
   const svgW = totalCols * SLOT_W + (totalCols - 1) * CON_W;
 
   // 전체 높이: size개 슬롯
@@ -4939,7 +4940,6 @@ window.showFullBracket = () => {
     svg += `<text x="${cx}" y="18" text-anchor="middle" font-size="10" font-weight="700" fill="#2563eb">${rName(r)}</text>`;
   }
   // 결승 헤더
-  const finCol = sideRounds;
   svg += `<text x="${colX(finCol)+SLOT_W/2}" y="18" text-anchor="middle" font-size="10" font-weight="700" fill="#dc2626">결승</text>`;
   // 오른쪽 헤더 (역순)
   for(let r=0; r<sideRounds; r++){
