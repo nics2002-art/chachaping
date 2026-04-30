@@ -4881,7 +4881,7 @@ window.showFullBracket = () => {
 
   // 왼쪽 절반
   for(let lrnd=0;lrnd<bkSR;lrnd++){
-    const lmc=bkMIR(lrnd), lmh=bkMHR(lrnd), lx=bkCX(lrnd);
+    const lmc=bkMIR(lrnd)/2, lmh=bkMHR(lrnd), lx=bkCX(lrnd);
     for(let lmi=0;lmi<lmc;lmi++){
       const lsv=bkBm[`r${lrnd}_${lmi}`]||{};
       const lwA=lsv.status==='approved'&&lsv.winner===0, lwB=lsv.status==='approved'&&lsv.winner===1;
