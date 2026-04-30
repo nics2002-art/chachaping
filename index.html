@@ -4847,96 +4847,112 @@ window.showFullBracket = () => {
     bkEl.style.display='block'; return;
   }
 
-  const bkTR=Math.log2(bkSize), bkSR=bkTR-1, bkFC=bkSR;
-  const bkSW=108, bkSH=44, bkSG=4, bkCW=16, bkOY=30;
-  const bkTSH=bkSize*(bkSH+bkSG)-bkSG;
-  const bkSVW=(bkSR*2+1)*bkSW+bkSR*2*bkCW;
-  const bkSVH=bkTSH+bkOY+16;
-  const bkCX=col=>col*(bkSW+bkCW);
-  const bkMIR=rnd=>bkSize/Math.pow(2,rnd+1);
-  const bkMHR=rnd=>bkTSH/bkMIR(rnd);
-  const bkRNM=rnd=>{const c=bkSize/Math.pow(2,rnd);return c===2?'결승':c===4?'4강':c===8?'8강':c+'강';};
-  const bkLBL=team=>{
+  // 핵심: 왼쪽/오른쪽 각 절반(size/2팀)을 기준으로 계산
+  const bkHalf = bkSize / 2;         // 한쪽 팀 수
+  const bkTR = Math.log2(bkSize);    // 전체 라운드 (결승 포함)
+  const bkSR = bkTR - 1;             // 한쪽 라운드 수 (결승 제외)
+  const bkFC = bkSR;                 // 결승 컬럼
+
+  const SW=108, SH=44, SG=4, CW=16, OY=30;
+  // SVG 높이는 한쪽 팀 수(bkHalf) 기준
+  const TSH = bkHalf*(SH+SG)-SG;
+  const SVW = (bkSR*2+1)*SW + bkSR*2*CW;
+  const SVH = TSH + OY + 16;
+
+  const CX  = col => col*(SW+CW);
+  // 라운드별 매치 수: 한쪽 절반 기준
+  const MIR = rnd => bkHalf / Math.pow(2, rnd+1);
+  const MHR = rnd => TSH / MIR(rnd);
+  const RNM = rnd => { const c=bkSize/Math.pow(2,rnd); return c===2?'결승':c===4?'4강':c===8?'8강':c+'강'; };
+  const LBL = team => {
     if(!team) return null;
     const nm=(team.members||[]).map(m=>m.name).join('/');
-    return {names:nm.length>11?nm.slice(0,11)+'..':nm,club:(team.club||'').slice(0,12)};
+    return {names:nm.length>11?nm.slice(0,11)+'..':nm, club:(team.club||'').slice(0,12)};
   };
 
-  let bkSvg=`<svg xmlns="http://www.w3.org/2000/svg" width="${bkSVW}" height="${bkSVH}" style="display:block">`;
+  let svg = `<svg xmlns="http://www.w3.org/2000/svg" width="${SVW}" height="${SVH}" style="display:block">`;
 
-  const bkDS=(x,y,lb,win,bye)=>{
-    bkSvg+=`<rect x="${x+1}" y="${y}" width="${bkSW-2}" height="${bkSH}" rx="5" fill="${win?'#dbeafe':bye?'#f1f5f9':'#f8fafc'}" stroke="${win?'#2563eb':'#e2e8f0'}" stroke-width="${win?1.5:1}"/>`;
-    if(bye) bkSvg+=`<text x="${x+bkSW/2}" y="${y+bkSH/2+4}" text-anchor="middle" font-size="10" fill="#94a3b8">BYE</text>`;
+  const DS = (x,y,lb,win,bye) => {
+    svg+=`<rect x="${x+1}" y="${y}" width="${SW-2}" height="${SH}" rx="5" fill="${win?'#dbeafe':bye?'#f1f5f9':'#f8fafc'}" stroke="${win?'#2563eb':'#e2e8f0'}" stroke-width="${win?1.5:1}"/>`;
+    if(bye) svg+=`<text x="${x+SW/2}" y="${y+SH/2+4}" text-anchor="middle" font-size="10" fill="#94a3b8">BYE</text>`;
     else if(lb){
-      bkSvg+=`<text x="${x+7}" y="${y+17}" font-size="10" font-weight="${win?700:500}" fill="${win?'#1d4ed8':'#1e293b'}">${lb.names}</text>`;
-      if(lb.club) bkSvg+=`<text x="${x+7}" y="${y+31}" font-size="8" fill="#94a3b8">${lb.club}</text>`;
-      if(win) bkSvg+=`<text x="${x+bkSW-7}" y="${y+bkSH/2+4}" text-anchor="end" font-size="11" fill="#16a34a">✓</text>`;
-    } else bkSvg+=`<text x="${x+bkSW/2}" y="${y+bkSH/2+4}" text-anchor="middle" font-size="9" fill="#cbd5e1">대기중</text>`;
+      svg+=`<text x="${x+7}" y="${y+17}" font-size="10" font-weight="${win?700:500}" fill="${win?'#1d4ed8':'#1e293b'}">${lb.names}</text>`;
+      if(lb.club) svg+=`<text x="${x+7}" y="${y+31}" font-size="8" fill="#94a3b8">${lb.club}</text>`;
+      if(win) svg+=`<text x="${x+SW-7}" y="${y+SH/2+4}" text-anchor="end" font-size="11" fill="#16a34a">✓</text>`;
+    } else svg+=`<text x="${x+SW/2}" y="${y+SH/2+4}" text-anchor="middle" font-size="9" fill="#cbd5e1">대기중</text>`;
   };
 
   // 헤더
-  for(let lhi=0;lhi<bkSR;lhi++) bkSvg+=`<text x="${bkCX(lhi)+bkSW/2}" y="22" text-anchor="middle" font-size="10" font-weight="700" fill="#2563eb">${bkRNM(lhi)}</text>`;
-  bkSvg+=`<text x="${bkCX(bkFC)+bkSW/2}" y="22" text-anchor="middle" font-size="10" font-weight="700" fill="#dc2626">결승</text>`;
-  for(let rhi=0;rhi<bkSR;rhi++) bkSvg+=`<text x="${bkCX(bkSR*2-rhi)+bkSW/2}" y="22" text-anchor="middle" font-size="10" font-weight="700" fill="#2563eb">${bkRNM(rhi)}</text>`;
+  for(let i=0;i<bkSR;i++) svg+=`<text x="${CX(i)+SW/2}" y="22" text-anchor="middle" font-size="10" font-weight="700" fill="#2563eb">${RNM(i)}</text>`;
+  svg+=`<text x="${CX(bkFC)+SW/2}" y="22" text-anchor="middle" font-size="10" font-weight="700" fill="#dc2626">결승</text>`;
+  for(let ri=0;ri<bkSR;ri++) svg+=`<text x="${CX(bkSR*2-ri)+SW/2}" y="22" text-anchor="middle" font-size="10" font-weight="700" fill="#2563eb">${RNM(ri)}</text>`;
 
-  // 왼쪽 절반
+  // 왼쪽 절반 그리기
   for(let lrnd=0;lrnd<bkSR;lrnd++){
-    const lmc=bkMIR(lrnd)/2, lmh=bkMHR(lrnd), lx=bkCX(lrnd);
+    const lmc=MIR(lrnd), lmh=MHR(lrnd), lx=CX(lrnd);
     for(let lmi=0;lmi<lmc;lmi++){
       const lsv=bkBm[`r${lrnd}_${lmi}`]||{};
       const lwA=lsv.status==='approved'&&lsv.winner===0, lwB=lsv.status==='approved'&&lsv.winner===1;
       const ltA=lrnd===0?(bkArr[lmi*2]||null):(lsv.teamA||null);
       const ltB=lrnd===0?(bkArr[lmi*2+1]||null):(lsv.teamB||null);
-      const lcy=bkOY+lmi*lmh+lmh/2, lyA=lcy-bkSH-bkSG/2, lyB=lcy+bkSG/2;
-      bkDS(lx,lyA,bkLBL(ltA),lwA,ltA===null&&lrnd===0);
-      bkDS(lx,lyB,bkLBL(ltB),lwB,ltB===null&&lrnd===0);
-      bkSvg+=`<line x1="${lx+5}" y1="${lyA+bkSH}" x2="${lx+bkSW-5}" y2="${lyA+bkSH}" stroke="#e2e8f0" stroke-width="1" stroke-dasharray="2,2"/>`;
-      const lnx=bkCX(lrnd+1), lmaY=lyA+bkSH/2, lmbY=lyB+bkSH/2, lmdY=(lmaY+lmbY)/2;
-      const lnmh=lrnd+1<bkSR?bkMHR(lrnd+1):bkMHR(bkSR);
-      const lncy=bkOY+Math.floor(lmi/2)*lnmh+lnmh/2, lns=lmi%2;
-      const lty=lns===0?lncy-bkSH-bkSG/2+bkSH/2:lncy+bkSG/2+bkSH/2;
-      const lhx=lx+bkSW+bkCW/2;
-      bkSvg+=`<polyline points="${lx+bkSW},${lmaY} ${lhx},${lmaY} ${lhx},${lmdY}" fill="none" stroke="#cbd5e1" stroke-width="1.5"/>`;
-      bkSvg+=`<polyline points="${lx+bkSW},${lmbY} ${lhx},${lmbY} ${lhx},${lmdY}" fill="none" stroke="#cbd5e1" stroke-width="1.5"/>`;
-      bkSvg+=`<line x1="${lhx}" y1="${lmdY}" x2="${lnx}" y2="${lty}" stroke="#cbd5e1" stroke-width="1.5"/>`;
+      const lcy=OY+lmi*lmh+lmh/2, lyA=lcy-SH-SG/2, lyB=lcy+SG/2;
+      DS(lx,lyA,LBL(ltA),lwA,ltA===null&&lrnd===0);
+      DS(lx,lyB,LBL(ltB),lwB,ltB===null&&lrnd===0);
+      svg+=`<line x1="${lx+5}" y1="${lyA+SH}" x2="${lx+SW-5}" y2="${lyA+SH}" stroke="#e2e8f0" stroke-width="1" stroke-dasharray="2,2"/>`;
+      const lnx=CX(lrnd+1), lmaY=lyA+SH/2, lmbY=lyB+SH/2, lmdY=(lmaY+lmbY)/2;
+      const lnmh=lrnd+1<bkSR?MHR(lrnd+1):MHR(bkSR);
+      const lncy=OY+Math.floor(lmi/2)*lnmh+lnmh/2, lns=lmi%2;
+      const lty=lns===0?lncy-SH-SG/2+SH/2:lncy+SG/2+SH/2;
+      const lhx=lx+SW+CW/2;
+      svg+=`<polyline points="${lx+SW},${lmaY} ${lhx},${lmaY} ${lhx},${lmdY}" fill="none" stroke="#cbd5e1" stroke-width="1.5"/>`;
+      svg+=`<polyline points="${lx+SW},${lmbY} ${lhx},${lmbY} ${lhx},${lmdY}" fill="none" stroke="#cbd5e1" stroke-width="1.5"/>`;
+      svg+=`<line x1="${lhx}" y1="${lmdY}" x2="${lnx}" y2="${lty}" stroke="#cbd5e1" stroke-width="1.5"/>`;
     }
   }
 
   // 결승
   const fRnd=bkTR-1, fSv=bkBm[`r${fRnd}_0`]||{};
-  const fX=bkCX(bkFC), fMH=bkMHR(fRnd), fCY=bkOY+fMH/2;
-  const fYA=fCY-bkSH-bkSG/2, fYB=fCY+bkSG/2;
-  if(fSv.status==='approved') bkSvg+=`<text x="${fX+bkSW/2}" y="${fYA-5}" text-anchor="middle" font-size="14">🏆</text>`;
-  bkDS(fX,fYA,bkLBL(fSv.teamA||null),fSv.status==='approved'&&fSv.winner===0,false);
-  bkDS(fX,fYB,bkLBL(fSv.teamB||null),fSv.status==='approved'&&fSv.winner===1,false);
-  bkSvg+=`<line x1="${fX+5}" y1="${fYA+bkSH}" x2="${fX+bkSW-5}" y2="${fYA+bkSH}" stroke="#e2e8f0" stroke-width="1" stroke-dasharray="2,2"/>`;
+  const fwA=fSv.status==='approved'&&fSv.winner===0, fwB=fSv.status==='approved'&&fSv.winner===1;
+  const fX=CX(bkFC), fMH=MHR(bkSR), fCY=OY+fMH/2;
+  const fYA=fCY-SH-SG/2, fYB=fCY+SG/2;
+  // 우승자 표시
+  const winner = fwA ? (fSv.teamA||null) : fwB ? (fSv.teamB||null) : null;
+  if(winner){
+    const wlb=LBL(winner);
+    svg+=`<text x="${fX+SW/2}" y="${fYA-18}" text-anchor="middle" font-size="14">🏆</text>`;
+    svg+=`<text x="${fX+SW/2}" y="${fYA-6}" text-anchor="middle" font-size="9" font-weight="700" fill="#dc2626">${wlb?wlb.names:''}</text>`;
+  }
+  DS(fX,fYA,LBL(fSv.teamA||null),fwA,false);
+  DS(fX,fYB,LBL(fSv.teamB||null),fwB,false);
+  svg+=`<line x1="${fX+5}" y1="${fYA+SH}" x2="${fX+SW-5}" y2="${fYA+SH}" stroke="#e2e8f0" stroke-width="1" stroke-dasharray="2,2"/>`;
 
-  // 오른쪽 절반
-  const bkRS=bkMIR(0)/2; // 오른쪽 절반 시작 경기 인덱스 = matchCount/2
+  // 오른쪽 절반 그리기
+  const RS=MIR(0); // 오른쪽 시작 경기 인덱스 = bkHalf/2
   for(let rrnd=0;rrnd<bkSR;rrnd++){
-    const rmc=bkMIR(rrnd)/2, rmh=bkMHR(rrnd), rcol=bkSR*2-rrnd, rx=bkCX(rcol); // rmc = 절반만
+    const rmc=MIR(rrnd), rmh=MHR(rrnd), rcol=bkSR*2-rrnd, rx=CX(rcol);
     for(let rmi=0;rmi<rmc;rmi++){
-      const rgmi=Math.floor(bkRS/Math.pow(2,rrnd))+rmi, rsv=bkBm[`r${rrnd}_${rgmi}`]||{};
+      const rgmi=Math.floor(RS/Math.pow(2,rrnd))+rmi;
+      const rsv=bkBm[`r${rrnd}_${rgmi}`]||{};
       const rwA=rsv.status==='approved'&&rsv.winner===0, rwB=rsv.status==='approved'&&rsv.winner===1;
-      const rtA=rrnd===0?(bkArr[(bkRS+rmi)*2]||null):(rsv.teamA||null);
-      const rtB=rrnd===0?(bkArr[(bkRS+rmi)*2+1]||null):(rsv.teamB||null);
-      const rcy=bkOY+rmi*rmh+rmh/2, ryA=rcy-bkSH-bkSG/2, ryB=rcy+bkSG/2;
-      bkDS(rx,ryA,bkLBL(rtA),rwA,rtA===null&&rrnd===0);
-      bkDS(rx,ryB,bkLBL(rtB),rwB,rtB===null&&rrnd===0);
-      bkSvg+=`<line x1="${rx+5}" y1="${ryA+bkSH}" x2="${rx+bkSW-5}" y2="${ryA+bkSH}" stroke="#e2e8f0" stroke-width="1" stroke-dasharray="2,2"/>`;
-      const rnc=rcol-1, rmaY=ryA+bkSH/2, rmbY=ryB+bkSH/2, rmdY=(rmaY+rmbY)/2;
-      const rnmh=rrnd+1<bkSR?bkMHR(rrnd+1):bkMHR(fRnd);
-      const rncy=bkOY+Math.floor(rmi/2)*rnmh+rnmh/2, rns=rmi%2;
-      const rty=rns===0?rncy-bkSH-bkSG/2+bkSH/2:rncy+bkSG/2+bkSH/2;
-      const rhx=rx-bkCW/2, rnrx=bkCX(rnc)+bkSW;
-      bkSvg+=`<polyline points="${rx},${rmaY} ${rhx},${rmaY} ${rhx},${rmdY}" fill="none" stroke="#cbd5e1" stroke-width="1.5"/>`;
-      bkSvg+=`<polyline points="${rx},${rmbY} ${rhx},${rmbY} ${rhx},${rmdY}" fill="none" stroke="#cbd5e1" stroke-width="1.5"/>`;
-      bkSvg+=`<line x1="${rhx}" y1="${rmdY}" x2="${rnrx}" y2="${rty}" stroke="#cbd5e1" stroke-width="1.5"/>`;
+      const rtA=rrnd===0?(bkArr[(RS+rmi)*2]||null):(rsv.teamA||null);
+      const rtB=rrnd===0?(bkArr[(RS+rmi)*2+1]||null):(rsv.teamB||null);
+      const rcy=OY+rmi*rmh+rmh/2, ryA=rcy-SH-SG/2, ryB=rcy+SG/2;
+      DS(rx,ryA,LBL(rtA),rwA,rtA===null&&rrnd===0);
+      DS(rx,ryB,LBL(rtB),rwB,rtB===null&&rrnd===0);
+      svg+=`<line x1="${rx+5}" y1="${ryA+SH}" x2="${rx+SW-5}" y2="${ryA+SH}" stroke="#e2e8f0" stroke-width="1" stroke-dasharray="2,2"/>`;
+      const rnc=rcol-1, rmaY=ryA+SH/2, rmbY=ryB+SH/2, rmdY=(rmaY+rmbY)/2;
+      const rnmh=rrnd+1<bkSR?MHR(rrnd+1):MHR(fRnd);
+      const rncy=OY+Math.floor(rmi/2)*rnmh+rnmh/2, rns=rmi%2;
+      const rty=rns===0?rncy-SH-SG/2+SH/2:rncy+SG/2+SH/2;
+      const rhx=rx-CW/2, rnrx=CX(rnc)+SW;
+      svg+=`<polyline points="${rx},${rmaY} ${rhx},${rmaY} ${rhx},${rmdY}" fill="none" stroke="#cbd5e1" stroke-width="1.5"/>`;
+      svg+=`<polyline points="${rx},${rmbY} ${rhx},${rmbY} ${rhx},${rmdY}" fill="none" stroke="#cbd5e1" stroke-width="1.5"/>`;
+      svg+=`<line x1="${rhx}" y1="${rmdY}" x2="${rnrx}" y2="${rty}" stroke="#cbd5e1" stroke-width="1.5"/>`;
     }
   }
 
-  bkSvg+='</svg>';
-  document.getElementById('full-bracket-content').innerHTML=bkSvg;
+  svg+='</svg>';
+  document.getElementById('full-bracket-content').innerHTML=svg;
   bkEl.style.display='block';
   bkEl.scrollTop=0;
 };
