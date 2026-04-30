@@ -5024,16 +5024,19 @@ window.showFullBracket = () => {
       // 오른쪽 절반: bracket 인덱스 halfMatches*2 부터
       // r=0: mi번째 → bracket[(halfMatches+mi)*2], bracket[(halfMatches+mi)*2+1]
       // 매치키: r0의 오른쪽 = r0_(halfMatches+mi)
-      const globalMi = halfMatches/Math.pow(2,r) + mi;
-      const matchKey = `r${r}_${Math.floor(globalMi)}`;
+      // 오른쪽 절반: r라운드에서 왼쪽절반 매치수 + mi
+      const leftMatchCount = matchesInRound(r); // 왼쪽 절반 이 라운드 매치 수
+      const globalMi = leftMatchCount + mi;
+      const matchKey = `r${r}_${globalMi}`;
       const saved = bm[matchKey] || {};
       const wonA = saved.status==='approved' && saved.winner===0;
       const wonB = saved.status==='approved' && saved.winner===1;
 
       let teamA=null, teamB=null;
       if(r===0){
-        teamA = bracket[(halfMatches+mi)*2]||null;
-        teamB = bracket[(halfMatches+mi)*2+1]||null;
+        const leftMC = matchesInRound(0); // 왼쪽 1라운드 매치수
+        teamA = bracket[(leftMC+mi)*2]||null;
+        teamB = bracket[(leftMC+mi)*2+1]||null;
       } else {
         teamA = saved.teamA||null;
         teamB = saved.teamB||null;
@@ -5051,17 +5054,18 @@ window.showFullBracket = () => {
       const nextCol = col - 1;
       const nextX = colX(nextCol) + SLOT_W;
       const midA = yA+SLOT_H/2, midB = yB+SLOT_H/2, midY = (midA+midB)/2;
-      const nextMH = r+1<sideRounds ? mHeightOfRound(r+1) : mHeightOfRound(sideRounds);
+      const nextMH = r+1<sideRounds ? mHeightOfRound(r+1) : mHeightOfRound(finRound);
       const nextMi = Math.floor(mi/2);
       const nextCY = offsetY + nextMi*nextMH + nextMH/2;
       const nextSlot = mi%2;
       const toY = nextSlot===0 ? nextCY-SLOT_H-SLOT_GAP/2+SLOT_H/2 : nextCY+SLOT_GAP/2+SLOT_H/2;
 
-      // 오른쪽은 연결선이 왼쪽으로 향함
+      // 오른쪽은 연결선이 왼쪽으로 향함 (x 왼쪽 끝 → 다음 컬럼 오른쪽 끝)
       const hx = x - CON_W/2;
+      const nextRX = colX(nextCol) + SLOT_W; // 다음 컬럼 오른쪽 끝
       svg += `<polyline points="${x},${midA} ${hx},${midA} ${hx},${midY}" fill="none" stroke="#cbd5e1" stroke-width="1.5"/>`;
       svg += `<polyline points="${x},${midB} ${hx},${midB} ${hx},${midY}" fill="none" stroke="#cbd5e1" stroke-width="1.5"/>`;
-      svg += `<line x1="${hx}" y1="${midY}" x2="${nextX-CON_W}" y2="${toY}" stroke="#cbd5e1" stroke-width="1.5"/>`;
+      svg += `<line x1="${hx}" y1="${midY}" x2="${nextRX}" y2="${toY}" stroke="#cbd5e1" stroke-width="1.5"/>`;
     }
   }
 
