@@ -4832,233 +4832,113 @@ window.showWaitingList = () => {
 
 // ── 풀 브라켓 전체보기 ───────────────────────────────────
 window.showFullBracket = () => {
-  const ev = window._bracketEv || {};
-  const bracket = ev.bracket || [];
-  const size = ev.bracketSize || bracket.length;
-  const bm = ev.bracketMatches || {};
-  const t = window._bracketTourney || {};
+  const bkEv = window._bracketEv || {};
+  const bkArr = bkEv.bracket || [];
+  const bkSize = bkEv.bracketSize || bkArr.length;
+  const bkBm = bkEv.bracketMatches || {};
+  const bkT = window._bracketTourney || {};
+  const bkEl = document.getElementById('modal-full-bracket');
 
-  document.getElementById('full-bracket-title').textContent =
-    (ev.gender||'') + ' ' + (ev.etype||'') + ' 전체 대진표';
-  document.getElementById('full-bracket-sub').textContent =
-    size + '강 · ' + (t.name||'');
+  document.getElementById('full-bracket-title').textContent = (bkEv.gender||'') + ' ' + (bkEv.etype||'') + ' 전체 대진표';
+  document.getElementById('full-bracket-sub').textContent = bkSize + '강 · ' + (bkT.name||'');
 
-  if(!size){
-    document.getElementById('full-bracket-content').innerHTML =
-      '<div class="empty" style="padding:40px"><div class="empty-icon">🏆</div><div class="empty-text">대진표가 없습니다</div></div>';
-    document.getElementById('modal-full-bracket').style.display='block';
-    return;
+  if(!bkSize){
+    document.getElementById('full-bracket-content').innerHTML = '<div class="empty" style="padding:40px"><div class="empty-icon">🏆</div><div class="empty-text">대진표가 없습니다</div></div>';
+    bkEl.style.display='block'; return;
   }
 
-  // 전체 라운드 수 (결승 포함)
-  const totalRounds = Math.log2(size); // 예: 16강=4라운드
-  // 한쪽 라운드 수 (결승 제외)
-  const sideRounds = totalRounds - 1;  // 예: 16강=3라운드(16강,8강,4강)
-  // 결승은 가운데 1개
-
-  const SLOT_W  = 108;
-  const SLOT_H  = 44;
-  const SLOT_GAP = 4;
-  const CON_W   = 16;
-  const HDR_H   = 24;
-  const offsetY = HDR_H + 6;
-
-  // 전체 SVG 너비: 왼쪽sideRounds + 결승1 + 오른쪽sideRounds
-  // 각 컬럼: SLOT_W + CON_W (연결선 포함)
-  // 총 컬럼 수: sideRounds*2 + 1 (결승)
-  const totalCols = sideRounds * 2 + 1;
-  const finCol = sideRounds; // 결승 컬럼 인덱스 (가운데)
-  const svgW = totalCols * SLOT_W + (totalCols - 1) * CON_W;
-
-  // 전체 높이: size개 슬롯
-  const totalSlotH = size * (SLOT_H + SLOT_GAP) - SLOT_GAP;
-  const svgH = totalSlotH + offsetY + 16;
-
-  // 라운드별 매치 수
-  const matchesInRound = r => size / Math.pow(2, r + 1);
-  // 라운드별 매치 높이
-  const mHeightOfRound = r => totalSlotH / matchesInRound(r);
-
-  // 라운드 이름
-  const rName = r => {
-    const cnt = size / Math.pow(2, r);
-    if(cnt===2) return '결승';
-    if(cnt===4) return '4강';
-    if(cnt===8) return '8강';
-    return cnt + '강';
-  };
-
-  // 팀 레이블
-  const label = team => {
+  const bkTR=Math.log2(bkSize), bkSR=bkTR-1, bkFC=bkSR;
+  const bkSW=108, bkSH=44, bkSG=4, bkCW=16, bkOY=30;
+  const bkTSH=bkSize*(bkSH+bkSG)-bkSG;
+  const bkSVW=(bkSR*2+1)*bkSW+bkSR*2*bkCW;
+  const bkSVH=bkTSH+bkOY+16;
+  const bkCX=col=>col*(bkSW+bkCW);
+  const bkMIR=rnd=>bkSize/Math.pow(2,rnd+1);
+  const bkMHR=rnd=>bkTSH/bkMIR(rnd);
+  const bkRNM=rnd=>{const c=bkSize/Math.pow(2,rnd);return c===2?'결승':c===4?'4강':c===8?'8강':c+'강';};
+  const bkLBL=team=>{
     if(!team) return null;
-    const names = (team.members||[]).map(m=>m.name).join('/');
-    return {
-      names: names.length>11 ? names.slice(0,11)+'..' : names,
-      club: (team.club||'').slice(0,12)
-    };
+    const nm=(team.members||[]).map(m=>m.name).join('/');
+    return {names:nm.length>11?nm.slice(0,11)+'..':nm,club:(team.club||'').slice(0,12)};
   };
 
-  let svg = `<svg xmlns="http://www.w3.org/2000/svg" width="${svgW}" height="${svgH}" style="display:block">`;
+  let bkSvg=`<svg xmlns="http://www.w3.org/2000/svg" width="${bkSVW}" height="${bkSVH}" style="display:block">`;
 
-  // ── 슬롯 그리기 ──
-  const drawSlot = (x, y, lb, isWinner, isBye) => {
-    const fill   = isWinner ? '#dbeafe' : isBye ? '#f1f5f9' : '#f8fafc';
-    const stroke = isWinner ? '#2563eb' : '#e2e8f0';
-    const sw     = isWinner ? 1.5 : 1;
-    svg += `<rect x="${x+1}" y="${y}" width="${SLOT_W-2}" height="${SLOT_H}" rx="5"
-      fill="${fill}" stroke="${stroke}" stroke-width="${sw}"/>`;
-    if(isBye){
-      svg += `<text x="${x+SLOT_W/2}" y="${y+SLOT_H/2+4}" text-anchor="middle"
-        font-size="10" fill="#94a3b8">BYE</text>`;
-    } else if(lb){
-      const nc = isWinner ? '#1d4ed8' : '#1e293b';
-      svg += `<text x="${x+7}" y="${y+17}" font-size="10" font-weight="${isWinner?700:500}" fill="${nc}">${lb.names}</text>`;
-      if(lb.club) svg += `<text x="${x+7}" y="${y+31}" font-size="8" fill="#94a3b8">${lb.club}</text>`;
-      if(isWinner) svg += `<text x="${x+SLOT_W-7}" y="${y+SLOT_H/2+4}" text-anchor="end" font-size="11" fill="#16a34a">✓</text>`;
-    } else {
-      svg += `<text x="${x+SLOT_W/2}" y="${y+SLOT_H/2+4}" text-anchor="middle"
-        font-size="9" fill="#cbd5e1">대기중</text>`;
-    }
+  const bkDS=(x,y,lb,win,bye)=>{
+    bkSvg+=`<rect x="${x+1}" y="${y}" width="${bkSW-2}" height="${bkSH}" rx="5" fill="${win?'#dbeafe':bye?'#f1f5f9':'#f8fafc'}" stroke="${win?'#2563eb':'#e2e8f0'}" stroke-width="${win?1.5:1}"/>`;
+    if(bye) bkSvg+=`<text x="${x+bkSW/2}" y="${y+bkSH/2+4}" text-anchor="middle" font-size="10" fill="#94a3b8">BYE</text>`;
+    else if(lb){
+      bkSvg+=`<text x="${x+7}" y="${y+17}" font-size="10" font-weight="${win?700:500}" fill="${win?'#1d4ed8':'#1e293b'}">${lb.names}</text>`;
+      if(lb.club) bkSvg+=`<text x="${x+7}" y="${y+31}" font-size="8" fill="#94a3b8">${lb.club}</text>`;
+      if(win) bkSvg+=`<text x="${x+bkSW-7}" y="${y+bkSH/2+4}" text-anchor="end" font-size="11" fill="#16a34a">✓</text>`;
+    } else bkSvg+=`<text x="${x+bkSW/2}" y="${y+bkSH/2+4}" text-anchor="middle" font-size="9" fill="#cbd5e1">대기중</text>`;
   };
-
-  // ── 연결선 그리기 ──
-  // 두 슬롯 중간 → 다음 라운드 슬롯 중간으로
-  const drawConn = (x1, midY1, midY2, midY, x2, toY) => {
-    const hx = x1 + CON_W/2;
-    svg += `<polyline points="${x1},${midY1} ${hx},${midY1} ${hx},${midY}" fill="none" stroke="#cbd5e1" stroke-width="1.5"/>`;
-    svg += `<polyline points="${x1},${midY2} ${hx},${midY2} ${hx},${midY}" fill="none" stroke="#cbd5e1" stroke-width="1.5"/>`;
-    svg += `<line x1="${hx}" y1="${midY}" x2="${x2}" y2="${toY}" stroke="#cbd5e1" stroke-width="1.5"/>`;
-  };
-
-  // ── 왼쪽 라운드 그리기 (r=0: 16강, r=1: 8강, ..., r=sideRounds-1: 4강) ──
-  // 컬럼 x 위치: r번째 컬럼
-  const colX = col => col * (SLOT_W + CON_W);
 
   // 헤더
-  for(let r=0; r<sideRounds; r++){
-    const cx = colX(r) + SLOT_W/2;
-    svg += `<text x="${cx}" y="18" text-anchor="middle" font-size="10" font-weight="700" fill="#2563eb">${rName(r)}</text>`;
-  }
-  // 결승 헤더
-  svg += `<text x="${colX(finCol)+SLOT_W/2}" y="18" text-anchor="middle" font-size="10" font-weight="700" fill="#dc2626">결승</text>`;
-  // 오른쪽 헤더 (역순)
-  for(let r=0; r<sideRounds; r++){
-    const rHdrCol = sideRounds*2 - r;
-    const rHdrCx = colX(rHdrCol) + SLOT_W/2;
-    svg += `<text x="${rHdrCx}" y="18" text-anchor="middle" font-size="10" font-weight="700" fill="#2563eb">${rName(r)}</text>`;
-  }
+  for(let lhi=0;lhi<bkSR;lhi++) bkSvg+=`<text x="${bkCX(lhi)+bkSW/2}" y="22" text-anchor="middle" font-size="10" font-weight="700" fill="#2563eb">${bkRNM(lhi)}</text>`;
+  bkSvg+=`<text x="${bkCX(bkFC)+bkSW/2}" y="22" text-anchor="middle" font-size="10" font-weight="700" fill="#dc2626">결승</text>`;
+  for(let rhi=0;rhi<bkSR;rhi++) bkSvg+=`<text x="${bkCX(bkSR*2-rhi)+bkSW/2}" y="22" text-anchor="middle" font-size="10" font-weight="700" fill="#2563eb">${bkRNM(rhi)}</text>`;
 
-  // 왼쪽 절반 매치 그리기 (슬롯 0 ~ size/2-1)
-  for(let r=0; r<sideRounds; r++){
-    const mCount = matchesInRound(r);  // 이 라운드 매치 수 (왼쪽 절반)
-    const mH = mHeightOfRound(r);
-    const x = colX(r);
-
-    for(let mi=0; mi<mCount; mi++){
-      const matchKey = `r${r}_${mi}`;
-      const saved = bm[matchKey] || {};
-      const wonA = saved.status==='approved' && saved.winner===0;
-      const wonB = saved.status==='approved' && saved.winner===1;
-
-      let teamA=null, teamB=null;
-      if(r===0){ teamA=bracket[mi*2]||null; teamB=bracket[mi*2+1]||null; }
-      else { teamA=saved.teamA||null; teamB=saved.teamB||null; }
-
-      const centerY = offsetY + mi*mH + mH/2;
-      const yA = centerY - SLOT_H - SLOT_GAP/2;
-      const yB = centerY + SLOT_GAP/2;
-
-      drawSlot(x, yA, label(teamA), wonA, teamA===null&&r===0);
-      drawSlot(x, yB, label(teamB), wonB, teamB===null&&r===0);
-      // 구분선
-      svg += `<line x1="${x+5}" y1="${yA+SLOT_H}" x2="${x+SLOT_W-5}" y2="${yA+SLOT_H}" stroke="#e2e8f0" stroke-width="1" stroke-dasharray="2,2"/>`;
-
-      // 연결선 → 다음 라운드
-      const nextCol = r+1;
-      const nextX = colX(nextCol);
-      const midA = yA+SLOT_H/2, midB = yB+SLOT_H/2, midY = (midA+midB)/2;
-      const nextMH = mHeightOfRound(r+1 < sideRounds ? r+1 : sideRounds);
-      const nextMi = Math.floor(mi/2);
-      const nextCY = offsetY + nextMi*nextMH + nextMH/2;
-      const nextSlot = mi%2;
-      const toY = nextSlot===0 ? nextCY-SLOT_H-SLOT_GAP/2+SLOT_H/2 : nextCY+SLOT_GAP/2+SLOT_H/2;
-      drawConn(x+SLOT_W, midA, midB, midY, nextX, toY);
+  // 왼쪽 절반
+  for(let lrnd=0;lrnd<bkSR;lrnd++){
+    const lmc=bkMIR(lrnd), lmh=bkMHR(lrnd), lx=bkCX(lrnd);
+    for(let lmi=0;lmi<lmc;lmi++){
+      const lsv=bkBm[`r${lrnd}_${lmi}`]||{};
+      const lwA=lsv.status==='approved'&&lsv.winner===0, lwB=lsv.status==='approved'&&lsv.winner===1;
+      const ltA=lrnd===0?(bkArr[lmi*2]||null):(lsv.teamA||null);
+      const ltB=lrnd===0?(bkArr[lmi*2+1]||null):(lsv.teamB||null);
+      const lcy=bkOY+lmi*lmh+lmh/2, lyA=lcy-bkSH-bkSG/2, lyB=lcy+bkSG/2;
+      bkDS(lx,lyA,bkLBL(ltA),lwA,ltA===null&&lrnd===0);
+      bkDS(lx,lyB,bkLBL(ltB),lwB,ltB===null&&lrnd===0);
+      bkSvg+=`<line x1="${lx+5}" y1="${lyA+bkSH}" x2="${lx+bkSW-5}" y2="${lyA+bkSH}" stroke="#e2e8f0" stroke-width="1" stroke-dasharray="2,2"/>`;
+      const lnx=bkCX(lrnd+1), lmaY=lyA+bkSH/2, lmbY=lyB+bkSH/2, lmdY=(lmaY+lmbY)/2;
+      const lnmh=lrnd+1<bkSR?bkMHR(lrnd+1):bkMHR(bkSR);
+      const lncy=bkOY+Math.floor(lmi/2)*lnmh+lnmh/2, lns=lmi%2;
+      const lty=lns===0?lncy-bkSH-bkSG/2+bkSH/2:lncy+bkSG/2+bkSH/2;
+      const lhx=lx+bkSW+bkCW/2;
+      bkSvg+=`<polyline points="${lx+bkSW},${lmaY} ${lhx},${lmaY} ${lhx},${lmdY}" fill="none" stroke="#cbd5e1" stroke-width="1.5"/>`;
+      bkSvg+=`<polyline points="${lx+bkSW},${lmbY} ${lhx},${lmbY} ${lhx},${lmdY}" fill="none" stroke="#cbd5e1" stroke-width="1.5"/>`;
+      bkSvg+=`<line x1="${lhx}" y1="${lmdY}" x2="${lnx}" y2="${lty}" stroke="#cbd5e1" stroke-width="1.5"/>`;
     }
   }
 
-  // 결승 그리기
-  const finRound = totalRounds - 1;
-  const finMatchKey = `r${finRound}_0`;
-  const finSaved = bm[finMatchKey] || {};
-  const finWonA = finSaved.status==='approved' && finSaved.winner===0;
-  const finWonB = finSaved.status==='approved' && finSaved.winner===1;
-  const finTeamA = finSaved.teamA||null;
-  const finTeamB = finSaved.teamB||null;
-  const finX = colX(finCol);
-  const finMH = mHeightOfRound(finRound);
-  const finCY = offsetY + finMH/2;
-  const finYA = finCY - SLOT_H - SLOT_GAP/2;
-  const finYB = finCY + SLOT_GAP/2;
+  // 결승
+  const fRnd=bkTR-1, fSv=bkBm[`r${fRnd}_0`]||{};
+  const fX=bkCX(bkFC), fMH=bkMHR(fRnd), fCY=bkOY+fMH/2;
+  const fYA=fCY-bkSH-bkSG/2, fYB=fCY+bkSG/2;
+  if(fSv.status==='approved') bkSvg+=`<text x="${fX+bkSW/2}" y="${fYA-5}" text-anchor="middle" font-size="14">🏆</text>`;
+  bkDS(fX,fYA,bkLBL(fSv.teamA||null),fSv.status==='approved'&&fSv.winner===0,false);
+  bkDS(fX,fYB,bkLBL(fSv.teamB||null),fSv.status==='approved'&&fSv.winner===1,false);
+  bkSvg+=`<line x1="${fX+5}" y1="${fYA+bkSH}" x2="${fX+bkSW-5}" y2="${fYA+bkSH}" stroke="#e2e8f0" stroke-width="1" stroke-dasharray="2,2"/>`;
 
-  if(finSaved.status==='approved'){
-    svg += `<text x="${finX+SLOT_W/2}" y="${finYA-5}" text-anchor="middle" font-size="14">🏆</text>`;
-  }
-  drawSlot(finX, finYA, label(finTeamA), finWonA, false);
-  drawSlot(finX, finYB, label(finTeamB), finWonB, false);
-  svg += `<line x1="${finX+5}" y1="${finYA+SLOT_H}" x2="${finX+SLOT_W-5}" y2="${finYA+SLOT_H}" stroke="#e2e8f0" stroke-width="1" stroke-dasharray="2,2"/>`;
-
-  // 오른쪽 절반 매치 그리기
-  const rightHalfStart = matchCount / 2;
-  for(let r=0; r<sideRounds; r++){
-    const rMCount = matchesInRound(r);
-    const rMH = mHeightOfRound(r);
-    const rCol = sideRounds*2 - r;
-    const rX = colX(rCol);
-
-    for(let mi=0; mi<rMCount; mi++){
-      const rLeftMC = matchesInRound(r);
-      const rGlobalMi = rLeftMC + mi;
-      const rMatchKey = `r${r}_${rGlobalMi}`;
-      const rSaved = bm[rMatchKey] || {};
-      const rWonA = rSaved.status==='approved' && rSaved.winner===0;
-      const rWonB = rSaved.status==='approved' && rSaved.winner===1;
-
-      let rTeamA=null, rTeamB=null;
-      if(r===0){
-        rTeamA = bracket[(rightHalfStart+mi)*2]||null;
-        rTeamB = bracket[(rightHalfStart+mi)*2+1]||null;
-      } else {
-        rTeamA = rSaved.teamA||null;
-        rTeamB = rSaved.teamB||null;
-      }
-
-      const rCenterY = offsetY + mi*rMH + rMH/2;
-      const rYA = rCenterY - SLOT_H - SLOT_GAP/2;
-      const rYB = rCenterY + SLOT_GAP/2;
-
-      drawSlot(rX, rYA, label(rTeamA), rWonA, rTeamA===null&&r===0);
-      drawSlot(rX, rYB, label(rTeamB), rWonB, rTeamB===null&&r===0);
-      svg += `<line x1="${rX+5}" y1="${rYA+SLOT_H}" x2="${rX+SLOT_W-5}" y2="${rYA+SLOT_H}" stroke="#e2e8f0" stroke-width="1" stroke-dasharray="2,2"/>`;
-
-      const rNextCol = rCol - 1;
-      const rMidA = rYA+SLOT_H/2, rMidB = rYB+SLOT_H/2, rMidY = (rMidA+rMidB)/2;
-      const rNextMH = r+1<sideRounds ? mHeightOfRound(r+1) : mHeightOfRound(finRound);
-      const rNextMi = Math.floor(mi/2);
-      const rNextCY = offsetY + rNextMi*rNextMH + rNextMH/2;
-      const rNextSlot = mi%2;
-      const rToY = rNextSlot===0 ? rNextCY-SLOT_H-SLOT_GAP/2+SLOT_H/2 : rNextCY+SLOT_GAP/2+SLOT_H/2;
-      const rHx = rX - CON_W/2;
-      const rNextRX = colX(rNextCol) + SLOT_W;
-      svg += `<polyline points="${rX},${rMidA} ${rHx},${rMidA} ${rHx},${rMidY}" fill="none" stroke="#cbd5e1" stroke-width="1.5"/>`;
-      svg += `<polyline points="${rX},${rMidB} ${rHx},${rMidB} ${rHx},${rMidY}" fill="none" stroke="#cbd5e1" stroke-width="1.5"/>`;
-      svg += `<line x1="${rHx}" y1="${rMidY}" x2="${rNextRX}" y2="${rToY}" stroke="#cbd5e1" stroke-width="1.5"/>`;
+  // 오른쪽 절반
+  const bkRS=bkMIR(0);
+  for(let rrnd=0;rrnd<bkSR;rrnd++){
+    const rmc=bkMIR(rrnd), rmh=bkMHR(rrnd), rcol=bkSR*2-rrnd, rx=bkCX(rcol);
+    for(let rmi=0;rmi<rmc;rmi++){
+      const rgmi=bkRS+rmi, rsv=bkBm[`r${rrnd}_${rgmi}`]||{};
+      const rwA=rsv.status==='approved'&&rsv.winner===0, rwB=rsv.status==='approved'&&rsv.winner===1;
+      const rtA=rrnd===0?(bkArr[(bkRS+rmi)*2]||null):(rsv.teamA||null);
+      const rtB=rrnd===0?(bkArr[(bkRS+rmi)*2+1]||null):(rsv.teamB||null);
+      const rcy=bkOY+rmi*rmh+rmh/2, ryA=rcy-bkSH-bkSG/2, ryB=rcy+bkSG/2;
+      bkDS(rx,ryA,bkLBL(rtA),rwA,rtA===null&&rrnd===0);
+      bkDS(rx,ryB,bkLBL(rtB),rwB,rtB===null&&rrnd===0);
+      bkSvg+=`<line x1="${rx+5}" y1="${ryA+bkSH}" x2="${rx+bkSW-5}" y2="${ryA+bkSH}" stroke="#e2e8f0" stroke-width="1" stroke-dasharray="2,2"/>`;
+      const rnc=rcol-1, rmaY=ryA+bkSH/2, rmbY=ryB+bkSH/2, rmdY=(rmaY+rmbY)/2;
+      const rnmh=rrnd+1<bkSR?bkMHR(rrnd+1):bkMHR(fRnd);
+      const rncy=bkOY+Math.floor(rmi/2)*rnmh+rnmh/2, rns=rmi%2;
+      const rty=rns===0?rncy-bkSH-bkSG/2+bkSH/2:rncy+bkSG/2+bkSH/2;
+      const rhx=rx-bkCW/2, rnrx=bkCX(rnc)+bkSW;
+      bkSvg+=`<polyline points="${rx},${rmaY} ${rhx},${rmaY} ${rhx},${rmdY}" fill="none" stroke="#cbd5e1" stroke-width="1.5"/>`;
+      bkSvg+=`<polyline points="${rx},${rmbY} ${rhx},${rmbY} ${rhx},${rmdY}" fill="none" stroke="#cbd5e1" stroke-width="1.5"/>`;
+      bkSvg+=`<line x1="${rhx}" y1="${rmdY}" x2="${rnrx}" y2="${rty}" stroke="#cbd5e1" stroke-width="1.5"/>`;
     }
   }
 
-  svg += '</svg>';
-  document.getElementById('full-bracket-content').innerHTML = svg;
-  document.getElementById('modal-full-bracket').style.display='block';
-  document.getElementById('modal-full-bracket').scrollTop=0;
+  bkSvg+='</svg>';
+  document.getElementById('full-bracket-content').innerHTML=bkSvg;
+  bkEl.style.display='block';
+  bkEl.scrollTop=0;
 };
 
 
@@ -6229,7 +6109,7 @@ const assignBracket = (teams) => {
 
   const finalMatches = new Array(matchCount).fill(null);
   const zonePos = [0,0,0,0];
-  const r1ZoneMap = {}; // groupNo → 구역번호(0~3)
+  const r1ZoneMap = {};
 
   // ── Step1: 1위를 4구역에 순서대로 배치 ──
   r1o.forEach((r1t, i) => {
@@ -6237,58 +6117,59 @@ const assignBracket = (teams) => {
     if(zonePos[zi] >= Q) return;
     const slot = zoneSlots[zi][zonePos[zi]];
     const isBye = byeIdx.has(i);
-    finalMatches[slot] = [r1t, isBye ? null : 'TBD'];
+    // [teamA, teamB]: BYE면 teamB=null, 아니면 나중에 채울 자리
+    finalMatches[slot] = {a: r1t, b: isBye ? null : 'TBD'};
     r1ZoneMap[r1t.groupNo] = zi;
     zonePos[zi]++;
   });
 
   // ── Step2: 하위순위를 1위 반대편 절반에 배치 ──
-  const getOppositeZones = (groupNo) => {
+  const getOppZones = (groupNo) => {
     const zi = r1ZoneMap[groupNo];
     if(zi === undefined) return [0,1,2,3];
-    return leftZones.includes(zi) ? rightZones : leftZones;
+    return (zi===0||zi===1) ? rightZones : leftZones;
   };
 
-  // 파트너 슬롯 (같은 경기 상대방)
-  const partnerSlot = slot => slot%2===0 ? slot+1 : slot-1;
+  // 같은 경기(matchSlot)의 파트너 슬롯
+  const pSlot = slot => slot%2===0 ? slot+1 : slot-1;
 
   [...subTeams].sort(()=>Math.random()-0.5).forEach(sub => {
-    const oppZones = getOppositeZones(sub.groupNo);
-    let bestSlot = -1, bestScore = -999;
+    const oppZones = getOppZones(sub.groupNo);
+    let bestSlot = -1, bestScore = -9999;
 
-    // 반대편 구역에서 빈 슬롯 탐색
     for(const zi of oppZones){
       for(const slot of zoneSlots[zi]){
+        // 이미 채워진 슬롯 건너뜀
         if(finalMatches[slot] !== null) continue;
-        const ps = partnerSlot(slot);
-        const pm = ps>=0&&ps<matchCount ? finalMatches[ps] : null;
+        const ps = pSlot(slot);
+        const pm = (ps>=0 && ps<matchCount) ? finalMatches[ps] : null;
         let score = 0;
         if(pm){
-          const partner = pm[0];
-          if(partner && partner.groupNo === sub.groupNo) { score -= 1000; continue; }
-          if(partner && partner.rank === 1) score += 30; // 1위 옆 선호
-          score += 10; // 파트너 있는 슬롯 선호
+          const partner = pm.a;
+          if(partner && partner.groupNo === sub.groupNo){ score = -9999; continue; }
+          if(partner && partner.rank === 1) score += 30;
+          score += 10;
         }
         if(score > bestScore){ bestScore = score; bestSlot = slot; }
       }
     }
 
-    // 반대편에 못 넣으면 아무 빈 슬롯
+    // 반대편 꽉 찼으면 아무 빈 슬롯
     if(bestSlot < 0){
-      for(let slot=0;slot<matchCount;slot++){
-        if(finalMatches[slot] === null){ bestSlot = slot; break; }
+      for(let fs=0; fs<matchCount; fs++){
+        if(finalMatches[fs] === null){ bestSlot = fs; break; }
       }
     }
 
-    if(bestSlot >= 0) finalMatches[bestSlot] = [sub, null];
+    if(bestSlot >= 0) finalMatches[bestSlot] = {a: sub, b: null};
   });
 
   // ── Step3: 브라켓 배열 변환 ──
   const bracket = new Array(size).fill(null);
   finalMatches.forEach((m, mi) => {
     if(!m) return;
-    bracket[mi*2]   = m[0];
-    bracket[mi*2+1] = (m[1]==='TBD' || m[1]===null) ? null : m[1];
+    bracket[mi*2]   = m.a || null;
+    bracket[mi*2+1] = (m.b === 'TBD') ? null : (m.b || null);
   });
 
   return bracket;
