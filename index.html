@@ -6188,13 +6188,14 @@ const makeBracketSize = (n) => {
 };
 
 // ── 본선 브라켓 배정 알고리즘 ─────────────────────────────
+// 왼쪽 절반 / 오른쪽 절반에 팀을 균등 배치
+// 1위는 왼/오 교대로, BYE도 균등, C형도 균등
 const assignBracket = (teams) => {
   const size = makeBracketSize(teams.length);
   const matchCount = size / 2;
   const byeCount = size - teams.length;
-  const halfMatch = matchCount / 2; // 왼쪽/오른쪽 각 절반 경기 수
+  const halfMatch = matchCount / 2;
 
-  // 순위별 분리
   const byRank = {};
   teams.forEach(t => {
     if(!byRank[t.rank]) byRank[t.rank] = [];
@@ -6217,52 +6218,47 @@ const assignBracket = (teams) => {
     if(i+half<r1s.length) r1o.push(r1s[i+half]);
   }
 
-  // BYE 받을 1위 랜덤 선택
+  // BYE 받을 1위 랜덤
   const byeIdx = new Set();
   [...Array(r1o.length).keys()].sort(()=>Math.random()-0.5)
-    .slice(0, byeCount).forEach(i=>byeIdx.add(i));
+    .slice(0,byeCount).forEach(i=>byeIdx.add(i));
   const byeR1    = r1o.filter((_,i)=>byeIdx.has(i));
   const normalR1 = r1o.filter((_,i)=>!byeIdx.has(i));
 
   const usedR2   = new Set();
   const usedLast = new Set();
 
-  const pickOpposite = (team, pool, used) => {
-    let bj=-1, bs=-999;
+  const pickOpp = (team, pool, used) => {
+    let bj=-1,bs=-999;
     pool.forEach((t,j)=>{
       if(used.has(j)||t.groupNo===team.groupNo) return;
-      const sc = Math.abs(t.groupNo-team.groupNo)
-        - ((team.opponentEntryNos||[]).includes(t.no)?50:0);
+      const sc=Math.abs(t.groupNo-team.groupNo)-((team.opponentEntryNos||[]).includes(t.no)?50:0);
       if(sc>bs){bs=sc;bj=j;}
     });
     return bj;
   };
 
-  // 경기 목록 구성
   const typeA=[],typeB=[],typeC=[];
 
   // A형: 1위 vs 반대편 꼴찌(or 2위)
   const oppPool = useLastForR2 ? rLast : r2;
   const oppUsed = useLastForR2 ? usedLast : usedR2;
   normalR1.forEach(r1t=>{
-    const j=pickOpposite(r1t,oppPool,oppUsed);
-    typeA.push([r1t, j>=0?oppPool[j]:null]);
+    const j=pickOpp(r1t,oppPool,oppUsed);
+    typeA.push([r1t,j>=0?oppPool[j]:null]);
     if(j>=0) oppUsed.add(j);
   });
 
   // B형: 1위 vs BYE
   byeR1.forEach(r1t=>typeB.push([r1t,null]));
 
-  // C형: 2위 vs 반대편 꼴찌 (3위 있을때) or 2위끼리
+  // C형: 2위 vs 꼴찌 or 2위끼리
   if(useLastForR2){
-    const remLast = rLast.filter((_,j)=>!usedLast.has(j));
+    const remLast=rLast.filter((_,j)=>!usedLast.has(j));
     const usedRL=new Set();
     r2.forEach((r2t,ri)=>{
-      const j=pickOpposite(r2t,remLast,usedRL);
-      if(j>=0){
-        typeC.push([r2t,remLast[j]]);
-        usedRL.add(j); usedR2.add(ri);
-      }
+      const j=pickOpp(r2t,remLast,usedRL);
+      if(j>=0){ typeC.push([r2t,remLast[j]]); usedRL.add(j); usedR2.add(ri); }
     });
     const lo=[...r2.filter((_,i)=>!usedR2.has(i)),...remLast.filter((_,j)=>!usedRL.has(j))].sort(()=>Math.random()-0.5);
     for(let i=0;i<lo.length;i+=2) typeC.push([lo[i],lo[i+1]||null]);
@@ -6271,38 +6267,26 @@ const assignBracket = (teams) => {
     for(let i=0;i<rem2.length;i+=2) typeC.push([rem2[i],rem2[i+1]||null]);
   }
 
-  // ── 핵심: 1위 경기를 왼/오 절반에 균등 배치 ──
+  // ── 왼/오 균등 배치 ──
   const r1matches = [...typeA,...typeB];
-  const finalMatches = new Array(matchCount).fill(null);
-  const leftSlots  = [...Array(halfMatch).keys()];              // 0~halfMatch-1
-  const rightSlots = [...Array(halfMatch).keys()].map(i=>i+halfMatch); // halfMatch~matchCount-1
+  const leftMs=[], rightMs=[];
 
-  let li=0, ri=0;
-  r1matches.forEach((m,i)=>{
-    if(i%2===0 && li<leftSlots.length){
-      // 왼쪽에 균등 배치
-      const slot = leftSlots[Math.round(li * halfMatch / Math.max(Math.ceil(r1matches.length/2),1)) % halfMatch];
-      // 충돌방지: 순서대로
-      finalMatches[leftSlots[li]] = m; li++;
-    } else if(ri<rightSlots.length){
-      finalMatches[rightSlots[ri]] = m; ri++;
-    } else {
-      finalMatches[leftSlots[li]] = m; li++;
-    }
-  });
+  // 1위 경기 왼/오 교대
+  r1matches.forEach((m,i)=>{ if(i%2===0) leftMs.push(m); else rightMs.push(m); });
+  // C형도 왼/오 교대
+  typeC.forEach((m,i)=>{ if(i%2===0) leftMs.push(m); else rightMs.push(m); });
 
-  // C형을 나머지 빈 슬롯에 배치
-  let ci=0;
-  for(let i=0;i<matchCount;i++){
-    if(finalMatches[i]===null && ci<typeC.length){
-      finalMatches[i]=typeC[ci++];
-    }
-  }
+  // halfMatch개씩 맞추기
+  while(leftMs.length  < halfMatch) leftMs.push(null);
+  while(rightMs.length < halfMatch) rightMs.push(null);
 
-  // 브라켓 배열 변환
+  // 브라켓 배열: 왼쪽 0~halfMatch-1번 경기, 오른쪽 halfMatch~matchCount-1번 경기
   const bracket = new Array(size).fill(null);
-  finalMatches.forEach((m,mi)=>{
+  leftMs.slice(0,halfMatch).forEach((m,mi)=>{
     if(m){ bracket[mi*2]=m[0]; bracket[mi*2+1]=m[1]; }
+  });
+  rightMs.slice(0,halfMatch).forEach((m,mi)=>{
+    if(m){ bracket[(halfMatch+mi)*2]=m[0]; bracket[(halfMatch+mi)*2+1]=m[1]; }
   });
 
   return bracket;
