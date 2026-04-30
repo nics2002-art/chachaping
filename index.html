@@ -4912,11 +4912,11 @@ window.showFullBracket = () => {
   bkSvg+=`<line x1="${fX+5}" y1="${fYA+bkSH}" x2="${fX+bkSW-5}" y2="${fYA+bkSH}" stroke="#e2e8f0" stroke-width="1" stroke-dasharray="2,2"/>`;
 
   // 오른쪽 절반
-  const bkRS=bkMIR(0)/2; // 오른쪽 절반 시작 경기 인덱스 = matchCount/2 = size/4
+  const bkRS=bkMIR(0)/2; // 오른쪽 절반 시작 경기 인덱스 = matchCount/2
   for(let rrnd=0;rrnd<bkSR;rrnd++){
-    const rmc=bkMIR(rrnd), rmh=bkMHR(rrnd), rcol=bkSR*2-rrnd, rx=bkCX(rcol);
+    const rmc=bkMIR(rrnd)/2, rmh=bkMHR(rrnd), rcol=bkSR*2-rrnd, rx=bkCX(rcol); // rmc = 절반만
     for(let rmi=0;rmi<rmc;rmi++){
-      const rgmi=bkRS+rmi, rsv=bkBm[`r${rrnd}_${rgmi}`]||{};
+      const rgmi=Math.floor(bkRS/Math.pow(2,rrnd))+rmi, rsv=bkBm[`r${rrnd}_${rgmi}`]||{};
       const rwA=rsv.status==='approved'&&rsv.winner===0, rwB=rsv.status==='approved'&&rsv.winner===1;
       const rtA=rrnd===0?(bkArr[(bkRS+rmi)*2]||null):(rsv.teamA||null);
       const rtB=rrnd===0?(bkArr[(bkRS+rmi)*2+1]||null):(rsv.teamB||null);
