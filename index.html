@@ -946,7 +946,7 @@ body { font-family: 'Noto Sans KR', sans-serif; background: var(--bg); color: va
       <button class="btn btn-ghost btn-sm" onclick="showFullBracket()">🗺 전체</button>
       <button class="btn btn-ghost btn-sm" onclick="showBracketResults()">🏆 결과</button>
       <button class="btn btn-ghost btn-sm" onclick="showWaitingList()">⏳ 대기</button>
-      <button class="btn btn-ghost btn-sm" id="bracket-gen-btn" style="display:none" onclick="generateBracket()">대진 생성</button>
+      <button class="btn btn-ghost btn-sm" id="bracket-gen-btn" style="display:none" onclick="openGenerateBracketModal()">대진 생성</button>
     </div>
   </div>
   <!-- 라운드 탭 -->
@@ -956,6 +956,26 @@ body { font-family: 'Noto Sans KR', sans-serif; background: var(--bg); color: va
   </div>
 </div>
 
+
+<!-- ==================== MODAL: 대진 생성 설정 ==================== -->
+<div class="modal-bg hidden" id="modal-generate-bracket">
+  <div class="modal">
+    <div class="modal-handle"></div>
+    <button class="modal-close" onclick="closeModal('modal-generate-bracket')">✕</button>
+    <div class="modal-title">🏆 본선 대진 생성</div>
+    <div class="form-group">
+      <label class="form-label">본선 진출 기준</label>
+      <div class="chip-group">
+        <button class="chip green" data-group="gen-advanceCount" data-val="1">1위만</button>
+        <button class="chip on green" data-group="gen-advanceCount" data-val="2">1~2위</button>
+        <button class="chip green" data-group="gen-advanceCount" data-val="3">1~3위</button>
+        <button class="chip green" data-group="gen-advanceCount" data-val="all">전원</button>
+      </div>
+    </div>
+    <div class="info-box" id="gen-bracket-info" style="margin-bottom:14px"></div>
+    <button class="btn btn-primary btn-full" onclick="generateBracket()">대진표 생성</button>
+  </div>
+</div>
 
 <!-- ==================== MODAL: 풀 브라켓 전체보기 ==================== -->
 <div class="modal-bg hidden" id="modal-full-bracket" style="align-items:flex-start;overflow-y:auto">
@@ -6112,13 +6132,29 @@ const assignBracket = (teams) => {
 };
 
 
+window.openGenerateBracketModal = () => {
+  const ev = window._bracketEv || {};
+  // 이벤트에 저장된 advanceCount 기본값 반영
+  const saved = ev.advanceCount || '2';
+  document.querySelectorAll('[data-group="gen-advanceCount"]').forEach(btn => {
+    btn.classList.toggle('on', btn.dataset.val === saved);
+  });
+  // 승인된 조 수 / 팀 수 미리 보여주기
+  const approvedGroups = (ev.groups||[]).filter(g=>g.matchStatus==='approved');
+  const groupCount = approvedGroups.length;
+  document.getElementById('gen-bracket-info').textContent =
+    `승인된 조 ${groupCount}개 · 진출 기준 선택 후 생성하세요`;
+  openModal('modal-generate-bracket');
+};
+
 window.generateBracket = async () => {
   const ev = window._bracketEv;
   const t = window._bracketTourney;
+  closeModal('modal-generate-bracket');
   if(!confirm('대진표를 새로 생성할까요? 기존 대진표가 초기화됩니다.')) return;
 
   // 본선 진출 기준 (1=1위만, 2=1~2위, 3=1~3위, all=전원)
-  const advanceCount = ev.advanceCount || '2';
+  const advanceCount = getChipVal('gen-advanceCount') || ev.advanceCount || '2';
   const pl = ev.players||[];
   const entries = ev.entries||[];
 
