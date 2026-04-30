@@ -4912,7 +4912,7 @@ window.showFullBracket = () => {
   bkSvg+=`<line x1="${fX+5}" y1="${fYA+bkSH}" x2="${fX+bkSW-5}" y2="${fYA+bkSH}" stroke="#e2e8f0" stroke-width="1" stroke-dasharray="2,2"/>`;
 
   // 오른쪽 절반
-  const bkRS=bkMIR(0);
+  const bkRS=bkMIR(0)/2; // 오른쪽 절반 시작 경기 인덱스 = matchCount/2 = size/4
   for(let rrnd=0;rrnd<bkSR;rrnd++){
     const rmc=bkMIR(rrnd), rmh=bkMHR(rrnd), rcol=bkSR*2-rrnd, rx=bkCX(rcol);
     for(let rmi=0;rmi<rmc;rmi++){
@@ -6055,32 +6055,24 @@ const makeBracketSize = (n) => {
 };
 
 // ── 본선 브라켓 배정 알고리즘 ─────────────────────────────
-// 핵심 규칙:
-// 1) 1위 → 4구역에 균등 분산
-// 2) 같은 조 출신 → 무조건 반대 절반(왼↔오)에 배치
-// 3) BYE → 1위만
-// 4) 하위순위 → 1위 반대편에서 최대한 멀리
+// 규칙: 1위 왼/오 교대, 같은 조 → 반대편, BYE → 1위만
 const assignBracket = (teams) => {
   const size = makeBracketSize(teams.length);
   const matchCount = size / 2;
-  const byeCount = size - teams.length;
-  const halfMatch = matchCount / 2;
-  const quarterMatch = matchCount / 4;
+  const halfMatch  = matchCount / 2;
+  const byeCount   = size - teams.length;
 
-  // 순위별 분리
   const byRank = {};
   teams.forEach(t => {
     if(!byRank[t.rank]) byRank[t.rank] = [];
     byRank[t.rank].push(t);
   });
   const allRanks = Object.keys(byRank).map(Number).sort((a,b)=>a-b);
-  const maxRank = allRanks[allRanks.length-1];
 
-  const r1 = [...(byRank[1]||[])];
-  // 하위순위 전체 (2위, 3위, 꼴찌 등)
-  const subTeams = allRanks.filter(r=>r>1).flatMap(r=>[...(byRank[r]||[])]);
+  const r1  = [...(byRank[1]||[])];
+  const sub = allRanks.filter(r=>r>1).flatMap(r=>[...(byRank[r]||[])]);
 
-  // 1위 인터리브 (조번호 상하 교차 → 4구역 균등)
+  // 1위 인터리브 (조번호 상하 교차)
   const r1s = [...r1].sort((a,b)=>a.groupNo-b.groupNo);
   const half = Math.ceil(r1s.length/2);
   const r1o = [];
@@ -6094,82 +6086,68 @@ const assignBracket = (teams) => {
   [...Array(r1o.length).keys()].sort(()=>Math.random()-0.5)
     .slice(0,byeCount).forEach(i=>byeIdx.add(i));
 
-  // 4구역 슬롯
-  // 구역0(왼상):0~Q-1, 구역1(왼하):Q~H-1, 구역2(오상):H~H+Q-1, 구역3(오하):H+Q~M-1
-  const Q = quarterMatch, H = halfMatch;
-  const zoneSlots = [[],[],[],[]];
-  for(let i=0;i<Q;i++){
-    zoneSlots[0].push(i);
-    zoneSlots[1].push(Q+i);
-    zoneSlots[2].push(H+i);
-    zoneSlots[3].push(H+Q+i);
-  }
-  const leftZones  = [0,1];
-  const rightZones = [2,3];
+  // 브라켓 슬롯(size개) 단위로 관리
+  const bracket = new Array(size).fill(null);
+  const r1ZoneMap = {}; // groupNo → 'left'/'right'
 
-  const finalMatches = new Array(matchCount).fill(null);
-  const zonePos = [0,0,0,0];
-  const r1ZoneMap = {};
+  let lMI = 0;           // 왼쪽 다음 경기 인덱스
+  let rMI = halfMatch;   // 오른쪽 다음 경기 인덱스
 
-  // ── Step1: 1위를 4구역에 순서대로 배치 ──
+  // 1위를 왼/오 교대 배치 (각 경기 A슬롯)
   r1o.forEach((r1t, i) => {
-    const zi = i % 4;
-    if(zonePos[zi] >= Q) return;
-    const slot = zoneSlots[zi][zonePos[zi]];
     const isBye = byeIdx.has(i);
-    // [teamA, teamB]: BYE면 teamB=null, 아니면 나중에 채울 자리
-    finalMatches[slot] = {a: r1t, b: isBye ? null : 'TBD'};
-    r1ZoneMap[r1t.groupNo] = zi;
-    zonePos[zi]++;
+    let mi;
+    if(i%2===0 && lMI<halfMatch){
+      mi=lMI++; r1ZoneMap[r1t.groupNo]='left';
+    } else if(rMI<matchCount){
+      mi=rMI++; r1ZoneMap[r1t.groupNo]='right';
+    } else {
+      mi=lMI++; r1ZoneMap[r1t.groupNo]='left';
+    }
+    bracket[mi*2] = r1t;
+    // BYE면 B슬롯 null 유지, 아니면 나중에 채움
   });
 
-  // ── Step2: 하위순위를 1위 반대편 절반에 배치 ──
-  const getOppZones = (groupNo) => {
-    const zi = r1ZoneMap[groupNo];
-    if(zi === undefined) return [0,1,2,3];
-    return (zi===0||zi===1) ? rightZones : leftZones;
+  // 하위순위를 반대편에 배치
+  const getOppMIs = (groupNo) => {
+    const side = r1ZoneMap[groupNo];
+    if(side==='left')  return [...Array(halfMatch).keys()].map(i=>halfMatch+i);
+    if(side==='right') return [...Array(halfMatch).keys()];
+    return [...Array(matchCount).keys()];
   };
 
-  // 같은 경기(matchSlot)의 파트너 슬롯
-  const pSlot = slot => slot%2===0 ? slot+1 : slot-1;
+  [...sub].sort(()=>Math.random()-0.5).forEach(subT => {
+    const oppMIs = getOppMIs(subT.groupNo);
+    let bestSlot=-1, bestScore=-9999;
 
-  [...subTeams].sort(()=>Math.random()-0.5).forEach(sub => {
-    const oppZones = getOppZones(sub.groupNo);
-    let bestSlot = -1, bestScore = -9999;
-
-    for(const zi of oppZones){
-      for(const slot of zoneSlots[zi]){
-        // 이미 채워진 슬롯 건너뜀
-        if(finalMatches[slot] !== null) continue;
-        const ps = pSlot(slot);
-        const pm = (ps>=0 && ps<matchCount) ? finalMatches[ps] : null;
-        let score = 0;
-        if(pm){
-          const partner = pm.a;
-          if(partner && partner.groupNo === sub.groupNo){ score = -9999; continue; }
-          if(partner && partner.rank === 1) score += 30;
-          score += 10;
+    // 반대편 빈 슬롯 탐색
+    for(const mi of oppMIs){
+      for(const slot of [mi*2, mi*2+1]){
+        if(bracket[slot]!==null) continue;
+        const ps = slot%2===0?slot+1:slot-1;
+        const partner = (ps>=0&&ps<size)?bracket[ps]:null;
+        let score=0;
+        if(partner){
+          if(partner.groupNo===subT.groupNo) continue;
+          if(partner.rank===1) score+=30;
+          score+=10;
         }
-        if(score > bestScore){ bestScore = score; bestSlot = slot; }
+        if(score>bestScore){bestScore=score;bestSlot=slot;}
       }
     }
 
-    // 반대편 꽉 찼으면 아무 빈 슬롯
-    if(bestSlot < 0){
-      for(let fs=0; fs<matchCount; fs++){
-        if(finalMatches[fs] === null){ bestSlot = fs; break; }
+    // 반대편 꽉 찼으면 아무 빈 슬롯 (같은 조 아닌 곳)
+    if(bestSlot<0){
+      for(let slot=0;slot<size;slot++){
+        if(bracket[slot]!==null) continue;
+        const ps=slot%2===0?slot+1:slot-1;
+        const partner=(ps>=0&&ps<size)?bracket[ps]:null;
+        if(partner&&partner.groupNo===subT.groupNo) continue;
+        bestSlot=slot; break;
       }
     }
 
-    if(bestSlot >= 0) finalMatches[bestSlot] = {a: sub, b: null};
-  });
-
-  // ── Step3: 브라켓 배열 변환 ──
-  const bracket = new Array(size).fill(null);
-  finalMatches.forEach((m, mi) => {
-    if(!m) return;
-    bracket[mi*2]   = m.a || null;
-    bracket[mi*2+1] = (m.b === 'TBD') ? null : (m.b || null);
+    if(bestSlot>=0) bracket[bestSlot]=subT;
   });
 
   return bracket;
