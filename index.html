@@ -5009,24 +5009,19 @@ window.showFullBracket = () => {
   drawSlot(finX, finYB, label(finTeamB), finWonB, false);
   svg += `<line x1="${finX+5}" y1="${finYA+SLOT_H}" x2="${finX+SLOT_W-5}" y2="${finYA+SLOT_H}" stroke="#e2e8f0" stroke-width="1" stroke-dasharray="2,2"/>`;
 
-  // 오른쪽 절반 매치 그리기 (슬롯 size/2 ~ size-1)
-  const halfMatches = size/2;  // 왼쪽 절반 1라운드 매치 수
+  // 오른쪽 절반 매치 그리기
+  // halfMatch = matchCount/2 = size/4 (왼쪽 절반 경기 수)
+  const rightHalfStart = matchCount / 2; // 오른쪽 시작 경기 인덱스
   for(let r=0; r<sideRounds; r++){
     const mCount = matchesInRound(r);
     const mH = mHeightOfRound(r);
-    // 오른쪽 컬럼: 결승에서 가까울수록 작은 번호
-    // r=0(가장 바깥) → 가장 오른쪽 컬럼 = sideRounds*2
-    // r=sideRounds-1(4강) → finCol+1
     const col = sideRounds*2 - r;
     const x = colX(col);
 
     for(let mi=0; mi<mCount; mi++){
-      // 오른쪽 절반: bracket 인덱스 halfMatches*2 부터
-      // r=0: mi번째 → bracket[(halfMatches+mi)*2], bracket[(halfMatches+mi)*2+1]
-      // 매치키: r0의 오른쪽 = r0_(halfMatches+mi)
-      // 오른쪽 절반: r라운드에서 왼쪽절반 매치수 + mi
-      const leftMatchCount = matchesInRound(r); // 왼쪽 절반 이 라운드 매치 수
-      const globalMi = leftMatchCount + mi;
+      // 오른쪽 절반 매치키: r라운드에서 왼쪽절반 매치수 + mi
+      const leftMC = matchesInRound(r);
+      const globalMi = leftMC + mi;
       const matchKey = `r${r}_${globalMi}`;
       const saved = bm[matchKey] || {};
       const wonA = saved.status==='approved' && saved.winner===0;
@@ -5034,9 +5029,9 @@ window.showFullBracket = () => {
 
       let teamA=null, teamB=null;
       if(r===0){
-        const leftMC = matchesInRound(0); // 왼쪽 1라운드 매치수
-        teamA = bracket[(leftMC+mi)*2]||null;
-        teamB = bracket[(leftMC+mi)*2+1]||null;
+        // r=0: 오른쪽 절반 bracket 인덱스 = (rightHalfStart + mi) * 2
+        teamA = bracket[(rightHalfStart+mi)*2]||null;
+        teamB = bracket[(rightHalfStart+mi)*2+1]||null;
       } else {
         teamA = saved.teamA||null;
         teamB = saved.teamB||null;
