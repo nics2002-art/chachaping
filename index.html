@@ -6068,10 +6068,17 @@ const makeBracketSize = (n) => {
 };
 
 // ── 본선 브라켓 배정 알고리즘 ─────────────────────────────
+// 규칙:
+// 1) 1위는 브라켓 전체에 균등 분산
+// 2) 1위 상대 = 반대편 조 꼴찌 (없으면 BYE - 무조건 1위만 BYE)
+// 3) 꼴찌 없는 1위끼리 BYE 경기 배정
+// 4) 남은 중간순위끼리 묶음
+// 5) 같은 조 / 예선 상대 최대한 안 만남
 const assignBracket = (teams) => {
   const size = makeBracketSize(teams.length);
-  const bracket = new Array(size).fill(null);
   const matchCount = size / 2;
+  const byeCount = size - teams.length;
+  const bracket = new Array(size).fill(null);
 
   // 순위별 분리
   const byRank = {};
@@ -6079,54 +6086,62 @@ const assignBracket = (teams) => {
     if(!byRank[t.rank]) byRank[t.rank] = [];
     byRank[t.rank].push(t);
   });
-  const ranks = Object.keys(byRank).map(Number).sort((a,b)=>a-b);
-  const rank1List = (byRank[1]||[]).sort(()=>Math.random()-0.5);
-  const numRank1 = rank1List.length;
+  const allRanks = Object.keys(byRank).map(Number).sort((a,b)=>a-b);
+  const maxRank = allRanks[allRanks.length - 1]; // 꼴찌 순위
 
-  // Step1: 1위를 각 구역에 균등 분산 (각 구역 첫 경기 A슬롯)
-  rank1List.forEach((team, i) => {
-    const sectionStart = Math.floor(i * matchCount / Math.max(numRank1, 1));
-    bracket[sectionStart * 2] = team;
-  });
+  // 1위 랜덤 셔플
+  const r1 = [...(byRank[1]||[])].sort(()=>Math.random()-0.5);
+  // 꼴찌 랜덤 셔플
+  const rLast = [...(byRank[maxRank]||[])].sort(()=>Math.random()-0.5);
+  // 중간 순위들
+  const midRanks = allRanks.filter(r => r > 1 && r < maxRank);
+  const rMid = [];
+  midRanks.forEach(r => rMid.push(...[...(byRank[r]||[])].sort(()=>Math.random()-0.5)));
+  // 꼴찌와 1위 같은 순위면 중간없음
+  if(maxRank === 1) rMid.push(...rLast);
 
-  const partnerOf = s => s % 2 === 0 ? s + 1 : s - 1;
-  const getEmptySlots = () => {
-    const empty = [];
-    for(let i = 0; i < size; i++) if(bracket[i] === null) empty.push(i);
-    return empty;
-  };
+  const numBye = byeCount;           // BYE 받는 1위 수
+  const byeR1    = r1.slice(0, numBye);    // BYE 1위
+  const normalR1 = r1.slice(numBye);       // 상대 있는 1위
 
-  // 갈등점수: 낮을수록 좋음
-  const conflictScore = (slotIdx, team) => {
-    const partner = bracket[partnerOf(slotIdx)];
-    if(partner === null) return 9999; // BYE 슬롯 - 하위순위 배치 금지
-    let score = 0;
-    if(partner.groupNo === team.groupNo) score += 500;           // 같은 조 절대 안 됨
-    if((team.opponentEntryNos||[]).includes(partner.no)) score += 100; // 예선 상대
-    if(partner.rank === 1) score -= 10;                          // 1위 옆 선호
-    return score;
-  };
+  const usedLast = new Set();
+  let matchSlot = 0;
 
-  // Step2: 2위, 3위, 4위... 순서로 빈슬롯에 배정
-  ranks.filter(r => r > 1).forEach(rank => {
-    const rankTeams = (byRank[rank]||[]).sort(()=>Math.random()-0.5);
-    rankTeams.forEach(team => {
-      // 파트너가 있는 빈 슬롯만 대상
-      const candidates = getEmptySlots().filter(s => bracket[partnerOf(s)] !== null);
-      if(!candidates.length) {
-        // 파트너 없는 슬롯(BYE 슬롯)에라도 배치 (남은 팀끼리 묶임)
-        const anyEmpty = getEmptySlots();
-        if(anyEmpty.length) bracket[anyEmpty[0]] = team;
-        return;
-      }
-      let best = candidates[0], bestScore = Infinity;
-      candidates.forEach(s => {
-        const sc = conflictScore(s, team);
-        if(sc < bestScore){ bestScore = sc; best = s; }
-      });
-      bracket[best] = team;
+  // ── 1) 일반경기: 1위 vs 반대편조 꼴찌 ──
+  normalR1.forEach(r1t => {
+    // 반대편 조 꼴찌 선택 (같은 조 아닌 것, 그룹번호 차이 최대)
+    let bestJ = -1, bestScore = -Infinity;
+    rLast.forEach((lt, j) => {
+      if(usedLast.has(j)) return;
+      if(lt.groupNo === r1t.groupNo) return; // 같은 조 금지
+      const score = Math.abs(lt.groupNo - r1t.groupNo)
+        - ((r1t.opponentEntryNos||[]).includes(lt.no) ? 100 : 0);
+      if(score > bestScore){ bestScore = score; bestJ = j; }
     });
+    bracket[matchSlot*2]   = r1t;
+    bracket[matchSlot*2+1] = bestJ >= 0 ? rLast[bestJ] : null;
+    if(bestJ >= 0) usedLast.add(bestJ);
+    matchSlot++;
   });
+
+  // ── 2) BYE경기: BYE 1위 vs null ──
+  byeR1.forEach(r1t => {
+    bracket[matchSlot*2]   = r1t;
+    bracket[matchSlot*2+1] = null; // BYE
+    matchSlot++;
+  });
+
+  // ── 3) 남은 꼴찌 + 중간순위 팀끼리 묶음 ──
+  const remaining = [
+    ...rLast.filter((_,j) => !usedLast.has(j)),
+    ...rMid
+  ].sort(()=>Math.random()-0.5);
+
+  for(let i = 0; i < remaining.length; i += 2){
+    bracket[matchSlot*2]   = remaining[i];
+    bracket[matchSlot*2+1] = remaining[i+1] || null;
+    matchSlot++;
+  }
 
   return bracket;
 };
