@@ -6192,6 +6192,7 @@ const assignBracket = (teams) => {
   const size = makeBracketSize(teams.length);
   const matchCount = size / 2;
   const byeCount = size - teams.length;
+  const halfMatch = matchCount / 2; // 왼쪽/오른쪽 각 절반 경기 수
 
   // 순위별 분리
   const byRank = {};
@@ -6200,96 +6201,94 @@ const assignBracket = (teams) => {
     byRank[t.rank].push(t);
   });
   const allRanks = Object.keys(byRank).map(Number).sort((a,b)=>a-b);
-  const maxRank  = allRanks[allRanks.length-1];
+  const maxRank = allRanks[allRanks.length-1];
+  const useLastForR2 = maxRank > 2;
 
   const r1    = [...(byRank[1]||[])];
   const r2    = [...(byRank[2]||[])];
-  const rLast = maxRank>2 ? [...(byRank[maxRank]||[])] : r2.length ? [] : [];
-  // 중간 순위 (3위 이상이면 2위 상대는 꼴찌)
-  const useLastForR2 = maxRank > 2; // 3위 이상 있으면 2위 vs 꼴찌 매칭
+  const rLast = useLastForR2 ? [...(byRank[maxRank]||[])] : [];
 
-  // 1위 인터리브 (조번호 상하 교차 → 브라켓 전체 분산)
-  const r1sorted = [...r1].sort((a,b)=>a.groupNo-b.groupNo);
-  const half = Math.ceil(r1sorted.length/2);
-  const r1ordered = [];
+  // 1위 인터리브 (조번호 상하 교차)
+  const r1s = [...r1].sort((a,b)=>a.groupNo-b.groupNo);
+  const half = Math.ceil(r1s.length/2);
+  const r1o = [];
   for(let i=0;i<half;i++){
-    r1ordered.push(r1sorted[i]);
-    if(i+half<r1sorted.length) r1ordered.push(r1sorted[i+half]);
+    r1o.push(r1s[i]);
+    if(i+half<r1s.length) r1o.push(r1s[i+half]);
   }
 
-  // BYE 받을 1위: 랜덤 선택
-  const byeIndices = new Set();
-  const shuffledIdx = [...Array(r1ordered.length).keys()].sort(()=>Math.random()-0.5);
-  shuffledIdx.slice(0, byeCount).forEach(i => byeIndices.add(i));
-  const byeR1    = r1ordered.filter((_,i)=>byeIndices.has(i));
-  const normalR1 = r1ordered.filter((_,i)=>!byeIndices.has(i));
-
-  // 반대편 조 팀 선택 헬퍼
-  const pickOpposite = (team, pool, usedSet) => {
-    let bestJ=-1, bestSc=-999;
-    pool.forEach((t,j)=>{
-      if(usedSet.has(j)) return;
-      if(t.groupNo===team.groupNo) return;
-      const sc = Math.abs(t.groupNo-team.groupNo)
-        - ((team.opponentEntryNos||[]).includes(t.no)?50:0);
-      if(sc>bestSc){ bestSc=sc; bestJ=j; }
-    });
-    return bestJ;
-  };
+  // BYE 받을 1위 랜덤 선택
+  const byeIdx = new Set();
+  [...Array(r1o.length).keys()].sort(()=>Math.random()-0.5)
+    .slice(0, byeCount).forEach(i=>byeIdx.add(i));
+  const byeR1    = r1o.filter((_,i)=>byeIdx.has(i));
+  const normalR1 = r1o.filter((_,i)=>!byeIdx.has(i));
 
   const usedR2   = new Set();
   const usedLast = new Set();
-  const typeA=[], typeB=[], typeC=[];
 
-  // A형: 1위 vs 반대편조 꼴찌(or 2위)
-  const opponent2 = useLastForR2 ? [...(byRank[maxRank]||[])] : r2;
-  normalR1.forEach(r1t => {
-    const pool = useLastForR2 ? opponent2 : r2;
-    const used = useLastForR2 ? usedLast : usedR2;
-    const j = pickOpposite(r1t, pool, used);
-    typeA.push([r1t, j>=0?pool[j]:null]);
-    if(j>=0) used.add(j);
+  const pickOpposite = (team, pool, used) => {
+    let bj=-1, bs=-999;
+    pool.forEach((t,j)=>{
+      if(used.has(j)||t.groupNo===team.groupNo) return;
+      const sc = Math.abs(t.groupNo-team.groupNo)
+        - ((team.opponentEntryNos||[]).includes(t.no)?50:0);
+      if(sc>bs){bs=sc;bj=j;}
+    });
+    return bj;
+  };
+
+  // 경기 목록 구성
+  const typeA=[],typeB=[],typeC=[];
+
+  // A형: 1위 vs 반대편 꼴찌(or 2위)
+  const oppPool = useLastForR2 ? rLast : r2;
+  const oppUsed = useLastForR2 ? usedLast : usedR2;
+  normalR1.forEach(r1t=>{
+    const j=pickOpposite(r1t,oppPool,oppUsed);
+    typeA.push([r1t, j>=0?oppPool[j]:null]);
+    if(j>=0) oppUsed.add(j);
   });
 
   // B형: 1위 vs BYE
-  byeR1.forEach(r1t => typeB.push([r1t, null]));
+  byeR1.forEach(r1t=>typeB.push([r1t,null]));
 
-  // C형: 2위 vs 반대편조 꼴찌 (3위 이상 있을 때)
+  // C형: 2위 vs 반대편 꼴찌 (3위 있을때) or 2위끼리
   if(useLastForR2){
-    const remainLast = opponent2.filter((_,j)=>!usedLast.has(j));
-    const usedRL = new Set();
-    r2.forEach(r2t => {
-      const j = pickOpposite(r2t, remainLast, usedRL);
+    const remLast = rLast.filter((_,j)=>!usedLast.has(j));
+    const usedRL=new Set();
+    r2.forEach((r2t,ri)=>{
+      const j=pickOpposite(r2t,remLast,usedRL);
       if(j>=0){
-        typeC.push([r2t, remainLast[j]]);
-        usedRL.add(j);
-        usedR2.add(r2.indexOf(r2t));
+        typeC.push([r2t,remLast[j]]);
+        usedRL.add(j); usedR2.add(ri);
       }
     });
-    // 남은 팀들
-    const leftR2   = r2.filter((_,i)=>!usedR2.has(i));
-    const leftLast = remainLast.filter((_,j)=>!usedRL.has(j));
-    const leftover = [...leftR2,...leftLast].sort(()=>Math.random()-0.5);
-    for(let i=0;i<leftover.length;i+=2)
-      typeC.push([leftover[i], leftover[i+1]||null]);
+    const lo=[...r2.filter((_,i)=>!usedR2.has(i)),...remLast.filter((_,j)=>!usedRL.has(j))].sort(()=>Math.random()-0.5);
+    for(let i=0;i<lo.length;i+=2) typeC.push([lo[i],lo[i+1]||null]);
   } else {
-    // 2위끼리 묶음
-    const leftR2 = r2.filter((_,i)=>!usedR2.has(i)).sort(()=>Math.random()-0.5);
-    for(let i=0;i<leftR2.length;i+=2)
-      typeC.push([leftR2[i], leftR2[i+1]||null]);
+    const rem2=r2.filter((_,i)=>!usedR2.has(i)).sort(()=>Math.random()-0.5);
+    for(let i=0;i<rem2.length;i+=2) typeC.push([rem2[i],rem2[i+1]||null]);
   }
 
-  // 브라켓 배치: 1위 경기(A+B)를 matchCount 전체에 균등 배치
+  // ── 핵심: 1위 경기를 왼/오 절반에 균등 배치 ──
   const r1matches = [...typeA,...typeB];
   const finalMatches = new Array(matchCount).fill(null);
+  const leftSlots  = [...Array(halfMatch).keys()];              // 0~halfMatch-1
+  const rightSlots = [...Array(halfMatch).keys()].map(i=>i+halfMatch); // halfMatch~matchCount-1
 
-  // 1위 경기 슬롯 위치 (균등 분산)
+  let li=0, ri=0;
   r1matches.forEach((m,i)=>{
-    const slot = Math.round(i * matchCount / r1matches.length);
-    // 충돌 방지: 이미 차있으면 다음 빈 슬롯
-    let s2 = slot;
-    while(s2 < matchCount && finalMatches[s2]!==null) s2++;
-    if(s2 < matchCount) finalMatches[s2] = m;
+    if(i%2===0 && li<leftSlots.length){
+      // 왼쪽에 균등 배치
+      const slot = leftSlots[Math.round(li * halfMatch / Math.max(Math.ceil(r1matches.length/2),1)) % halfMatch];
+      // 충돌방지: 순서대로
+      finalMatches[leftSlots[li]] = m; li++;
+    } else if(ri<rightSlots.length){
+      finalMatches[rightSlots[ri]] = m; ri++;
+    } else {
+      finalMatches[leftSlots[li]] = m; li++;
+    }
   });
 
   // C형을 나머지 빈 슬롯에 배치
