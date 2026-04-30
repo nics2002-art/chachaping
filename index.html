@@ -978,18 +978,16 @@ body { font-family: 'Noto Sans KR', sans-serif; background: var(--bg); color: va
 </div>
 
 <!-- ==================== MODAL: 풀 브라켓 전체보기 ==================== -->
-<div class="modal-bg hidden" id="modal-full-bracket" style="align-items:flex-start;overflow-y:auto">
-  <div style="background:var(--surface);width:100%;min-height:100vh;padding:0 0 40px">
-    <div style="position:sticky;top:0;z-index:10;background:var(--surface);border-bottom:1px solid var(--border);padding:12px 16px;display:flex;align-items:center;gap:10px">
-      <button onclick="closeModal('modal-full-bracket')" style="width:36px;height:36px;border-radius:50%;background:var(--surface2);border:1px solid var(--border);font-size:18px;cursor:pointer;display:flex;align-items:center;justify-content:center;flex-shrink:0">←</button>
-      <div style="flex:1;min-width:0">
-        <div style="font-size:15px;font-weight:700" id="full-bracket-title">전체 대진표</div>
-        <div style="font-size:11px;color:var(--text3)" id="full-bracket-sub"></div>
-      </div>
+<div id="modal-full-bracket" style="display:none;position:fixed;inset:0;z-index:400;background:var(--surface);overflow-y:auto;overflow-x:auto;-webkit-overflow-scrolling:touch">
+  <div style="position:sticky;top:0;z-index:10;background:var(--surface);border-bottom:1px solid var(--border);padding:12px 16px;display:flex;align-items:center;gap:10px">
+    <button onclick="document.getElementById('modal-full-bracket').style.display='none'" style="width:36px;height:36px;border-radius:50%;background:var(--surface2);border:1px solid var(--border);font-size:18px;cursor:pointer;display:flex;align-items:center;justify-content:center;flex-shrink:0">←</button>
+    <div style="flex:1;min-width:0">
+      <div style="font-size:15px;font-weight:700" id="full-bracket-title">전체 대진표</div>
+      <div style="font-size:11px;color:var(--text3)" id="full-bracket-sub"></div>
     </div>
-    <div style="overflow-x:auto;padding:16px 8px;-webkit-overflow-scrolling:touch">
-      <div id="full-bracket-content"></div>
-    </div>
+  </div>
+  <div style="padding:16px 8px;overflow-x:auto;-webkit-overflow-scrolling:touch">
+    <div id="full-bracket-content"></div>
   </div>
 </div>
 <!-- ==================== 단체전 선수 순서 페이지 ==================== -->
@@ -4848,7 +4846,7 @@ window.showFullBracket = () => {
   if(!size){
     document.getElementById('full-bracket-content').innerHTML =
       '<div class="empty" style="padding:40px"><div class="empty-icon">🏆</div><div class="empty-text">대진표가 없습니다</div></div>';
-    openModal('modal-full-bracket');
+    document.getElementById('modal-full-bracket').style.display='block';
     return;
   }
 
@@ -5066,7 +5064,8 @@ window.showFullBracket = () => {
 
   svg += '</svg>';
   document.getElementById('full-bracket-content').innerHTML = svg;
-  openModal('modal-full-bracket');
+  document.getElementById('modal-full-bracket').style.display='block';
+  document.getElementById('modal-full-bracket').scrollTop=0;
 };
 
 
@@ -6183,13 +6182,13 @@ const makeBracketSize = (n) => {
 };
 
 // ── 본선 브라켓 배정 알고리즘 ─────────────────────────────
-// 왼쪽 절반 / 오른쪽 절반에 팀을 균등 배치
-// 1위는 왼/오 교대로, BYE도 균등, C형도 균등
+// 1위를 4구역에 균등 분산 → 최소 4강에서 1위끼리 만남
 const assignBracket = (teams) => {
   const size = makeBracketSize(teams.length);
   const matchCount = size / 2;
   const byeCount = size - teams.length;
   const halfMatch = matchCount / 2;
+  const quarterMatch = matchCount / 4;
 
   const byRank = {};
   teams.forEach(t => {
@@ -6262,26 +6261,40 @@ const assignBracket = (teams) => {
     for(let i=0;i<rem2.length;i+=2) typeC.push([rem2[i],rem2[i+1]||null]);
   }
 
-  // ── 왼/오 균등 배치 ──
+  // ── 4구역에 균등 배치 ──
+  // 구역0: 0~quarterMatch-1, 구역1: quarterMatch~halfMatch-1
+  // 구역2: halfMatch~halfMatch+quarterMatch-1, 구역3: halfMatch+quarterMatch~matchCount-1
+  const zoneSlots = [0,1,2,3].map(zi =>
+    [...Array(quarterMatch).keys()].map(i => zi*quarterMatch + i)
+  );
+  const finalMatches = new Array(matchCount).fill(null);
+  const zonePos = [0,0,0,0];
+
+  // 1위 경기를 4구역에 순서대로 (구역0,1,2,3,0,1,2,3...)
   const r1matches = [...typeA,...typeB];
-  const leftMs=[], rightMs=[];
-
-  // 1위 경기 왼/오 교대
-  r1matches.forEach((m,i)=>{ if(i%2===0) leftMs.push(m); else rightMs.push(m); });
-  // C형도 왼/오 교대
-  typeC.forEach((m,i)=>{ if(i%2===0) leftMs.push(m); else rightMs.push(m); });
-
-  // halfMatch개씩 맞추기
-  while(leftMs.length  < halfMatch) leftMs.push(null);
-  while(rightMs.length < halfMatch) rightMs.push(null);
-
-  // 브라켓 배열: 왼쪽 0~halfMatch-1번 경기, 오른쪽 halfMatch~matchCount-1번 경기
-  const bracket = new Array(size).fill(null);
-  leftMs.slice(0,halfMatch).forEach((m,mi)=>{
-    if(m){ bracket[mi*2]=m[0]; bracket[mi*2+1]=m[1]; }
+  r1matches.forEach((m,i)=>{
+    const zi = i%4;
+    if(zonePos[zi] < quarterMatch){
+      finalMatches[zoneSlots[zi][zonePos[zi]]] = m;
+      zonePos[zi]++;
+    }
   });
-  rightMs.slice(0,halfMatch).forEach((m,mi)=>{
-    if(m){ bracket[(halfMatch+mi)*2]=m[0]; bracket[(halfMatch+mi)*2+1]=m[1]; }
+
+  // C형을 나머지 빈 슬롯에 (구역별 순서대로)
+  let ci=0;
+  for(let zi=0;zi<4;zi++){
+    for(let si=0;si<quarterMatch;si++){
+      const slot = zoneSlots[zi][si];
+      if(finalMatches[slot]===null && ci<typeC.length){
+        finalMatches[slot]=typeC[ci++];
+      }
+    }
+  }
+
+  // 브라켓 배열 변환
+  const bracket = new Array(size).fill(null);
+  finalMatches.forEach((m,mi)=>{
+    if(m){ bracket[mi*2]=m[0]; bracket[mi*2+1]=m[1]; }
   });
 
   return bracket;
