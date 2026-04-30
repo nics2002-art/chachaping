@@ -4943,9 +4943,9 @@ window.showFullBracket = () => {
   svg += `<text x="${colX(finCol)+SLOT_W/2}" y="18" text-anchor="middle" font-size="10" font-weight="700" fill="#dc2626">결승</text>`;
   // 오른쪽 헤더 (역순)
   for(let r=0; r<sideRounds; r++){
-    const col = sideRounds*2 - r;
-    const cx = colX(col) + SLOT_W/2;
-    svg += `<text x="${cx}" y="18" text-anchor="middle" font-size="10" font-weight="700" fill="#2563eb">${rName(r)}</text>`;
+    const rHdrCol = sideRounds*2 - r;
+    const rHdrCx = colX(rHdrCol) + SLOT_W/2;
+    svg += `<text x="${rHdrCx}" y="18" text-anchor="middle" font-size="10" font-weight="700" fill="#2563eb">${rName(r)}</text>`;
   }
 
   // 왼쪽 절반 매치 그리기 (슬롯 0 ~ size/2-1)
@@ -5008,57 +5008,50 @@ window.showFullBracket = () => {
   svg += `<line x1="${finX+5}" y1="${finYA+SLOT_H}" x2="${finX+SLOT_W-5}" y2="${finYA+SLOT_H}" stroke="#e2e8f0" stroke-width="1" stroke-dasharray="2,2"/>`;
 
   // 오른쪽 절반 매치 그리기
-  // halfMatch = matchCount/2 = size/4 (왼쪽 절반 경기 수)
-  const rightHalfStart = matchCount / 2; // 오른쪽 시작 경기 인덱스
+  const rightHalfStart = matchCount / 2;
   for(let r=0; r<sideRounds; r++){
-    const mCount = matchesInRound(r);
-    const mH = mHeightOfRound(r);
-    const col = sideRounds*2 - r;
-    const x = colX(col);
+    const rMCount = matchesInRound(r);
+    const rMH = mHeightOfRound(r);
+    const rCol = sideRounds*2 - r;
+    const rX = colX(rCol);
 
-    for(let mi=0; mi<mCount; mi++){
-      // 오른쪽 절반 매치키: r라운드에서 왼쪽절반 매치수 + mi
-      const leftMC = matchesInRound(r);
-      const globalMi = leftMC + mi;
-      const matchKey = `r${r}_${globalMi}`;
-      const saved = bm[matchKey] || {};
-      const wonA = saved.status==='approved' && saved.winner===0;
-      const wonB = saved.status==='approved' && saved.winner===1;
+    for(let mi=0; mi<rMCount; mi++){
+      const rLeftMC = matchesInRound(r);
+      const rGlobalMi = rLeftMC + mi;
+      const rMatchKey = `r${r}_${rGlobalMi}`;
+      const rSaved = bm[rMatchKey] || {};
+      const rWonA = rSaved.status==='approved' && rSaved.winner===0;
+      const rWonB = rSaved.status==='approved' && rSaved.winner===1;
 
-      let teamA=null, teamB=null;
+      let rTeamA=null, rTeamB=null;
       if(r===0){
-        // r=0: 오른쪽 절반 bracket 인덱스 = (rightHalfStart + mi) * 2
-        teamA = bracket[(rightHalfStart+mi)*2]||null;
-        teamB = bracket[(rightHalfStart+mi)*2+1]||null;
+        rTeamA = bracket[(rightHalfStart+mi)*2]||null;
+        rTeamB = bracket[(rightHalfStart+mi)*2+1]||null;
       } else {
-        teamA = saved.teamA||null;
-        teamB = saved.teamB||null;
+        rTeamA = rSaved.teamA||null;
+        rTeamB = rSaved.teamB||null;
       }
 
-      const centerY = offsetY + mi*mH + mH/2;
-      const yA = centerY - SLOT_H - SLOT_GAP/2;
-      const yB = centerY + SLOT_GAP/2;
+      const rCenterY = offsetY + mi*rMH + rMH/2;
+      const rYA = rCenterY - SLOT_H - SLOT_GAP/2;
+      const rYB = rCenterY + SLOT_GAP/2;
 
-      drawSlot(x, yA, label(teamA), wonA, teamA===null&&r===0);
-      drawSlot(x, yB, label(teamB), wonB, teamB===null&&r===0);
-      svg += `<line x1="${x+5}" y1="${yA+SLOT_H}" x2="${x+SLOT_W-5}" y2="${yA+SLOT_H}" stroke="#e2e8f0" stroke-width="1" stroke-dasharray="2,2"/>`;
+      drawSlot(rX, rYA, label(rTeamA), rWonA, rTeamA===null&&r===0);
+      drawSlot(rX, rYB, label(rTeamB), rWonB, rTeamB===null&&r===0);
+      svg += `<line x1="${rX+5}" y1="${rYA+SLOT_H}" x2="${rX+SLOT_W-5}" y2="${rYA+SLOT_H}" stroke="#e2e8f0" stroke-width="1" stroke-dasharray="2,2"/>`;
 
-      // 연결선 ← 다음 라운드 (결승 방향)
-      const nextCol = col - 1;
-      const nextX = colX(nextCol) + SLOT_W;
-      const midA = yA+SLOT_H/2, midB = yB+SLOT_H/2, midY = (midA+midB)/2;
-      const nextMH = r+1<sideRounds ? mHeightOfRound(r+1) : mHeightOfRound(finRound);
-      const nextMi = Math.floor(mi/2);
-      const nextCY = offsetY + nextMi*nextMH + nextMH/2;
-      const nextSlot = mi%2;
-      const toY = nextSlot===0 ? nextCY-SLOT_H-SLOT_GAP/2+SLOT_H/2 : nextCY+SLOT_GAP/2+SLOT_H/2;
-
-      // 오른쪽은 연결선이 왼쪽으로 향함 (x 왼쪽 끝 → 다음 컬럼 오른쪽 끝)
-      const hx = x - CON_W/2;
-      const nextRX = colX(nextCol) + SLOT_W; // 다음 컬럼 오른쪽 끝
-      svg += `<polyline points="${x},${midA} ${hx},${midA} ${hx},${midY}" fill="none" stroke="#cbd5e1" stroke-width="1.5"/>`;
-      svg += `<polyline points="${x},${midB} ${hx},${midB} ${hx},${midY}" fill="none" stroke="#cbd5e1" stroke-width="1.5"/>`;
-      svg += `<line x1="${hx}" y1="${midY}" x2="${nextRX}" y2="${toY}" stroke="#cbd5e1" stroke-width="1.5"/>`;
+      const rNextCol = rCol - 1;
+      const rMidA = rYA+SLOT_H/2, rMidB = rYB+SLOT_H/2, rMidY = (rMidA+rMidB)/2;
+      const rNextMH = r+1<sideRounds ? mHeightOfRound(r+1) : mHeightOfRound(finRound);
+      const rNextMi = Math.floor(mi/2);
+      const rNextCY = offsetY + rNextMi*rNextMH + rNextMH/2;
+      const rNextSlot = mi%2;
+      const rToY = rNextSlot===0 ? rNextCY-SLOT_H-SLOT_GAP/2+SLOT_H/2 : rNextCY+SLOT_GAP/2+SLOT_H/2;
+      const rHx = rX - CON_W/2;
+      const rNextRX = colX(rNextCol) + SLOT_W;
+      svg += `<polyline points="${rX},${rMidA} ${rHx},${rMidA} ${rHx},${rMidY}" fill="none" stroke="#cbd5e1" stroke-width="1.5"/>`;
+      svg += `<polyline points="${rX},${rMidB} ${rHx},${rMidB} ${rHx},${rMidY}" fill="none" stroke="#cbd5e1" stroke-width="1.5"/>`;
+      svg += `<line x1="${rHx}" y1="${rMidY}" x2="${rNextRX}" y2="${rToY}" stroke="#cbd5e1" stroke-width="1.5"/>`;
     }
   }
 
@@ -6182,7 +6175,11 @@ const makeBracketSize = (n) => {
 };
 
 // ── 본선 브라켓 배정 알고리즘 ─────────────────────────────
-// 1위를 4구역에 균등 분산 → 최소 4강에서 1위끼리 만남
+// 핵심 규칙:
+// 1) 1위 → 4구역에 균등 분산
+// 2) 같은 조 출신 → 무조건 반대 절반(왼↔오)에 배치
+// 3) BYE → 1위만
+// 4) 하위순위 → 1위 반대편에서 최대한 멀리
 const assignBracket = (teams) => {
   const size = makeBracketSize(teams.length);
   const matchCount = size / 2;
@@ -6190,6 +6187,7 @@ const assignBracket = (teams) => {
   const halfMatch = matchCount / 2;
   const quarterMatch = matchCount / 4;
 
+  // 순위별 분리
   const byRank = {};
   teams.forEach(t => {
     if(!byRank[t.rank]) byRank[t.rank] = [];
@@ -6197,13 +6195,12 @@ const assignBracket = (teams) => {
   });
   const allRanks = Object.keys(byRank).map(Number).sort((a,b)=>a-b);
   const maxRank = allRanks[allRanks.length-1];
-  const useLastForR2 = maxRank > 2;
 
-  const r1    = [...(byRank[1]||[])];
-  const r2    = [...(byRank[2]||[])];
-  const rLast = useLastForR2 ? [...(byRank[maxRank]||[])] : [];
+  const r1 = [...(byRank[1]||[])];
+  // 하위순위 전체 (2위, 3위, 꼴찌 등)
+  const subTeams = allRanks.filter(r=>r>1).flatMap(r=>[...(byRank[r]||[])]);
 
-  // 1위 인터리브 (조번호 상하 교차)
+  // 1위 인터리브 (조번호 상하 교차 → 4구역 균등)
   const r1s = [...r1].sort((a,b)=>a.groupNo-b.groupNo);
   const half = Math.ceil(r1s.length/2);
   const r1o = [];
@@ -6216,85 +6213,82 @@ const assignBracket = (teams) => {
   const byeIdx = new Set();
   [...Array(r1o.length).keys()].sort(()=>Math.random()-0.5)
     .slice(0,byeCount).forEach(i=>byeIdx.add(i));
-  const byeR1    = r1o.filter((_,i)=>byeIdx.has(i));
-  const normalR1 = r1o.filter((_,i)=>!byeIdx.has(i));
 
-  const usedR2   = new Set();
-  const usedLast = new Set();
-
-  const pickOpp = (team, pool, used) => {
-    let bj=-1,bs=-999;
-    pool.forEach((t,j)=>{
-      if(used.has(j)||t.groupNo===team.groupNo) return;
-      const sc=Math.abs(t.groupNo-team.groupNo)-((team.opponentEntryNos||[]).includes(t.no)?50:0);
-      if(sc>bs){bs=sc;bj=j;}
-    });
-    return bj;
-  };
-
-  const typeA=[],typeB=[],typeC=[];
-
-  // A형: 1위 vs 반대편 꼴찌(or 2위)
-  const oppPool = useLastForR2 ? rLast : r2;
-  const oppUsed = useLastForR2 ? usedLast : usedR2;
-  normalR1.forEach(r1t=>{
-    const j=pickOpp(r1t,oppPool,oppUsed);
-    typeA.push([r1t,j>=0?oppPool[j]:null]);
-    if(j>=0) oppUsed.add(j);
-  });
-
-  // B형: 1위 vs BYE
-  byeR1.forEach(r1t=>typeB.push([r1t,null]));
-
-  // C형: 2위 vs 꼴찌 or 2위끼리
-  if(useLastForR2){
-    const remLast=rLast.filter((_,j)=>!usedLast.has(j));
-    const usedRL=new Set();
-    r2.forEach((r2t,ri)=>{
-      const j=pickOpp(r2t,remLast,usedRL);
-      if(j>=0){ typeC.push([r2t,remLast[j]]); usedRL.add(j); usedR2.add(ri); }
-    });
-    const lo=[...r2.filter((_,i)=>!usedR2.has(i)),...remLast.filter((_,j)=>!usedRL.has(j))].sort(()=>Math.random()-0.5);
-    for(let i=0;i<lo.length;i+=2) typeC.push([lo[i],lo[i+1]||null]);
-  } else {
-    const rem2=r2.filter((_,i)=>!usedR2.has(i)).sort(()=>Math.random()-0.5);
-    for(let i=0;i<rem2.length;i+=2) typeC.push([rem2[i],rem2[i+1]||null]);
+  // 4구역 슬롯
+  // 구역0(왼상):0~Q-1, 구역1(왼하):Q~H-1, 구역2(오상):H~H+Q-1, 구역3(오하):H+Q~M-1
+  const Q = quarterMatch, H = halfMatch;
+  const zoneSlots = [[],[],[],[]];
+  for(let i=0;i<Q;i++){
+    zoneSlots[0].push(i);
+    zoneSlots[1].push(Q+i);
+    zoneSlots[2].push(H+i);
+    zoneSlots[3].push(H+Q+i);
   }
+  const leftZones  = [0,1];
+  const rightZones = [2,3];
 
-  // ── 4구역에 균등 배치 ──
-  // 구역0: 0~quarterMatch-1, 구역1: quarterMatch~halfMatch-1
-  // 구역2: halfMatch~halfMatch+quarterMatch-1, 구역3: halfMatch+quarterMatch~matchCount-1
-  const zoneSlots = [0,1,2,3].map(zi =>
-    [...Array(quarterMatch).keys()].map(i => zi*quarterMatch + i)
-  );
   const finalMatches = new Array(matchCount).fill(null);
   const zonePos = [0,0,0,0];
+  const r1ZoneMap = {}; // groupNo → 구역번호(0~3)
 
-  // 1위 경기를 4구역에 순서대로 (구역0,1,2,3,0,1,2,3...)
-  const r1matches = [...typeA,...typeB];
-  r1matches.forEach((m,i)=>{
-    const zi = i%4;
-    if(zonePos[zi] < quarterMatch){
-      finalMatches[zoneSlots[zi][zonePos[zi]]] = m;
-      zonePos[zi]++;
-    }
+  // ── Step1: 1위를 4구역에 순서대로 배치 ──
+  r1o.forEach((r1t, i) => {
+    const zi = i % 4;
+    if(zonePos[zi] >= Q) return;
+    const slot = zoneSlots[zi][zonePos[zi]];
+    const isBye = byeIdx.has(i);
+    finalMatches[slot] = [r1t, isBye ? null : 'TBD'];
+    r1ZoneMap[r1t.groupNo] = zi;
+    zonePos[zi]++;
   });
 
-  // C형을 나머지 빈 슬롯에 (구역별 순서대로)
-  let ci=0;
-  for(let zi=0;zi<4;zi++){
-    for(let si=0;si<quarterMatch;si++){
-      const slot = zoneSlots[zi][si];
-      if(finalMatches[slot]===null && ci<typeC.length){
-        finalMatches[slot]=typeC[ci++];
+  // ── Step2: 하위순위를 1위 반대편 절반에 배치 ──
+  const getOppositeZones = (groupNo) => {
+    const zi = r1ZoneMap[groupNo];
+    if(zi === undefined) return [0,1,2,3];
+    return leftZones.includes(zi) ? rightZones : leftZones;
+  };
+
+  // 파트너 슬롯 (같은 경기 상대방)
+  const partnerSlot = slot => slot%2===0 ? slot+1 : slot-1;
+
+  [...subTeams].sort(()=>Math.random()-0.5).forEach(sub => {
+    const oppZones = getOppositeZones(sub.groupNo);
+    let bestSlot = -1, bestScore = -999;
+
+    // 반대편 구역에서 빈 슬롯 탐색
+    for(const zi of oppZones){
+      for(const slot of zoneSlots[zi]){
+        if(finalMatches[slot] !== null) continue;
+        const ps = partnerSlot(slot);
+        const pm = ps>=0&&ps<matchCount ? finalMatches[ps] : null;
+        let score = 0;
+        if(pm){
+          const partner = pm[0];
+          if(partner && partner.groupNo === sub.groupNo) { score -= 1000; continue; }
+          if(partner && partner.rank === 1) score += 30; // 1위 옆 선호
+          score += 10; // 파트너 있는 슬롯 선호
+        }
+        if(score > bestScore){ bestScore = score; bestSlot = slot; }
       }
     }
-  }
 
-  // 브라켓 배열 변환
+    // 반대편에 못 넣으면 아무 빈 슬롯
+    if(bestSlot < 0){
+      for(let slot=0;slot<matchCount;slot++){
+        if(finalMatches[slot] === null){ bestSlot = slot; break; }
+      }
+    }
+
+    if(bestSlot >= 0) finalMatches[bestSlot] = [sub, null];
+  });
+
+  // ── Step3: 브라켓 배열 변환 ──
   const bracket = new Array(size).fill(null);
-  finalMatches.forEach((m,mi)=>{
-    if(m){ bracket[mi*2]=m[0]; bracket[mi*2+1]=m[1]; }
+  finalMatches.forEach((m, mi) => {
+    if(!m) return;
+    bracket[mi*2]   = m[0];
+    bracket[mi*2+1] = (m[1]==='TBD' || m[1]===null) ? null : m[1];
   });
 
   return bracket;
