@@ -2335,6 +2335,7 @@ window.showStatusTab = (idx) => {
   const pl = ev.players||[];
   const entries = ev.entries||[];
   const gts = ev.groupTeamSize || 4;
+  const isStatusOwner = isTourneyAdmin(window._statusTourney||{});
 
   const groupsHtml = (ev.groups||[]).map(g => {
     const groupEntries = g.entryNos.map(no => {
