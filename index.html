@@ -6113,17 +6113,17 @@ const assignBracket = (teams) => {
 
   const bracket = new Array(size).fill(null);
 
-  // (1위BYE, 2위vs꼴찌) 쌍으로 배치
-  const placePairs = (r1List, pairsList, startMI) => {
+  // (1위BYE, 2위vs꼴찌) 쌍으로 배치 - matchCount 범위 초과 방지
+  const placePairs = (r1List, pairsList, startMI, endMI) => {
     let mi = startMI;
     const total = Math.max(r1List.length, pairsList.length);
     for(let i=0; i<total; i++){
-      if(i < r1List.length){
+      if(i < r1List.length && mi < endMI){
         bracket[mi*2]   = r1List[i];
         bracket[mi*2+1] = null; // BYE
         mi++;
       }
-      if(i < pairsList.length){
+      if(i < pairsList.length && mi < endMI){
         const [r2t, rlt] = pairsList[i];
         bracket[mi*2]   = r2t;
         bracket[mi*2+1] = rlt;
@@ -6132,8 +6132,8 @@ const assignBracket = (teams) => {
     }
   };
 
-  placePairs(r1top,    pairsTop,    0);
-  placePairs(r1bottom, pairsBottom, halfMatch);
+  placePairs(r1top,    pairsTop,    0,         halfMatch);
+  placePairs(r1bottom, pairsBottom, halfMatch, matchCount);
 
   // 남은 팀 (매칭 못 한 팀) → 빈 슬롯에 배치
   const placedNos = new Set(bracket.filter(t=>t).map(t=>t.no));
