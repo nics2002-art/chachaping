@@ -6366,7 +6366,7 @@ window.renderMatchList = () => {
   // 제출/승인 버튼 영역
   const isOwner = window._curMatchIsOwner;
   const matchStatus = window._curGroup.matchStatus;
-  const gubang = window.curTourney?.allowGuest === true;
+  const gubang = (window.curTourney || window._bracketTourney || window._statusTourney)?.allowGuest === true;
   let submitHtml = '';
 
   if (matchStatus === 'approved' || (gubang && matchStatus === 'saved')) {
