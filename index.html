@@ -4844,31 +4844,29 @@ window.showFullBracket = () => {
   const SVW=(SR*2+1)*(SW+CW)-CW;
   const SVH=TH+OY+20;
   const cx=col=>col*(SW+CW);
+  // 라운드별 매치 수 (한쪽 절반)
   const mir=r=>HALF/Math.pow(2,r+1);
+  // 슬롯 Y: 각 라운드 매치를 TH 공간에 균등 배치
   const slotY=(r,mi)=>{
     const mh=TH/mir(r), cy=OY+mi*mh+mh/2;
     return {yA:cy-SH-SG/2, yB:cy+SG/2, mA:cy-SG/2-SH/2, mB:cy+SG/2+SH/2};
   };
-  const fCenter=OY+TH/2;
-  const fYA=fCenter-SH-SG/2, fYB=fCenter+SG/2;
-  const fMA=fYA+SH/2, fMB=fYB+SH/2;
+  // 결승: A/B 슬롯을 SVG 정중앙에 딱 붙여서 배치
+  const fCenter = OY + TH/2;
+  const fYA = fCenter - SH - SG/2;     // A슬롯 (중앙 위)
+  const fYB = fCenter + SG/2;          // B슬롯 (중앙 아래)
+  const fMA = fYA + SH/2;              // A슬롯 중간
+  const fMB = fYB + SH/2;              // B슬롯 중간
+
   const rn=r=>{const c=sz/Math.pow(2,r);return c===2?'결승':c===4?'4강':c===8?'8강':c+'강';};
   const lbl=t=>{if(!t)return null;const n=(t.members||[]).map(m=>m.name).join('/');return{n:n.length>11?n.slice(0,11)+'..':n,c:(t.club||'').slice(0,12)};};
-
   let g=`<svg xmlns="http://www.w3.org/2000/svg" width="${SVW}" height="${SVH}" style="display:block">`;
-
-  const ds=(x,y,lb,win,bye,mk)=>{
-    const fill=win?'#dbeafe':bye?'#f1f5f9':'#f8fafc';
-    const stroke=win?'#2563eb':'#e2e8f0';
-    const cursor=mk?'pointer':'default';
-    const click=mk?`onclick="fullBracketClick('${mk}')" style="cursor:pointer"`:'';
-    g+=`<rect x="${x+1}" y="${y}" width="${SW-2}" height="${SH}" rx="5" fill="${fill}" stroke="${stroke}" stroke-width="${win?1.5:1}" ${click}/>`;
-    if(bye)g+=`<text x="${x+SW/2}" y="${y+SH/2+4}" text-anchor="middle" font-size="10" fill="#94a3b8" pointer-events="none">BYE</text>`;
-    else if(lb){
-      g+=`<text x="${x+7}" y="${y+17}" font-size="10" font-weight="${win?700:500}" fill="${win?'#1d4ed8':'#1e293b'}" pointer-events="none">${lb.n}</text>`;
-      if(lb.c)g+=`<text x="${x+7}" y="${y+31}" font-size="8" fill="#94a3b8" pointer-events="none">${lb.c}</text>`;
-      if(win)g+=`<text x="${x+SW-7}" y="${y+SH/2+4}" text-anchor="end" font-size="11" fill="#16a34a" pointer-events="none">✓</text>`;
-    } else g+=`<text x="${x+SW/2}" y="${y+SH/2+4}" text-anchor="middle" font-size="9" fill="#cbd5e1" pointer-events="none">대기중</text>`;
+  const ds=(x,y,lb,w,bye,mk)=>{
+    const dClick=mk?`onclick="fullBracketClick('${mk}')" style="cursor:pointer"`:'';
+    g+=`<rect x="${x+1}" y="${y}" width="${SW-2}" height="${SH}" rx="5" fill="${w?'#dbeafe':bye?'#f1f5f9':'#f8fafc'}" stroke="${w?'#2563eb':'#e2e8f0'}" stroke-width="${w?1.5:1}" ${dClick}/>`;
+    if(bye)g+=`<text x="${x+SW/2}" y="${y+SH/2+4}" text-anchor="middle" font-size="10" fill="#94a3b8">BYE</text>`;
+    else if(lb){g+=`<text x="${x+7}" y="${y+17}" pointer-events="none" font-size="10" font-weight="${w?700:500}" fill="${w?'#1d4ed8':'#1e293b'}">${lb.n}</text>`;if(lb.c)g+=`<text x="${x+7}" y="${y+31}" font-size="8" fill="#94a3b8">${lb.c}</text>`;if(w)g+=`<text x="${x+SW-7}" y="${y+SH/2+4}" text-anchor="end" font-size="11" fill="#16a34a">✓</text>`;}
+    else g+=`<text x="${x+SW/2}" y="${y+SH/2+4}" pointer-events="none" text-anchor="middle" font-size="9" fill="#cbd5e1">대기중</text>`;
   };
 
   // 헤더
@@ -4876,9 +4874,14 @@ window.showFullBracket = () => {
   g+=`<text x="${cx(SR)+SW/2}" y="22" text-anchor="middle" font-size="10" font-weight="700" fill="#dc2626">결승</text>`;
   for(let rhi=0;rhi<SR;rhi++) g+=`<text x="${cx(SR*2-rhi)+SW/2}" y="22" text-anchor="middle" font-size="10" font-weight="700" fill="#2563eb">${rn(rhi)}</text>`;
 
-  const nextY=(r,mi,isLeft)=>{
+  // 목적지 Y 계산
+  const firstRoundMC = mir(0); // 첫 라운드 경기 수 (한쪽 절반)
+  const nextY=(r,mi)=>{
     const nr=r+1, nmi=Math.floor(mi/2), ns=mi%2;
-    if(nr>=SR) return isLeft?fMA:fMB;
+    if(nr>=SR){
+      // 4강→결승: 위쪽 절반 경기 → fMA, 아래쪽 절반 경기 → fMB
+      return mi < firstRoundMC/2 ? fMA : fMB;
+    }
     const {yA,yB}=slotY(nr,nmi);
     return ns===0?yA+SH/2:yB+SH/2;
   };
@@ -4887,23 +4890,19 @@ window.showFullBracket = () => {
   for(let lr=0;lr<SR;lr++){
     const lmc=mir(lr), lx=cx(lr);
     for(let lmi=0;lmi<lmc;lmi++){
-      const lmk=`r${lr}_${lmi}`, lsv=bm[lmk]||{};
+      const lsv=bm[`r${lr}_${lmi}`]||{};
       const lwA=lsv.status==='approved'&&lsv.winner===0, lwB=lsv.status==='approved'&&lsv.winner===1;
       const ltA=lr===0?(br[lmi*2]||null):(lsv.teamA||null);
       const ltB=lr===0?(br[lmi*2+1]||null):(lsv.teamB||null);
       const {yA:lyA,yB:lyB,mA:lmA,mB:lmB}=slotY(lr,lmi);
-      const hasTm=(ltA||ltB)&&!(ltA===null&&lr===0);
-      ds(lx,lyA,lbl(ltA),lwA,ltA===null&&lr===0,hasTm?lmk:null);
+      const lmk=(ltA||ltB)?`r${lr}_${lmi}`:null;
+      ds(lx,lyA,lbl(ltA),lwA,ltA===null&&lr===0,lmk);
       ds(lx,lyB,lbl(ltB),lwB,ltB===null&&lr===0,null);
       g+=`<line x1="${lx+5}" y1="${lyA+SH}" x2="${lx+SW-5}" y2="${lyA+SH}" stroke="#e2e8f0" stroke-width="1" stroke-dasharray="2,2"/>`;
-      const lmid=(lmA+lmB)/2, lnx=cx(lr+1), lhx=lx+SW+CW/2, lty=nextY(lr,lmi,true);
-      if(lr===SR-1){
-        g+=`<line x1="${lx+SW}" y1="${lmid}" x2="${lnx}" y2="${lty}" stroke="#cbd5e1" stroke-width="1.5"/>`;
-      } else {
-        g+=`<polyline points="${lx+SW},${lmA} ${lhx},${lmA} ${lhx},${lmid}" fill="none" stroke="#cbd5e1" stroke-width="1.5"/>`;
-        g+=`<polyline points="${lx+SW},${lmB} ${lhx},${lmB} ${lhx},${lmid}" fill="none" stroke="#cbd5e1" stroke-width="1.5"/>`;
-        g+=`<line x1="${lhx}" y1="${lmid}" x2="${lnx}" y2="${lty}" stroke="#cbd5e1" stroke-width="1.5"/>`;
-      }
+      const lmid=(lmA+lmB)/2, lnx=cx(lr+1), lhx=lx+SW+CW/2, lty=nextY(lr,lmi,0);
+      g+=`<polyline points="${lx+SW},${lmA} ${lhx},${lmA} ${lhx},${lmid}" fill="none" stroke="#cbd5e1" stroke-width="1.5"/>`;
+      g+=`<polyline points="${lx+SW},${lmB} ${lhx},${lmB} ${lhx},${lmid}" fill="none" stroke="#cbd5e1" stroke-width="1.5"/>`;
+      g+=`<line x1="${lhx}" y1="${lmid}" x2="${lnx}" y2="${lty}" stroke="#cbd5e1" stroke-width="1.5"/>`;
     }
   }
 
@@ -4924,23 +4923,19 @@ window.showFullBracket = () => {
     const rmc=mir(rr), rcol=SR*2-rr, rx=cx(rcol);
     for(let rmi=0;rmi<rmc;rmi++){
       const rgmi=Math.floor(RS/Math.pow(2,rr))+rmi;
-      const rmk=`r${rr}_${rgmi}`, rsv=bm[rmk]||{};
+      const rsv=bm[`r${rr}_${rgmi}`]||{};
       const rwA=rsv.status==='approved'&&rsv.winner===0, rwB=rsv.status==='approved'&&rsv.winner===1;
       const rtA=rr===0?(br[(RS+rmi)*2]||null):(rsv.teamA||null);
       const rtB=rr===0?(br[(RS+rmi)*2+1]||null):(rsv.teamB||null);
       const {yA:ryA,yB:ryB,mA:rmA,mB:rmB}=slotY(rr,rmi);
-      const rHasTm=(rtA||rtB)&&!(rtA===null&&rr===0);
-      ds(rx,ryA,lbl(rtA),rwA,rtA===null&&rr===0,rHasTm?rmk:null);
+      const rmk2=(rtA||rtB)?`r${rr}_${rgmi}`:null;
+      ds(rx,ryA,lbl(rtA),rwA,rtA===null&&rr===0,rmk2);
       ds(rx,ryB,lbl(rtB),rwB,rtB===null&&rr===0,null);
       g+=`<line x1="${rx+5}" y1="${ryA+SH}" x2="${rx+SW-5}" y2="${ryA+SH}" stroke="#e2e8f0" stroke-width="1" stroke-dasharray="2,2"/>`;
-      const rmid=(rmA+rmB)/2, rnc=rcol-1, rhx=rx-CW/2, rnrx=cx(rnc)+SW, rty=nextY(rr,rmi,false);
-      if(rr===SR-1){
-        g+=`<line x1="${rx}" y1="${rmid}" x2="${rnrx}" y2="${rty}" stroke="#cbd5e1" stroke-width="1.5"/>`;
-      } else {
-        g+=`<polyline points="${rx},${rmA} ${rhx},${rmA} ${rhx},${rmid}" fill="none" stroke="#cbd5e1" stroke-width="1.5"/>`;
-        g+=`<polyline points="${rx},${rmB} ${rhx},${rmB} ${rhx},${rmid}" fill="none" stroke="#cbd5e1" stroke-width="1.5"/>`;
-        g+=`<line x1="${rhx}" y1="${rmid}" x2="${rnrx}" y2="${rty}" stroke="#cbd5e1" stroke-width="1.5"/>`;
-      }
+      const rmid=(rmA+rmB)/2, rnc=rcol-1, rhx=rx-CW/2, rnrx=cx(rnc)+SW, rty=nextY(rr,rmi,0);
+      g+=`<polyline points="${rx},${rmA} ${rhx},${rmA} ${rhx},${rmid}" fill="none" stroke="#cbd5e1" stroke-width="1.5"/>`;
+      g+=`<polyline points="${rx},${rmB} ${rhx},${rmB} ${rhx},${rmid}" fill="none" stroke="#cbd5e1" stroke-width="1.5"/>`;
+      g+=`<line x1="${rhx}" y1="${rmid}" x2="${rnrx}" y2="${rty}" stroke="#cbd5e1" stroke-width="1.5"/>`;
     }
   }
 
@@ -4949,21 +4944,16 @@ window.showFullBracket = () => {
   el.style.display='block'; el.scrollTop=0;
 };
 
+
 window.fullBracketClick = (mk) => {
   const fbEv = window._bracketEv;
   if(!fbEv) return;
-  const fbBm = fbEv.bracketMatches||{};
-  const saved = fbBm[mk]||{};
   const parts = mk.split('_');
   const rnd = parseInt(parts[0].replace('r',''));
   const mi  = parseInt(parts[1]);
-  const teamA = saved.teamA || (rnd===0?(fbEv.bracket?.[mi*2]||null):null);
-  const teamB = saved.teamB || (rnd===0?(fbEv.bracket?.[mi*2+1]||null):null);
-  if(!teamA && !teamB) return;
   document.getElementById('modal-full-bracket').style.display='none';
   openBracketMatch(mk, mi, rnd);
 };
-
 
 window.showBracketResults = () => {
   const ev = window._bracketEv || {};
@@ -6078,13 +6068,12 @@ const makeBracketSize = (n) => {
 };
 
 // ── 본선 브라켓 배정 알고리즘 ─────────────────────────────
-// BYE 없음(1~2위 진출): 1위 vs 반대편 조 2위
-// BYE 있음(전원 진출): (1위BYE, 2위vs꼴찌) 쌍으로 배치
+// 핵심: (1위BYE경기, 2위vs꼴찌경기)를 쌍으로 묶어 배치
+// → 8강에서 1위가 2위/꼴찌 승자를 만남 (1위끼리 안 만남)
 const assignBracket = (teams) => {
   const size = makeBracketSize(teams.length);
   const matchCount = size / 2;
   const halfMatch  = matchCount / 2;
-  const byeCount   = size - teams.length;
 
   const byRank = {};
   teams.forEach(t => {
@@ -6096,86 +6085,73 @@ const assignBracket = (teams) => {
   const totalGroups = Math.max(...teams.map(t=>t.groupNo));
   const halfGroups  = Math.floor(totalGroups / 2);
 
+  // 1위 상단/하단 분리
   const r1top    = (byRank[1]||[]).filter(t=>t.groupNo<=halfGroups).sort((a,b)=>a.groupNo-b.groupNo);
   const r1bottom = (byRank[1]||[]).filter(t=>t.groupNo>halfGroups).sort((a,b)=>a.groupNo-b.groupNo);
+
+  // 2위 vs 반대편 꼴찌 매칭
   const rank2    = [...(byRank[2]||[])].sort((a,b)=>a.groupNo-b.groupNo);
   const rankLast = [...(byRank[maxRank]||[])].sort((a,b)=>a.groupNo-b.groupNo);
+  const usedLast = new Set();
+  const pairs    = [];
+
+  rank2.forEach(r2t => {
+    let bestJ = -1;
+    // 반대편 절반 꼴찌 우선
+    for(let j=0;j<rankLast.length;j++){
+      if(usedLast.has(j)||rankLast[j].groupNo===r2t.groupNo) continue;
+      const r2top  = r2t.groupNo<=halfGroups;
+      const rltTop = rankLast[j].groupNo<=halfGroups;
+      if(r2top!==rltTop){ bestJ=j; break; }
+    }
+    // 같은 절반이라도 다른 조
+    if(bestJ<0){
+      for(let j=0;j<rankLast.length;j++){
+        if(usedLast.has(j)||rankLast[j].groupNo===r2t.groupNo) continue;
+        bestJ=j; break;
+      }
+    }
+    if(bestJ>=0){ pairs.push([r2t, rankLast[bestJ]]); usedLast.add(bestJ); }
+  });
+
+  // 상단/하단 pairs 분리 (2위 조번호 기준 반대편)
+  const pairsTop    = pairs.filter(([r2t])=>r2t.groupNo>halfGroups);  // 하단조 2위 → 상단에
+  const pairsBottom = pairs.filter(([r2t])=>r2t.groupNo<=halfGroups); // 상단조 2위 → 하단에
 
   const bracket = new Array(size).fill(null);
 
-  const pickOpp = (team, pool, used) => {
-    let bj=-1, bs=-999;
-    pool.forEach((t,j) => {
-      if(used.has(j)||t.groupNo===team.groupNo) return;
-      const r2top  = team.groupNo<=halfGroups;
-      const rltTop = t.groupNo<=halfGroups;
-      // 반대편 절반 우선
-      const sc = (r2top!==rltTop?100:0) + Math.abs(t.groupNo-team.groupNo);
-      if(sc>bs){bs=sc;bj=j;}
-    });
-    return bj;
+  // (1위BYE, 2위vs꼴찌) 쌍으로 배치
+  const placePairs = (r1List, pairsList, startMI) => {
+    let mi = startMI;
+    const total = Math.max(r1List.length, pairsList.length);
+    for(let i=0; i<total; i++){
+      if(i < r1List.length){
+        bracket[mi*2]   = r1List[i];
+        bracket[mi*2+1] = null; // BYE
+        mi++;
+      }
+      if(i < pairsList.length){
+        const [r2t, rlt] = pairsList[i];
+        bracket[mi*2]   = r2t;
+        bracket[mi*2+1] = rlt;
+        mi++;
+      }
+    }
   };
 
-  if(byeCount === 0) {
-    // ── BYE 없음: 1위 vs 반대편 조 2위 ──
-    // 1위 배치
-    r1top.forEach((t,i)=>{ if(i<halfMatch) bracket[i*2]=t; });
-    r1bottom.forEach((t,i)=>{ const mi=halfMatch+i; if(mi<matchCount) bracket[mi*2]=t; });
-    // 2위를 1위 B슬롯에 배치
-    const usedR2 = new Set();
-    r1top.forEach((r1t,i)=>{
-      const j=pickOpp(r1t,rank2,usedR2);
-      if(j>=0){ bracket[i*2+1]=rank2[j]; usedR2.add(j); }
-    });
-    r1bottom.forEach((r1t,i)=>{
-      const mi=halfMatch+i;
-      const j=pickOpp(r1t,rank2,usedR2);
-      if(j>=0){ bracket[mi*2+1]=rank2[j]; usedR2.add(j); }
-    });
-    // 남은 2위
-    rank2.forEach((t,i)=>{
-      if(usedR2.has(i)) return;
-      for(let slot=0;slot<size;slot++){
-        if(bracket[slot]!==null) continue;
-        const ps=slot%2===0?slot+1:slot-1;
-        const partner=bracket[ps];
-        if(partner&&partner.groupNo===t.groupNo) continue;
-        bracket[slot]=t; break;
-      }
-    });
-  } else {
-    // ── BYE 있음: (1위BYE, 2위vs꼴찌) 쌍으로 배치 ──
-    const usedLast = new Set();
-    const pairs = [];
-    rank2.forEach(r2t => {
-      const j=pickOpp(r2t,rankLast,usedLast);
-      if(j>=0){ pairs.push([r2t,rankLast[j]]); usedLast.add(j); }
-    });
-    const pairsTop    = pairs.filter(([r2t])=>r2t.groupNo>halfGroups);
-    const pairsBottom = pairs.filter(([r2t])=>r2t.groupNo<=halfGroups);
+  placePairs(r1top,    pairsTop,    0);
+  placePairs(r1bottom, pairsBottom, halfMatch);
 
-    const placePairs = (r1List, pairsList, startMI, endMI) => {
-      let mi=startMI;
-      const total=Math.max(r1List.length,pairsList.length);
-      for(let i=0;i<total;i++){
-        if(i<r1List.length&&mi<endMI){ bracket[mi*2]=r1List[i]; bracket[mi*2+1]=null; mi++; }
-        if(i<pairsList.length&&mi<endMI){ bracket[mi*2]=pairsList[i][0]; bracket[mi*2+1]=pairsList[i][1]; mi++; }
-      }
-    };
-    placePairs(r1top,    pairsTop,    0,         halfMatch);
-    placePairs(r1bottom, pairsBottom, halfMatch, matchCount);
-
-    // 남은 팀
-    const placedNos = new Set(bracket.filter(t=>t).map(t=>t.no));
-    const remaining = teams.filter(t=>!placedNos.has(t.no));
-    for(let slot=0;slot<size;slot++){
-      if(!remaining.length) break;
-      if(bracket[slot]!==null) continue;
-      const ps=slot%2===0?slot+1:slot-1;
-      const partner=bracket[ps];
-      if(partner&&partner.groupNo===remaining[0].groupNo) continue;
-      bracket[slot]=remaining.shift();
-    }
+  // 남은 팀 (매칭 못 한 팀) → 빈 슬롯에 배치
+  const placedNos = new Set(bracket.filter(t=>t).map(t=>t.no));
+  const remaining = teams.filter(t=>!placedNos.has(t.no));
+  for(let slot=0; slot<size; slot++){
+    if(!remaining.length) break;
+    if(bracket[slot]!==null) continue;
+    const ps = slot%2===0?slot+1:slot-1;
+    const partner = (ps>=0&&ps<size)?bracket[ps]:null;
+    if(partner&&partner.groupNo===remaining[0].groupNo) continue;
+    bracket[slot] = remaining.shift();
   }
 
   return bracket;
