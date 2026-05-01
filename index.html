@@ -6343,6 +6343,7 @@ window.submitMatchResults = async () => {
     if(isBracket) {
       renderBracketPage(window._bracketEv);
       goPage('pg-bracket');
+      if(window._bracketMatchFrom === 'waiting') setTimeout(()=>{ goPage('pg-bracket'); showWaitingList(); }, 100);
     } else {
       goPage('pg-status');
     }
@@ -6966,6 +6967,7 @@ window.openBracketMatch = async (matchKey, matchIdx, roundIdx, from) => {
 
   document.getElementById('match-title').textContent = `본선 ${matchIdx+1}경기`;
   document.getElementById('match-sub').textContent = `${nameA} vs ${nameB}`;
+  window._bracketMatchFrom = from; // 뒤로가기/제출 후 복귀 위치 저장
   document.getElementById('match-back-btn').onclick = async () => {
     const t2 = window.curTourney || window._statusTourney || window._bracketTourney;
     if(t2) {
@@ -6980,7 +6982,7 @@ window.openBracketMatch = async (matchKey, matchIdx, roundIdx, from) => {
     }
     renderBracketPage(window._bracketEv);
     goPage('pg-bracket');
-    if(from === 'waiting') setTimeout(()=>showWaitingList(), 50);
+    if(window._bracketMatchFrom === 'waiting') setTimeout(()=>{ goPage('pg-bracket'); showWaitingList(); }, 100);
   };
 
   document.getElementById('match-players-header').innerHTML = `
