@@ -6472,7 +6472,10 @@ window.openBracketMatch = async (matchKey, matchIdx, roundIdx) => {
 
   document.getElementById('match-title').textContent = `본선 ${matchIdx+1}경기`;
   document.getElementById('match-sub').textContent = `${nameA} vs ${nameB}`;
-  document.getElementById('match-back-btn').onclick = () => goPage('pg-bracket');
+  document.getElementById('match-back-btn').onclick = () => {
+    if(window._bracketEv) renderBracketPage(window._bracketEv);
+    goPage('pg-bracket');
+  };
 
   document.getElementById('match-players-header').innerHTML = `
     <div style="display:flex;gap:6px">
