@@ -4851,10 +4851,9 @@ window.showFullBracket = () => {
     const mh=TH/mir(r), cy=OY+mi*mh+mh/2;
     return {yA:cy-SH-SG/2, yB:cy+SG/2, mA:cy-SG/2-SH/2, mB:cy+SG/2+SH/2};
   };
-  // 결승: A/B 슬롯을 전체 중앙에 딱 붙여서 배치
-  const fMidY = OY + TH/2;             // 전체 중앙
-  const fYA = fMidY - SH - SG/2;       // A슬롯 위
-  const fYB = fMidY + SG/2;            // B슬롯 아래
+  // 결승: A슬롯=위쪽 1/4, B슬롯=아래쪽 3/4 지점
+  const fYA = OY + TH/4 - SH/2;        // A슬롯 (위쪽 절반 중앙)
+  const fYB = OY + TH*3/4 - SH/2;      // B슬롯 (아래쪽 절반 중앙)
   const fMA = fYA + SH/2;              // A슬롯 중간
   const fMB = fYB + SH/2;              // B슬롯 중간
 
@@ -4873,13 +4872,14 @@ window.showFullBracket = () => {
   g+=`<text x="${cx(SR)+SW/2}" y="22" text-anchor="middle" font-size="10" font-weight="700" fill="#dc2626">결승</text>`;
   for(let rhi=0;rhi<SR;rhi++) g+=`<text x="${cx(SR*2-rhi)+SW/2}" y="22" text-anchor="middle" font-size="10" font-weight="700" fill="#2563eb">${rn(rhi)}</text>`;
 
-  // 목적지 Y 계산: 마지막 라운드면 결승으로, 아니면 다음 라운드 슬롯으로
-  const halfMC = HALF/2; // 한쪽 절반에서 첫번째 라운드 경기수
-  const nextY=(r,mi,slot)=>{
+  // 목적지 Y 계산
+  const nextY=(r,mi)=>{
     const nr=r+1, nmi=Math.floor(mi/2), ns=mi%2;
     if(nr>=SR){
-      // 결승 연결: 경기 번호 기준 위쪽 절반→fMA, 아래쪽 절반→fMB
-      return mi < halfMC/2 ? fMA : fMB;
+      // 4강→결승: 4강 경기가 2개(위/아래)
+      // 4강 mi=0 → 결승A, mi=1 → 결승B
+      const semiFinalMI = Math.floor(mi / Math.pow(2, SR-1-r));
+      return semiFinalMI === 0 ? fMA : fMB;
     }
     const {yA,yB}=slotY(nr,nmi);
     return ns===0?yA+SH/2:yB+SH/2;
