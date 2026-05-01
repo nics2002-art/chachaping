@@ -6118,23 +6118,62 @@ const assignBracket = (teams) => {
     }
   });
 
-  // ── 짝을 반대편 빈 경기 슬롯에 배치 ──
-  const placedNos = new Set(); // 배치된 팀 entryNo 추적
-  // 1위 배치 기록
+  // ── 하위순위 배치 ──
+  const placedNos = new Set();
   bracket.forEach(t => { if(t) placedNos.add(t.no); });
 
-  pairs.forEach(([r2t, rlt]) => {
-    const oppSlots = getOppSlots(r2t.groupNo);
-    for(const mi of oppSlots){
-      if(bracket[mi*2]===null && bracket[mi*2+1]===null){
-        bracket[mi*2]   = r2t;
-        bracket[mi*2+1] = rlt;
-        placedNos.add(r2t.no);
-        placedNos.add(rlt.no);
-        break;
+  // BYE 없는 경우: 1위 B슬롯에 반대편 조 2위 배치
+  // BYE 있는 경우: 빈 경기 슬롯에 pairs 배치
+  const byeCount = size - teams.length;
+
+  if(byeCount === 0) {
+    // BYE 없음: 1위 B슬롯에 반대편 꼴찌 직접 배치
+    pairs.forEach(([r2t, rlt]) => {
+      // r2t를 1위의 반대편 B슬롯에 배치
+      const oppSlots = getOppSlots(r2t.groupNo);
+      for(const mi of oppSlots){
+        const bSlot = mi*2+1;
+        if(bracket[mi*2]!==null && bracket[bSlot]===null){
+          // 1위와 같은 조 아닌지 확인
+          if(bracket[mi*2].groupNo !== r2t.groupNo){
+            bracket[bSlot] = r2t;
+            placedNos.add(r2t.no);
+            // rlt는 별도 배치
+            break;
+          }
+        }
       }
-    }
-  });
+    });
+    // rlt(꼴찌) 배치
+    pairs.forEach(([r2t, rlt]) => {
+      if(placedNos.has(rlt.no)) return;
+      const oppSlots = getOppSlots(rlt.groupNo);
+      for(const mi of oppSlots){
+        const bSlot = mi*2+1;
+        if(bracket[mi*2]!==null && bracket[bSlot]===null){
+          if(bracket[mi*2].groupNo !== rlt.groupNo){
+            bracket[bSlot] = rlt;
+            placedNos.add(rlt.no);
+            break;
+          }
+        }
+      }
+    });
+  } else {
+    // BYE 있음: 빈 경기 슬롯(둘 다 null)에 pairs 배치
+    pairs.forEach(([r2t, rlt]) => {
+      const oppSlots = getOppSlots(r2t.groupNo);
+      for(const mi of oppSlots){
+        if(bracket[mi*2]===null && bracket[mi*2+1]===null){
+          bracket[mi*2]   = r2t;
+          bracket[mi*2+1] = rlt;
+          placedNos.add(r2t.no);
+          placedNos.add(rlt.no);
+          break;
+        }
+      }
+    });
+  }
 
   // ── 남은 팀 → 빈 슬롯에 배치 ──
   const remaining = teams.filter(t => !placedNos.has(t.no));
