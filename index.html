@@ -936,18 +936,20 @@ body { font-family: 'Noto Sans KR', sans-serif; background: var(--bg); color: va
 
 <!-- ==================== 본선 대진표 페이지 ==================== -->
 <div class="page" id="pg-bracket">
-  <div class="header">
-    <div class="back-btn" onclick="goPage('pg-status')">←</div>
-    <div class="header-info">
-      <div class="header-title" id="bracket-title"></div>
-      <div class="header-sub" id="bracket-sub"></div>
+  <div class="header" style="flex-wrap:wrap;gap:8px">
+    <div style="display:flex;align-items:center;gap:10px;flex:1;min-width:0">
+      <div class="back-btn" onclick="goPage('pg-status')">←</div>
+      <div class="header-info" style="min-width:0">
+        <div class="header-title" id="bracket-title" style="white-space:nowrap;overflow:hidden;text-overflow:ellipsis"></div>
+        <div class="header-sub" id="bracket-sub" style="white-space:nowrap;overflow:hidden;text-overflow:ellipsis"></div>
+      </div>
     </div>
-    <div style="display:flex;gap:4px">
-      <button class="btn btn-ghost btn-sm" onclick="showFullBracket()">🗺 전체</button>
-      <button class="btn btn-ghost btn-sm" onclick="showBracketResults()">🏆 결과</button>
-      <button class="btn btn-ghost btn-sm" onclick="showResultBracket()">🗺 결과판</button>
-      <button class="btn btn-ghost btn-sm" onclick="showWaitingList()">⏳ 대기</button>
-      <button class="btn btn-ghost btn-sm" id="bracket-gen-btn" style="display:none" onclick="openGenerateBracketModal()">대진 생성</button>
+    <div style="display:flex;gap:4px;flex-shrink:0">
+      <button class="btn btn-ghost btn-sm" onclick="showFullBracket()" title="전체 대진표">🗺</button>
+      <button class="btn btn-ghost btn-sm" onclick="showBracketResults()" title="결과">🏆</button>
+      <button class="btn btn-ghost btn-sm" onclick="showResultBracket()" title="결과판">📊</button>
+      <button class="btn btn-ghost btn-sm" onclick="showWaitingList()" title="대기">⏳</button>
+      <button class="btn btn-ghost btn-sm" id="bracket-gen-btn" style="display:none" onclick="openGenerateBracketModal()">생성</button>
     </div>
   </div>
   <!-- 라운드 탭 -->
