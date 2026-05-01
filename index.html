@@ -7288,7 +7288,9 @@ window.showPlayerRecord = (idx) => {
       const matchOrder = generateMatchOrder(groupEntries.length);
       const myIdx = groupEntries.findIndex(en=>en.no===myEntry.entryNo);
       const myClub = myEntry.club || players[0]?.club || '-';
-      const myNames = players.map(p=>p.name).join('\n');
+      // 팀 전체 멤버 이름 (검색된 선수만이 아니라 팀원 전체)
+      const myGroupEntry = groupEntries[myIdx];
+      const myNames = (myGroupEntry?.members||players).map(p=>p.name).join('\n');
 
       html += `<div style="border-bottom:1px solid var(--border);padding-bottom:4px;margin-bottom:0">`;
 
@@ -7411,6 +7413,8 @@ window.showPlayerRecord = (idx) => {
   // ── 본선 기록 ──
   const bracketMatches = ev.bracketMatches||{};
   const myBracketMatches = Object.entries(bracketMatches).filter(([key,m])=>{
+    if(!m.results || !m.results[0]) return false; // 경기 결과 없으면 제외
+    if(!m.isBye && (!m.teamA || !m.teamB)) return false; // BYE 아닌데 팀 없으면 제외
     return (m.teamA?.memberIds?.some(mid=>playerIds.includes(mid)))||
            (m.teamB?.memberIds?.some(mid=>playerIds.includes(mid)));
   }).sort((a,b)=>{
@@ -7426,7 +7430,6 @@ window.showPlayerRecord = (idx) => {
     const roundName=remaining===2?'결승':remaining===4?'준결승':remaining===8?'8강전':`${remaining}강전`;
     const iAmA=m.teamA?.memberIds?.some(mid=>playerIds.includes(mid));
     const r=m.results&&m.results[0];
-    if(!r) return;
 
     const myTeam = iAmA?m.teamA:m.teamB;
     const oppTeam = iAmA?m.teamB:m.teamA;
@@ -7434,10 +7437,10 @@ window.showPlayerRecord = (idx) => {
     const oppNames = oppTeam?.members?.map(p=>p.name).join('\n')||'?';
     const myClub = myTeam?.club||'-';
     const oppClub = oppTeam?.club||'-';
-    const myW = iAmA?r.winsA:r.winsB;
-    const oppW = iAmA?r.winsB:r.winsA;
+    const myW = r?(iAmA?r.winsA:r.winsB):0;
+    const oppW = r?(iAmA?r.winsB:r.winsA):0;
     const iWon = myW>oppW;
-    const totalSets = (r.sets||[]).filter(s=>s.a>0||s.b>0);
+    const totalSets = r?(r.sets||[]).filter(s=>s.a>0||s.b>0):[];
     const myPts = totalSets.reduce((s,set)=>s+(iAmA?set.a:set.b),0);
     const oppPts = totalSets.reduce((s,set)=>s+(iAmA?set.b:set.a),0);
 
