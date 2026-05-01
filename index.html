@@ -7325,13 +7325,27 @@ window.showPlayerRecord = (idx) => {
         let detailHtml = '';
         if(r.gameResults && r.gameResults.length) {
           // 단체전: 게임별 세트 표시
+          const lineups = myGroup.teamMatchLineups || {};
+          const matchLineup = lineups[mi] || {};
           detailHtml = `<div style="margin-top:10px;display:flex;flex-wrap:wrap;gap:6px">` +
             r.gameResults.map((gr,gi) => {
               const gSets = (gr.sets||[]).filter(s=>s.a>0||s.b>0);
               const gWinA = iAmA ? gr.wa > gr.wb : gr.wb > gr.wa;
+              // 라인업에서 게임별 선수 이름 가져오기
+              const myLineupKey = iAmA ? `0_${gi}` : `1_${gi}`;
+              const oppLineupKey = iAmA ? `1_${gi}` : `0_${gi}`;
+              const myPlayerName = matchLineup[myLineupKey] || '';
+              const oppPlayerName = matchLineup[oppLineupKey] || '';
+              const matchupHtml = (myPlayerName||oppPlayerName) ?
+                `<div style="font-size:10px;color:var(--text3);margin-top:3px">
+                  <span style="color:var(--accent)">${myPlayerName||'?'}</span>
+                  <span> vs </span>
+                  <span style="color:var(--pink)">${oppPlayerName||'?'}</span>
+                </div>` : '';
               return `<div style="background:var(--surface2);border-radius:8px;padding:6px 10px;font-size:12px">
                 <span style="color:var(--text3);margin-right:4px">${gi+1}게임</span>
                 <span style="color:${gWinA?'var(--green)':'var(--pink)'};font-weight:700">${gWinA?'승':'패'}</span>
+                ${matchupHtml}
                 ${gSets.length?`<div style="font-size:13px;font-weight:700;color:var(--text);margin-top:2px">
                   ${gSets.map((s,si)=>`<span style="margin-right:6px;color:var(--text2)">${si+1}세트 <span style="color:${(iAmA?s.a:s.b)>(iAmA?s.b:s.a)?'var(--green)':'var(--pink)'}">${iAmA?s.a:s.b}</span>-<span style="color:${(iAmA?s.b:s.a)>(iAmA?s.a:s.b)?'var(--green)':'var(--pink)'}">${iAmA?s.b:s.a}</span></span>`).join('')}
                 </div>`:''}
