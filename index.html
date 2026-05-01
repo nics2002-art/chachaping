@@ -5611,7 +5611,7 @@ window.openGroupMatch = (group, groupEntries, ev) => {
   window._curGroup = group;
   window._curGroupTeams = teams;
   window._curGroupEv = ev;
-  window._curMatchIsOwner = window.currentUser && window.curTourney && window.curTourney.createdBy === window.currentUser.uid;
+  window._curMatchIsOwner = isTourneyAdmin(window.curTourney||{});
   window._isBracketMatch = false;
 
   document.getElementById('match-back-btn').onclick = async () => {
@@ -6745,7 +6745,7 @@ window.openBracketMatch = async (matchKey, matchIdx, roundIdx, from) => {
   window._curGroupTeams = [teamA, teamB];
   window._curGroupEv = ev;
   window._curMatchOrder = [[0,1]];
-  window._curMatchIsOwner = window.currentUser && t && t.createdBy === window.currentUser.uid;
+  window._curMatchIsOwner = isTourneyAdmin(t||{});
   window._isBracketMatch = true;
   window._bracketMatchKey = matchKey;
   window._bracketMatchIdx = matchIdx;
