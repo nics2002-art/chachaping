@@ -4875,15 +4875,18 @@ window.showFullBracket = () => {
 
   // 목적지 Y 계산
   const firstRoundMC = mir(0); // 첫 라운드 경기 수 (한쪽 절반)
+  const semiFinalMC=mir(SR-1); // 4강 경기 수 (1이면 8강, 2이면 16강)
+  // 왼쪽: 4강 1경기→결승A, 4강 2경기→위결승A/아래결승B
   const nextYL=(r,mi)=>{
     const nr=r+1, nmi=Math.floor(mi/2), ns=mi%2;
-    if(nr>=SR) return mi%2===0?fMA:fMB; // 위 경기→결승A, 아래 경기→결승B
+    if(nr>=SR) return semiFinalMC===1 ? fMA : (mi%2===0?fMA:fMB);
     const {yA,yB}=slotY(nr,nmi);
     return ns===0?yA+SH/2:yB+SH/2;
   };
+  // 오른쪽: 4강 1경기→결승B, 4강 2경기→위결승A/아래결승B
   const nextYR=(r,mi)=>{
     const nr=r+1, nmi=Math.floor(mi/2), ns=mi%2;
-    if(nr>=SR) return mi%2===0?fMA:fMB;
+    if(nr>=SR) return semiFinalMC===1 ? fMB : (mi%2===0?fMA:fMB);
     const {yA,yB}=slotY(nr,nmi);
     return ns===0?yA+SH/2:yB+SH/2;
   };
