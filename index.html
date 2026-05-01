@@ -2239,6 +2239,10 @@ window.openNewTourneyModal = () => {
   document.getElementById('new-tourney-reg-start').value = '';
   document.getElementById('new-tourney-reg-end-date').value = '';
   document.getElementById('new-tourney-reg-end-time').value = '23:59';
+  // 기본 대회 유형: 시도대회
+  document.querySelectorAll('.chip[data-group="ttype"]').forEach(c => {
+    c.classList.toggle('on', c.dataset.val === '시도대회');
+  });
   openModal('modal-tourney');
   setTimeout(() => document.getElementById('new-tourney-name').focus(), 200);
 };
@@ -7447,28 +7451,48 @@ window.showPlayerRecord = (idx) => {
     const h2h = (window._headToHead||{})[oppNames]||{wins:0,losses:0};
     const h2hTotal = h2h.wins+h2h.losses;
     const h2hBadge = h2hTotal>0 ? `<div style="font-size:10px;color:var(--text3);text-align:center;margin-top:4px">통산 ${h2hTotal}전 ${h2h.wins}승 ${h2h.losses}패</div>` : '';
-    html += `<div style="padding:14px 0;border-bottom:1px solid var(--border)">
-      <div style="font-size:13px;font-weight:700;color:var(--accent);margin-bottom:10px">${roundName}</div>
-      <div style="display:flex;align-items:center;gap:8px">
-        <div style="flex:1;min-width:0">
-          <div style="font-size:11px;color:var(--text3);margin-bottom:2px">${myClub}</div>
-          <div style="font-size:13px;font-weight:600;color:var(--text);white-space:pre-line">${myNames}</div>
-        </div>
-        <div style="text-align:center;min-width:80px">
-          <div style="font-size:11px;font-weight:700;color:${iWon?'var(--green)':'var(--pink)'};margin-bottom:4px">${iWon?'승':'패'}</div>
-          <div style="font-size:22px;font-weight:700">
-            <span style="color:${iWon?'var(--green)':'var(--pink)'}">${myPts}</span>
-            <span style="color:var(--text3);font-size:16px"> - </span>
-            <span style="color:${!iWon?'var(--green)':'var(--pink)'}">${oppPts}</span>
+    if(m.isBye) {
+      // BYE(부전승) 표시
+      html += `<div style="padding:14px 0;border-bottom:1px solid var(--border)">
+        <div style="font-size:13px;font-weight:700;color:var(--accent);margin-bottom:10px">${roundName}</div>
+        <div style="display:flex;align-items:center;gap:8px">
+          <div style="flex:1;min-width:0">
+            <div style="font-size:11px;color:var(--text3);margin-bottom:2px">${myClub}</div>
+            <div style="font-size:13px;font-weight:600;color:var(--text);white-space:pre-line">${myNames}</div>
           </div>
-          ${h2hBadge}
+          <div style="text-align:center;min-width:80px">
+            <div style="font-size:13px;font-weight:700;color:var(--green)">부전승</div>
+            <div style="font-size:11px;color:var(--text3);margin-top:4px">🏆 BYE</div>
+          </div>
+          <div style="flex:1;min-width:0;text-align:right">
+            <div style="font-size:13px;color:var(--text3)">-</div>
+          </div>
         </div>
-        <div style="flex:1;min-width:0;text-align:right">
-          <div style="font-size:11px;color:var(--text3);margin-bottom:2px">${oppClub}</div>
-          <div style="font-size:13px;font-weight:600;color:var(--text);white-space:pre-line">${oppNames}</div>
+      </div>`;
+    } else {
+      html += `<div style="padding:14px 0;border-bottom:1px solid var(--border)">
+        <div style="font-size:13px;font-weight:700;color:var(--accent);margin-bottom:10px">${roundName}</div>
+        <div style="display:flex;align-items:center;gap:8px">
+          <div style="flex:1;min-width:0">
+            <div style="font-size:11px;color:var(--text3);margin-bottom:2px">${myClub}</div>
+            <div style="font-size:13px;font-weight:600;color:var(--text);white-space:pre-line">${myNames}</div>
+          </div>
+          <div style="text-align:center;min-width:80px">
+            <div style="font-size:11px;font-weight:700;color:${iWon?'var(--green)':'var(--pink)'};margin-bottom:4px">${iWon?'승':'패'}</div>
+            <div style="font-size:22px;font-weight:700">
+              <span style="color:${iWon?'var(--green)':'var(--pink)'}">${myPts}</span>
+              <span style="color:var(--text3);font-size:16px"> - </span>
+              <span style="color:${!iWon?'var(--green)':'var(--pink)'}">${oppPts}</span>
+            </div>
+            ${h2hBadge}
+          </div>
+          <div style="flex:1;min-width:0;text-align:right">
+            <div style="font-size:11px;color:var(--text3);margin-bottom:2px">${oppClub}</div>
+            <div style="font-size:13px;font-weight:600;color:var(--text);white-space:pre-line">${oppNames}</div>
+          </div>
         </div>
-      </div>
-    </div>`;
+      </div>`;
+    }
   });
 
   if(!html) html = '<div class="empty"><div class="empty-icon">📋</div><div class="empty-text">경기 기록이 없습니다</div></div>';
