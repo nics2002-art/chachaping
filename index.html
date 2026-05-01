@@ -4874,13 +4874,17 @@ window.showFullBracket = () => {
   for(let rhi=0;rhi<SR;rhi++) g+=`<text x="${cx(SR*2-rhi)+SW/2}" y="22" text-anchor="middle" font-size="10" font-weight="700" fill="#2563eb">${rn(rhi)}</text>`;
 
   // 목적지 Y 계산
-  const firstRoundMC = mir(0); // 첫 라운드 경기 수 (한쪽 절반)
-  const nextY=(r,mi)=>{
+  // 왼쪽 마지막 라운드 → 결승A(fMA)
+  const nextYL=(r,mi)=>{
     const nr=r+1, nmi=Math.floor(mi/2), ns=mi%2;
-    if(nr>=SR){
-      // 4강→결승: 위쪽 절반 경기 → fMA, 아래쪽 절반 경기 → fMB
-      return mi < firstRoundMC/2 ? fMA : fMB;
-    }
+    if(nr>=SR) return fMA;  // 왼쪽은 항상 결승A
+    const {yA,yB}=slotY(nr,nmi);
+    return ns===0?yA+SH/2:yB+SH/2;
+  };
+  // 오른쪽 마지막 라운드 → 결승B(fMB)
+  const nextYR=(r,mi)=>{
+    const nr=r+1, nmi=Math.floor(mi/2), ns=mi%2;
+    if(nr>=SR) return fMB;  // 오른쪽은 항상 결승B
     const {yA,yB}=slotY(nr,nmi);
     return ns===0?yA+SH/2:yB+SH/2;
   };
@@ -4897,10 +4901,14 @@ window.showFullBracket = () => {
       ds(lx,lyA,lbl(ltA),lwA,ltA===null&&lr===0);
       ds(lx,lyB,lbl(ltB),lwB,ltB===null&&lr===0);
       g+=`<line x1="${lx+5}" y1="${lyA+SH}" x2="${lx+SW-5}" y2="${lyA+SH}" stroke="#e2e8f0" stroke-width="1" stroke-dasharray="2,2"/>`;
-      const lmid=(lmA+lmB)/2, lnx=cx(lr+1), lhx=lx+SW+CW/2, lty=nextY(lr,lmi,0);
-      g+=`<polyline points="${lx+SW},${lmA} ${lhx},${lmA} ${lhx},${lmid}" fill="none" stroke="#cbd5e1" stroke-width="1.5"/>`;
-      g+=`<polyline points="${lx+SW},${lmB} ${lhx},${lmB} ${lhx},${lmid}" fill="none" stroke="#cbd5e1" stroke-width="1.5"/>`;
-      g+=`<line x1="${lhx}" y1="${lmid}" x2="${lnx}" y2="${lty}" stroke="#cbd5e1" stroke-width="1.5"/>`;
+      const lmid=(lmA+lmB)/2, lnx=cx(lr+1), lhx=lx+SW+CW/2, lty=nextYL(lr,lmi);
+      if(lr===SR-1){
+        g+=`<line x1="${lx+SW}" y1="${lmid}" x2="${lnx}" y2="${lty}" stroke="#cbd5e1" stroke-width="1.5"/>`;
+      } else {
+        g+=`<polyline points="${lx+SW},${lmA} ${lhx},${lmA} ${lhx},${lmid}" fill="none" stroke="#cbd5e1" stroke-width="1.5"/>`;
+        g+=`<polyline points="${lx+SW},${lmB} ${lhx},${lmB} ${lhx},${lmid}" fill="none" stroke="#cbd5e1" stroke-width="1.5"/>`;
+        g+=`<line x1="${lhx}" y1="${lmid}" x2="${lnx}" y2="${lty}" stroke="#cbd5e1" stroke-width="1.5"/>`;
+      }
     }
   }
 
@@ -4929,9 +4937,14 @@ window.showFullBracket = () => {
       ds(rx,ryB,lbl(rtB),rwB,rtB===null&&rr===0);
       g+=`<line x1="${rx+5}" y1="${ryA+SH}" x2="${rx+SW-5}" y2="${ryA+SH}" stroke="#e2e8f0" stroke-width="1" stroke-dasharray="2,2"/>`;
       const rmid=(rmA+rmB)/2, rnc=rcol-1, rhx=rx-CW/2, rnrx=cx(rnc)+SW, rty=nextY(rr,rmi,0);
-      g+=`<polyline points="${rx},${rmA} ${rhx},${rmA} ${rhx},${rmid}" fill="none" stroke="#cbd5e1" stroke-width="1.5"/>`;
-      g+=`<polyline points="${rx},${rmB} ${rhx},${rmB} ${rhx},${rmid}" fill="none" stroke="#cbd5e1" stroke-width="1.5"/>`;
-      g+=`<line x1="${rhx}" y1="${rmid}" x2="${rnrx}" y2="${rty}" stroke="#cbd5e1" stroke-width="1.5"/>`;
+      if(rr===SR-1){
+        // 마지막 라운드(4강)→결승: 수평 일자 연결
+        g+=`<line x1="${rx}" y1="${(rmA+rmB)/2}" x2="${rnrx}" y2="${rty}" stroke="#cbd5e1" stroke-width="1.5"/>`;
+      } else {
+        g+=`<polyline points="${rx},${rmA} ${rhx},${rmA} ${rhx},${rmid}" fill="none" stroke="#cbd5e1" stroke-width="1.5"/>`;
+        g+=`<polyline points="${rx},${rmB} ${rhx},${rmB} ${rhx},${rmid}" fill="none" stroke="#cbd5e1" stroke-width="1.5"/>`;
+        g+=`<line x1="${rhx}" y1="${rmid}" x2="${rnrx}" y2="${rty}" stroke="#cbd5e1" stroke-width="1.5"/>`;
+      }
     }
   }
 
