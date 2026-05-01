@@ -2247,14 +2247,14 @@ window.saveTourney = async () => {
   });
   closeModal('modal-tourney');
   showToast('대회가 만들어졌어요!');
-  loadTournaments();
+  loadTournaments(true);
 };
 
 window.deleteTourney = async (id) => {
   if (!confirm('대회를 삭제할까요?')) return;
   await deleteDoc(doc(db, 'tournaments', id));
   showToast('삭제됐어요');
-  loadTournaments();
+  loadTournaments(true);
 };
 
 window.openEditTourneyModal = async (id) => {
@@ -2473,7 +2473,7 @@ window.deployTourney = async () => {
   document.getElementById('deploy-btn').style.display = 'none';
   document.getElementById('tourney-status-bar').innerHTML = '';
   showToast('배포 완료! 이제 접수가 시작됩니다 🎉');
-  loadTournaments();
+  loadTournaments(true);
 };
 
 // ── 종목 ────────────────────────────────────────────────
