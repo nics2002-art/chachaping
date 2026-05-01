@@ -3979,13 +3979,16 @@ window.openMypage = async () => {
     const {getDocs, collection} = await import('https://www.gstatic.com/firebasejs/11.6.0/firebase-firestore.js');
     const snap = await getDocs(collection(db,'tournaments'));
 
-    let preWins=0, preLosses=0;      // 예선 승/패
-    let prePassCount=0, preTotalEvents=0; // 예선 통과/출전
-    let mainWins=0, mainLosses=0;    // 본선 승/패
+    let preWins=0, preLosses=0;      // 예선 승/패 (일반대회)
+    let prePassCount=0, preTotalEvents=0; // 예선 통과/출전 (일반대회)
+    let mainWins=0, mainLosses=0;    // 본선 승/패 (일반대회)
+    let lgWins=0, lgLosses=0;        // 구장리그 승/패
+    let lgMainWins=0, lgMainLosses=0; // 구장리그 본선 승/패
     const recentList = [];
 
     snap.forEach(docSnap => {
       const t = {id:docSnap.id, ...docSnap.data()};
+      const isLeague = t.leagueType === 'league';
       (t.events||[]).forEach(ev => {
         const myPlayers = (ev.players||[]).filter(p=>p.addedBy===user.uid);
         if(!myPlayers.length) return;
@@ -4014,7 +4017,8 @@ window.openMypage = async () => {
             if(ai!==myIdx&&bi!==myIdx) return;
             const iAmA=ai===myIdx;
             const myW=iAmA?r.winsA:r.winsB, oppW=iAmA?r.winsB:r.winsA;
-            if(myW>oppW) preWins++; else preLosses++;
+            if(isLeague){ if(myW>oppW) lgWins++; else lgLosses++; }
+            else { if(myW>oppW) preWins++; else preLosses++; }
           });
 
           // 예선 통과 여부
@@ -4033,7 +4037,8 @@ window.openMypage = async () => {
           const r=m.results&&m.results[0];
           if(!r) return;
           const myW=iAmA?r.winsA:r.winsB, oppW=iAmA?r.winsB:r.winsA;
-          if(myW>oppW) mainWins++; else mainLosses++;
+          if(isLeague){ if(myW>oppW) lgMainWins++; else lgMainLosses++; }
+          else { if(myW>oppW) mainWins++; else mainLosses++; }
         });
       });
     });
@@ -4042,11 +4047,17 @@ window.openMypage = async () => {
     const mainTotal=mainWins+mainLosses;
     const totalWins=preWins+mainWins, totalLosses=preLosses+mainLosses;
     const totalGames=totalWins+totalLosses;
+    const lgTotal=lgWins+lgLosses;
+    const lgMainTotal=lgMainWins+lgMainLosses;
+    const lgAllWins=lgWins+lgMainWins, lgAllLosses=lgLosses+lgMainLosses;
+    const lgAllGames=lgAllWins+lgAllLosses;
 
     const pct=(w,t)=>t?Math.round(w/t*100):0;
 
     document.getElementById('mypage-stats').innerHTML = `
-      <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px">
+      <!-- 일반 대회 -->
+      <div style="font-size:12px;font-weight:700;color:var(--text);margin-bottom:8px">🏆 일반 대회</div>
+      <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-bottom:16px">
         <div style="background:var(--surface2);border-radius:10px;padding:12px;text-align:center">
           <div style="font-size:11px;color:var(--text3);margin-bottom:4px">예선 승률</div>
           <div style="font-size:24px;font-weight:700;color:var(--accent)">${pct(preWins,preTotal)}%</div>
@@ -4068,8 +4079,27 @@ window.openMypage = async () => {
           <div style="font-size:11px;color:var(--text2)">${totalWins}승 ${totalLosses}패</div>
         </div>
       </div>
-      <div style="margin-top:10px;text-align:center;font-size:11px;color:var(--text3)">
+      <div style="margin-bottom:16px;text-align:center;font-size:11px;color:var(--text3)">
         총 ${preTotalEvents}개 대회 출전 · ${totalGames}경기
+      </div>
+      <!-- 구장 리그 -->
+      <div style="font-size:12px;font-weight:700;color:var(--text);margin-bottom:8px">🏓 구장 리그</div>
+      <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-bottom:10px">
+        <div style="background:var(--surface2);border-radius:10px;padding:12px;text-align:center">
+          <div style="font-size:11px;color:var(--text3);margin-bottom:4px">예선 승률</div>
+          <div style="font-size:24px;font-weight:700;color:var(--accent)">${pct(lgWins,lgTotal)}%</div>
+          <div style="font-size:11px;color:var(--text2)">${lgWins}승 ${lgLosses}패</div>
+        </div>
+        <div style="background:var(--surface2);border-radius:10px;padding:12px;text-align:center">
+          <div style="font-size:11px;color:var(--text3);margin-bottom:4px">본선 승률</div>
+          <div style="font-size:24px;font-weight:700;color:var(--pink)">${pct(lgMainWins,lgMainTotal)}%</div>
+          <div style="font-size:11px;color:var(--text2)">${lgMainWins}승 ${lgMainLosses}패</div>
+        </div>
+        <div style="grid-column:1/-1;background:var(--surface2);border-radius:10px;padding:12px;text-align:center">
+          <div style="font-size:11px;color:var(--text3);margin-bottom:4px">리그 토탈 승률</div>
+          <div style="font-size:24px;font-weight:700;color:var(--amber)">${pct(lgAllWins,lgAllGames)}%</div>
+          <div style="font-size:11px;color:var(--text2)">${lgAllWins}승 ${lgAllLosses}패 · ${lgAllGames}경기</div>
+        </div>
       </div>`;
 
     // 최근 대회
@@ -5823,6 +5853,10 @@ window.openGroupMatch = (group, groupEntries, ev) => {
   window._curMatchIsOwner = isTourneyAdmin(window.curTourney||{});
   window._isBracketMatch = false;
 
+  // 현재 조의 역대전적 계산 (클럽+이름 기준)
+  // _headToHead가 없으면 빈 객체로 초기화 (기록찾기에서 로드한 게 있으면 그대로 사용)
+  if(!window._headToHead) window._headToHead = {};
+
   document.getElementById('match-back-btn').onclick = async () => {
     // 뒤로가기 시 최신 데이터 로드
     const t = window.curTourney || window._statusTourney || window._bracketTourney;
@@ -6127,11 +6161,20 @@ window.renderMatchList = () => {
     return {pair, winsA: isForfeit?0:winsA, winsB: isForfeit?3:winsB, done, isForfeit};
   });
 
+  // 현재 검색된 선수의 역대전적 (기록찾기에서 로드됐을 때)
+  const h2h = window._headToHead || {};
+  const getH2H = (team) => {
+    const key = team.members.map(m=>`${m.club||team.club||'-'}/${m.name}`).join(', ');
+    return h2h[key] || null;
+  };
+
   const matchesHtml = matchOrder.map((pair, mi) => {
     const [ai, bi] = pair;
     const tA = teams[ai], tB = teams[bi];
     const nameA = tA.members.map(m=>m.name).join(', ');
     const nameB = tB.members.map(m=>m.name).join(', ');
+    const h2hA = getH2H(tA), h2hB = getH2H(tB);
+    const h2hTag = (h) => h ? `<span style="font-size:10px;color:var(--text3);margin-left:4px">(${h.wins}승${h.losses}패)</span>` : '';
     const mscores = scores[mi] || {};
     const isForfeit = forfeits[mi];
     const {winsA, winsB, done} = matchResults[mi];
@@ -6185,6 +6228,7 @@ window.renderMatchList = () => {
           <div style="flex:1;text-align:center">
             <div style="font-size:14px;font-weight:700;color:var(--accent)">${labels[ai]}</div>
             <div style="font-size:11px;color:var(--text)">${nameA}</div>
+            ${h2hB?`<div style="font-size:10px;color:var(--text3)">vs전적 ${h2hB.wins}승 ${h2hB.losses}패</div>`:''}
             <button class="btn btn-ghost btn-sm" style="font-size:10px;margin-top:4px" onclick="openMatchLineup(${mi},${ai},${bi},0)">👥 순서</button>
           </div>
           <div style="font-size:18px;font-weight:700;color:var(--text3)">${gameWinsA} : ${gameWinsB}</div>
@@ -6269,11 +6313,13 @@ window.renderMatchList = () => {
         <div style="flex:1;text-align:center">
           <div style="font-size:14px;font-weight:700;color:var(--accent)">${labels[ai]}</div>
           <div style="font-size:12px;color:var(--text)">${nameA}</div>
+          ${h2hB?`<div style="font-size:10px;color:var(--text3)">vs전적 ${h2hB.wins}승 ${h2hB.losses}패</div>`:''}
         </div>
         <div style="font-size:16px;font-weight:700;color:var(--text3)">${winsA} : ${winsB}</div>
         <div style="flex:1;text-align:center">
           <div style="font-size:14px;font-weight:700;color:var(--pink)">${labels[bi]}</div>
           <div style="font-size:12px;color:var(--text)">${nameB}</div>
+          ${h2hA?`<div style="font-size:10px;color:var(--text3)">vs전적 ${h2hA.wins}승 ${h2hA.losses}패</div>`:''}
         </div>
       </div>
       <table style="width:100%;border-collapse:collapse">
@@ -7185,8 +7231,8 @@ window.searchPlayer = async () => {
             const oppIdx=iAmA?bi:ai;
             const opp=groupEntries[oppIdx];
             if(!opp) return;
-            const oppKey=opp.members.map(m=>m.name).join(', ');
-            if(!headToHead[oppKey]) headToHead[oppKey]={wins:0,losses:0};
+            const oppKey=opp.members.map(m=>`${m.club||opp.club||'-'}/${m.name}`).join(', ');
+            if(!headToHead[oppKey]) headToHead[oppKey]={wins:0,losses:0,display:opp.members.map(m=>m.name).join(', ')};
             const myW=iAmA?r.winsA:r.winsB, oppW=iAmA?r.winsB:r.winsA;
             if(myW>oppW) headToHead[oppKey].wins++; else headToHead[oppKey].losses++;
           });
@@ -7202,8 +7248,8 @@ window.searchPlayer = async () => {
         if(!r) return;
         const oppTeam=iAmA?m.teamB:m.teamA;
         if(!oppTeam) return;
-        const oppKey=oppTeam.members?.map(p=>p.name).join(', ')||'?';
-        if(!headToHead[oppKey]) headToHead[oppKey]={wins:0,losses:0};
+        const oppKey=oppTeam.members?.map(p=>`${p.club||oppTeam.club||'-'}/${p.name}`).join(', ')||'?';
+        if(!headToHead[oppKey]) headToHead[oppKey]={wins:0,losses:0,display:oppTeam.members?.map(p=>p.name).join(', ')||'?'};
         const myW=iAmA?r.winsA:r.winsB, oppW=iAmA?r.winsB:r.winsA;
         if(myW>oppW) headToHead[oppKey].wins++; else headToHead[oppKey].losses++;
       });
