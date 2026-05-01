@@ -4877,13 +4877,13 @@ window.showFullBracket = () => {
   const firstRoundMC = mir(0); // 첫 라운드 경기 수 (한쪽 절반)
   const nextYL=(r,mi)=>{
     const nr=r+1, nmi=Math.floor(mi/2), ns=mi%2;
-    if(nr>=SR) return fMA;
+    if(nr>=SR) return mi%2===0?fMA:fMB; // 위 경기→결승A, 아래 경기→결승B
     const {yA,yB}=slotY(nr,nmi);
     return ns===0?yA+SH/2:yB+SH/2;
   };
   const nextYR=(r,mi)=>{
     const nr=r+1, nmi=Math.floor(mi/2), ns=mi%2;
-    if(nr>=SR) return fMB;
+    if(nr>=SR) return mi%2===0?fMA:fMB;
     const {yA,yB}=slotY(nr,nmi);
     return ns===0?yA+SH/2:yB+SH/2;
   };
