@@ -816,6 +816,7 @@ body { font-family: 'Noto Sans KR', sans-serif; background: var(--bg); color: va
     </div>
     <div style="display:flex;gap:4px">
       <button id="admin-mgr-btn" class="btn btn-ghost btn-sm" onclick="openAdminMgrModal()" style="display:none">👥</button>
+      <button id="tourney-status-btn" class="btn btn-ghost btn-sm" onclick="openTourneyStatus(window.curTourney?.id)" style="display:none">현황</button>
       <button class="btn btn-ghost btn-sm" onclick="openNoticeModal()">📋 요강</button>
       <button class="btn btn-ghost btn-sm" onclick="showQrCode()">QR</button>
       <button id="tourney-notice-btn" class="btn btn-ghost btn-sm" onclick="openTourneyNoticeModal()" style="display:none">📢</button>
@@ -2525,6 +2526,8 @@ window.openTourney = async (id, force) => {
   const isOwner = window.currentUser && t.createdBy === window.currentUser.uid;
   document.getElementById('fab-event').style.display = isTourneyAdmin(t) ? 'flex' : 'none';
   document.getElementById('deploy-btn').style.display = (isOwner && t.status === 'draft') ? 'flex' : 'none';
+  const hasGroups = (t.events||[]).some(ev=>(ev.groups||[]).length>0);
+  document.getElementById('tourney-status-btn').style.display = hasGroups ? '' : 'none';
   document.getElementById('admin-mgr-btn').style.display = isOwner ? '' : 'none';
   document.getElementById('tourney-notice-btn').style.display = isOwner ? '' : 'none';
   // 상태바
