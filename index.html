@@ -809,7 +809,7 @@ body { font-family: 'Noto Sans KR', sans-serif; background: var(--bg); color: va
 <!-- ==================== 대회 상세 (종목 목록) ==================== -->
 <div class="page" id="pg-tourney">
   <div class="header">
-    <div class="back-btn" onclick="goPage('pg-main')">←</div>
+    <div class="back-btn" onclick="window.curTourney?.leagueType==='league'?loadLeaguePage():goPage('pg-main')">←</div>
     <div class="header-info">
       <div class="header-title" id="th-name"></div>
       <div class="header-sub" id="th-sub"></div>
@@ -3396,7 +3396,27 @@ window.openGroupMatchByIdx = (gIdx) => {
   openGroupMatch(g, groupEntries, ev);
 };
 
+
+window.openGroupMatchFromRanking = (matchIdx) => {
+  // 현재 대각선 표에서 보고 있는 조/팀 정보로 경기 페이지 이동
+  const group = window._curRankingGroup;
+  const groupEntries = window._curRankingEntries;
+  const ev = window._curRankingEv;
+  if(!group || !groupEntries || !ev) return;
+  goPage('pg-ranking'); // 일단 닫고
+  openGroupMatch(group, groupEntries, ev);
+  // 해당 경기로 스크롤
+  setTimeout(() => {
+    const cards = document.querySelectorAll('#match-list .card');
+    if(cards[matchIdx]) cards[matchIdx].scrollIntoView({behavior:'smooth', block:'center'});
+  }, 300);
+};
 window.openGroupRanking = (group, groupEntries, ev) => {
+  // 경기 이동을 위해 캐시
+  window._curRankingGroup = group;
+  window._curRankingEntries = groupEntries;
+  window._curRankingEv = ev;
+
   const teams = groupEntries.filter(Boolean);
   const n = teams.length;
   const matchOrder = generateMatchOrder(n);
@@ -3461,13 +3481,18 @@ window.openGroupRanking = (group, groupEntries, ev) => {
           cellContent = `<div style="font-size:16px;font-weight:700;color:${iAmA?'var(--pink)':'var(--green)'}">
             ${iAmA?'기권':'부전승'}</div>`;
           cellBg = iAmA?'rgba(219,39,119,0.08)':'rgba(22,163,74,0.08)';
+        } else {
+          // 미진행: 빈칸 + 클릭시 해당 경기로 이동
+          cellContent = `<div style="font-size:11px;color:var(--border2)">-</div>`;
+          cellBg = 'var(--surface)';
+          clickHandler = `onclick="openGroupMatchFromRanking(${mi})"`;
         }
 
         matrixHtml += `<td ${clickHandler} style="width:${cellSize}px;height:${cellSize}px;
           text-align:center;vertical-align:middle;
           background:${cellBg};border:1px solid var(--border2);
-          cursor:${r?'pointer':'default'};
-          transition:opacity 0.1s" ${r?'onmousedown="this.style.opacity=0.7" onmouseup="this.style.opacity=1"':''}>
+          cursor:pointer;
+          transition:opacity 0.1s" onmousedown="this.style.opacity=0.7" onmouseup="this.style.opacity=1">
           ${cellContent}
         </td>`;
       }
