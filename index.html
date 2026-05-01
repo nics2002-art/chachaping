@@ -7327,15 +7327,26 @@ window.showPlayerRecord = (idx) => {
           // 단체전: 게임별 세트 표시
           const lineups = myGroup.teamMatchLineups || {};
           const matchLineup = lineups[mi] || {};
+          // 내 팀(A or B 기준), 상대팀 멤버 배열
+          const myMembers = iAmA ? (groupEntries[myIdx]?.members||[]) : (opp?.members||[]);
+          const oppMembers = iAmA ? (opp?.members||[]) : (groupEntries[myIdx]?.members||[]);
+          const myTi = iAmA ? 0 : 1;
+          const oppTi = iAmA ? 1 : 0;
+          const getMemberName = (members, idxStr) => {
+            if(idxStr===undefined||idxStr===null||idxStr==='') return '';
+            if(String(idxStr).includes('-')) {
+              // 복식: '0-1' 형태
+              const [a,b] = idxStr.split('-').map(Number);
+              return [members[a]?.name, members[b]?.name].filter(Boolean).join('+');
+            }
+            return members[parseInt(idxStr)]?.name || '';
+          };
           detailHtml = `<div style="margin-top:10px;display:flex;flex-wrap:wrap;gap:6px">` +
             r.gameResults.map((gr,gi) => {
               const gSets = (gr.sets||[]).filter(s=>s.a>0||s.b>0);
               const gWinA = iAmA ? gr.wa > gr.wb : gr.wb > gr.wa;
-              // 라인업에서 게임별 선수 이름 가져오기
-              const myLineupKey = iAmA ? `0_${gi}` : `1_${gi}`;
-              const oppLineupKey = iAmA ? `1_${gi}` : `0_${gi}`;
-              const myPlayerName = matchLineup[myLineupKey] || '';
-              const oppPlayerName = matchLineup[oppLineupKey] || '';
+              const myPlayerName = getMemberName(myMembers, matchLineup[`${myTi}_${gi}`]);
+              const oppPlayerName = getMemberName(oppMembers, matchLineup[`${oppTi}_${gi}`]);
               const matchupHtml = (myPlayerName||oppPlayerName) ?
                 `<div style="font-size:10px;color:var(--text3);margin-top:3px">
                   <span style="color:var(--accent)">${myPlayerName||'?'}</span>
