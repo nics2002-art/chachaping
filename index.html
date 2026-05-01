@@ -6160,10 +6160,25 @@ const assignBracket = (teams) => {
       }
     });
   } else {
-    // BYE 있음: 빈 경기 슬롯(둘 다 null)에 pairs 배치
+    // BYE 있음: 빈 경기 슬롯에 pairs 배치
+    // r2t 조번호 기준 반대편 절반의 빈 슬롯에 배치
+    // (r2t가 상단 조면 하단 빈 슬롯, 하단 조면 상단 빈 슬롯)
     pairs.forEach(([r2t, rlt]) => {
       const oppSlots = getOppSlots(r2t.groupNo);
       for(const mi of oppSlots){
+        if(bracket[mi*2]===null && bracket[mi*2+1]===null){
+          bracket[mi*2]   = r2t;
+          bracket[mi*2+1] = rlt;
+          placedNos.add(r2t.no);
+          placedNos.add(rlt.no);
+          break;
+        }
+      }
+    });
+    // 아직 못 배치된 pairs → 아무 빈 경기 슬롯에
+    pairs.forEach(([r2t, rlt]) => {
+      if(placedNos.has(r2t.no)) return;
+      for(let mi=0; mi<matchCount; mi++){
         if(bracket[mi*2]===null && bracket[mi*2+1]===null){
           bracket[mi*2]   = r2t;
           bracket[mi*2+1] = rlt;
