@@ -4874,9 +4874,13 @@ window.showFullBracket = () => {
   for(let rhi=0;rhi<SR;rhi++) g+=`<text x="${cx(SR*2-rhi)+SW/2}" y="22" text-anchor="middle" font-size="10" font-weight="700" fill="#2563eb">${rn(rhi)}</text>`;
 
   // 목적지 Y 계산: 마지막 라운드면 결승으로, 아니면 다음 라운드 슬롯으로
+  const halfMC = HALF/2; // 한쪽 절반에서 첫번째 라운드 경기수
   const nextY=(r,mi,slot)=>{
     const nr=r+1, nmi=Math.floor(mi/2), ns=mi%2;
-    if(nr>=SR) return ns===0?fMA:fMB;  // 결승으로
+    if(nr>=SR){
+      // 결승 연결: 경기 번호 기준 위쪽 절반→fMA, 아래쪽 절반→fMB
+      return mi < halfMC/2 ? fMA : fMB;
+    }
     const {yA,yB}=slotY(nr,nmi);
     return ns===0?yA+SH/2:yB+SH/2;
   };
