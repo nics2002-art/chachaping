@@ -6461,6 +6461,74 @@ const makeBracketSize = (n) => {
 // ── 본선 브라켓 배정 알고리즘 ─────────────────────────────
 // 케이스B: 1~2위만 진출(BYE없음) → 조번호 절반 기준 상단/하단 배치
 // 케이스A/C: 전원/다위 진출(BYE있음) → 1위BYE우선, 2위vs꼴찌 쌍 배치
+
+// ── 구장리그 본선 배정 (표준 토너먼트 시드) ──────────────────────
+// 1위가 결승까지 가장 쉬운 대진, 시드끼리 최대한 늦게 만나도록 배치
+// 예) 16강: 1위→1번 경기A, 2위→8번 경기A(반대편 끝), 3위→5번 경기A, 4위→4번 경기A...
+const assignLeagueBracket = (teams) => {
+  const n = teams.length;
+  const size = (() => { let s=1; while(s<n) s*=2; return s; })();
+  const bracket = new Array(size).fill(null);
+
+  // 표준 시드 배치 함수: 재귀로 각 구역에 시드 분산
+  // positions: 이번 라운드에서 배치 가능한 슬롯 번호 배열 (경기 단위)
+  // seeds: 이번 라운드에서 배치할 시드 번호 배열 (1-indexed)
+  const placeSeed = (positions, seeds) => {
+    if(seeds.length === 0 || positions.length === 0) return;
+    if(seeds.length === 1) {
+      // 시드 1개 → 첫 포지션 상단 슬롯에 배치
+      bracket[positions[0]*2] = teams[seeds[0]-1] || null;
+      return;
+    }
+    // 시드를 상단/하단 절반으로 나눠서 각 구역에 배치
+    const half = positions.length / 2;
+    const topPositions = positions.slice(0, half);
+    const botPositions = positions.slice(half);
+
+    // 1번 시드 → 상단, 2번 시드 → 하단 (지그재그)
+    // 다음 시드쌍도 번갈아가며
+    const topSeeds = [], botSeeds = [];
+    seeds.forEach((s, i) => {
+      if(i % 2 === 0) topSeeds.push(s);
+      else botSeeds.push(s);
+    });
+
+    placeSeed(topPositions, topSeeds);
+    placeSeed(botPositions, botSeeds);
+  };
+
+  const matchCount = size / 2;
+  const allPositions = Array.from({length: matchCount}, (_,i) => i);
+
+  // 시드 번호 1~size (없는 시드는 null=BYE)
+  const seeds = Array.from({length: size}, (_,i) => i+1);
+
+  // 각 경기 위치에 상단/하단 시드 배치
+  // 표준: 경기i → 시드A(상단), 시드B(하단) 으로 대결
+  // 16강: 1vs16, 9vs8, 5vs12, 13vs4, 3vs14, 11vs6, 7vs10, 15vs2 순
+  const seedOrder = (() => {
+    // 표준 토너먼트 시드 순서 생성
+    let order = [1, 2];
+    while(order.length < size) {
+      const next = [];
+      const len = order.length * 2 + 1;
+      order.forEach(s => {
+        next.push(s);
+        next.push(len - s);
+      });
+      order = next;
+    }
+    return order; // [1,16,9,8,5,12,13,4,3,14,11,6,7,10,15,2] for 16
+  })();
+
+  // bracket 슬롯에 배치: seedOrder[i]번 시드 → i번째 슬롯
+  seedOrder.forEach((seed, slotIdx) => {
+    bracket[slotIdx] = teams[seed-1] || null; // 없으면 BYE(null)
+  });
+
+  return bracket;
+};
+
 const assignBracket = (teams) => {
   const size = makeBracketSize(teams.length);
   const matchCount = size / 2;
@@ -6641,7 +6709,17 @@ window.generateBracket = async () => {
 
   if(!advancingTeams.length){ showToast('승인된 조가 없어요'); return; }
 
-  const bracket = assignBracket(advancingTeams);
+  // 구장리그: 순위순 정렬 후 지그재그 시드 배정
+  // 일반 대회: 기존 assignBracket 사용
+  const isLeague = window._bracketTourney?.leagueType === 'league';
+  let bracket;
+  if(isLeague) {
+    // rank 오름차순 정렬 (1위가 앞)
+    advancingTeams.sort((a,b) => (a.rank||99)-(b.rank||99));
+    bracket = assignLeagueBracket(advancingTeams);
+  } else {
+    bracket = assignBracket(advancingTeams);
+  }
   const size = bracket.length;
 
   // BYE 자동 부전승 처리
