@@ -4832,32 +4832,39 @@ window.showWaitingList = () => {
 
 // ── 풀 브라켓 전체보기 ───────────────────────────────────
 window.showFullBracket = () => {
-  const ev = window._bracketEv || {};
-  const br = ev.bracket || [];
-  const sz = ev.bracketSize || br.length;
-  const bm = ev.bracketMatches || {};
-  const el = document.getElementById('modal-full-bracket');
-  document.getElementById('full-bracket-title').textContent = (ev.gender||'')+' '+(ev.etype||'')+' 전체 대진표';
-  document.getElementById('full-bracket-sub').textContent = sz+'강 · '+((window._bracketTourney||{}).name||'');
-  if(!sz){ document.getElementById('full-bracket-content').innerHTML='<div class="empty" style="padding:40px"><div class="empty-icon">🏆</div><div class="empty-text">대진표가 없습니다</div></div>'; el.style.display='block'; return; }
+  const ev=window._bracketEv||{}, br=ev.bracket||[], sz=ev.bracketSize||br.length;
+  const bm=ev.bracketMatches||{}, el=document.getElementById('modal-full-bracket');
+  document.getElementById('full-bracket-title').textContent=(ev.gender||'')+' '+(ev.etype||'')+' 전체 대진표';
+  document.getElementById('full-bracket-sub').textContent=sz+'강 · '+((window._bracketTourney||{}).name||'');
+  if(!sz){document.getElementById('full-bracket-content').innerHTML='<div class="empty" style="padding:40px"><div class="empty-icon">🏆</div><div class="empty-text">대진표가 없습니다</div></div>';el.style.display='block';return;}
 
-  // 상수
   const HALF=sz/2, TR=Math.log2(sz), SR=TR-1;
-  const SW=110, SH=44, SG=6, CW=18, OY=32;
-  // 전체 높이 = 한쪽 팀수(HALF) 기준
+  const SW=110,SH=44,SG=6,CW=18,OY=32;
+  // SVG 높이 = 한쪽 절반 팀 기준
   const TH=HALF*(SH+SG)-SG;
   const SVW=(SR*2+1)*(SW+CW)-CW;
   const SVH=TH+OY+20;
   const cx=col=>col*(SW+CW);
-  // 라운드별 매치수/높이 (한쪽 절반 기준)
+
+  // 라운드별 매치수 (한쪽 절반 기준)
   const mir=r=>HALF/Math.pow(2,r+1);
+
+  // 일반 라운드 슬롯 Y (결승 제외)
   const mhr=r=>TH/mir(r);
+  const slotY=(r,mi)=>{
+    const mh=mhr(r), cy=OY+mi*mh+mh/2;
+    return {yA:cy-SH-SG/2, yB:cy+SG/2, mA:cy-SG/2-SH/2, mB:cy+SG/2+SH/2};
+  };
+
+  // 결승은 SVG 중앙에 고정
+  const fYA=OY+TH/2-SH-SG/2, fYB=OY+TH/2+SG/2;
+  const fMidA=OY+TH/2-SG/2-SH/2, fMidB=OY+TH/2+SG/2+SH/2;
+
   const rn=r=>{const c=sz/Math.pow(2,r);return c===2?'결승':c===4?'4강':c===8?'8강':c+'강';};
   const lbl=t=>{if(!t)return null;const n=(t.members||[]).map(m=>m.name).join('/');return{n:n.length>11?n.slice(0,11)+'..':n,c:(t.club||'').slice(0,12)};};
 
   let g=`<svg xmlns="http://www.w3.org/2000/svg" width="${SVW}" height="${SVH}" style="display:block">`;
 
-  // 슬롯 그리기
   const ds=(x,y,lb,w,bye)=>{
     g+=`<rect x="${x+1}" y="${y}" width="${SW-2}" height="${SH}" rx="5" fill="${w?'#dbeafe':bye?'#f1f5f9':'#f8fafc'}" stroke="${w?'#2563eb':'#e2e8f0'}" stroke-width="${w?1.5:1}"/>`;
     if(bye)g+=`<text x="${x+SW/2}" y="${y+SH/2+4}" text-anchor="middle" font-size="10" fill="#94a3b8">BYE</text>`;
@@ -4866,47 +4873,36 @@ window.showFullBracket = () => {
   };
 
   // 헤더
-  for(let hi=0;hi<SR;hi++){g+=`<text x="${cx(hi)+SW/2}" y="22" text-anchor="middle" font-size="10" font-weight="700" fill="#2563eb">${rn(hi)}</text>`;}
+  for(let hi=0;hi<SR;hi++) g+=`<text x="${cx(hi)+SW/2}" y="22" text-anchor="middle" font-size="10" font-weight="700" fill="#2563eb">${rn(hi)}</text>`;
   g+=`<text x="${cx(SR)+SW/2}" y="22" text-anchor="middle" font-size="10" font-weight="700" fill="#dc2626">결승</text>`;
-  for(let rhi=0;rhi<SR;rhi++){g+=`<text x="${cx(SR*2-rhi)+SW/2}" y="22" text-anchor="middle" font-size="10" font-weight="700" fill="#2563eb">${rn(rhi)}</text>`;}
+  for(let rhi=0;rhi<SR;rhi++) g+=`<text x="${cx(SR*2-rhi)+SW/2}" y="22" text-anchor="middle" font-size="10" font-weight="700" fill="#2563eb">${rn(rhi)}</text>`;
 
-  // 매치 슬롯 Y 좌표 계산
-  const slotY=(rnd,mi)=>{
-    const mh=mhr(rnd);
-    const cy=OY+mi*mh+mh/2;
-    return {yA:cy-SH-SG/2, yB:cy+SG/2, midA:cy-SG/2-SH/2, midB:cy+SG/2+SH/2, mid:cy};
-  };
-
-  // 왼쪽 그리기
-  for(let r=0;r<SR;r++){
-    const mc=mir(r), x=cx(r);
-    for(let mi=0;mi<mc;mi++){
-      const sv=bm[`r${r}_${mi}`]||{};
-      const wA=sv.status==='approved'&&sv.winner===0, wB=sv.status==='approved'&&sv.winner===1;
-      const tA=r===0?(br[mi*2]||null):(sv.teamA||null);
-      const tB=r===0?(br[mi*2+1]||null):(sv.teamB||null);
-      const {yA,yB,midA,midB}=slotY(r,mi);
-      ds(x,yA,lbl(tA),wA,tA===null&&r===0);
-      ds(x,yB,lbl(tB),wB,tB===null&&r===0);
-      g+=`<line x1="${x+5}" y1="${yA+SH}" x2="${x+SW-5}" y2="${yA+SH}" stroke="#e2e8f0" stroke-width="1" stroke-dasharray="2,2"/>`;
-      // 연결선 → 다음 라운드
-      const midY=(midA+midB)/2;
-      const nx=cx(r+1);
-      const hx=x+SW+CW/2;
-      // 다음 라운드 해당 슬롯 Y
-      const nRnd=r+1, nMi=Math.floor(mi/2), nSlot=mi%2;
-      const nY=nRnd<SR ? (nSlot===0?slotY(nRnd,nMi).yA+SH/2:slotY(nRnd,nMi).yB+SH/2)
-                       : (nSlot===0?slotY(SR,0).yA+SH/2:slotY(SR,0).yB+SH/2);
-      g+=`<polyline points="${x+SW},${midA} ${hx},${midA} ${hx},${midY}" fill="none" stroke="#cbd5e1" stroke-width="1.5"/>`;
-      g+=`<polyline points="${x+SW},${midB} ${hx},${midB} ${hx},${midY}" fill="none" stroke="#cbd5e1" stroke-width="1.5"/>`;
-      g+=`<line x1="${hx}" y1="${midY}" x2="${nx}" y2="${nY}" stroke="#cbd5e1" stroke-width="1.5"/>`;
+  // 왼쪽 절반
+  for(let lr=0;lr<SR;lr++){
+    const lmc=mir(lr), lx=cx(lr);
+    for(let lmi=0;lmi<lmc;lmi++){
+      const lsv=bm[`r${lr}_${lmi}`]||{};
+      const lwA=lsv.status==='approved'&&lsv.winner===0, lwB=lsv.status==='approved'&&lsv.winner===1;
+      const ltA=lr===0?(br[lmi*2]||null):(lsv.teamA||null);
+      const ltB=lr===0?(br[lmi*2+1]||null):(lsv.teamB||null);
+      const {yA:lyA,yB:lyB,mA:lmA,mB:lmB}=slotY(lr,lmi);
+      ds(lx,lyA,lbl(ltA),lwA,ltA===null&&lr===0);
+      ds(lx,lyB,lbl(ltB),lwB,ltB===null&&lr===0);
+      g+=`<line x1="${lx+5}" y1="${lyA+SH}" x2="${lx+SW-5}" y2="${lyA+SH}" stroke="#e2e8f0" stroke-width="1" stroke-dasharray="2,2"/>`;
+      const lmidY=(lmA+lmB)/2, lnx=cx(lr+1), lhx=lx+SW+CW/2;
+      const lnr=lr+1, lnmi=Math.floor(lmi/2), lns=lmi%2;
+      // 다음 목적지 Y: 마지막 라운드면 결승 슬롯, 아니면 다음 라운드 슬롯
+      const ltoY=lnr<SR ? (lns===0?slotY(lnr,lnmi).yA+SH/2:slotY(lnr,lnmi).yB+SH/2)
+                        : (lns===0?fMidA:fMidB);
+      g+=`<polyline points="${lx+SW},${lmA} ${lhx},${lmA} ${lhx},${lmidY}" fill="none" stroke="#cbd5e1" stroke-width="1.5"/>`;
+      g+=`<polyline points="${lx+SW},${lmB} ${lhx},${lmB} ${lhx},${lmidY}" fill="none" stroke="#cbd5e1" stroke-width="1.5"/>`;
+      g+=`<line x1="${lhx}" y1="${lmidY}" x2="${lnx}" y2="${ltoY}" stroke="#cbd5e1" stroke-width="1.5"/>`;
     }
   }
 
   // 결승
   const fRnd=TR-1, fSv=bm[`r${fRnd}_0`]||{};
   const fwA=fSv.status==='approved'&&fSv.winner===0, fwB=fSv.status==='approved'&&fSv.winner===1;
-  const {yA:fYA,yB:fYB}=slotY(SR,0);
   const fX=cx(SR);
   const winner=fwA?(fSv.teamA||null):fwB?(fSv.teamB||null):null;
   if(winner){const wl=lbl(winner);g+=`<text x="${fX+SW/2}" y="${fYA-18}" text-anchor="middle" font-size="14">🏆</text>`;g+=`<text x="${fX+SW/2}" y="${fYA-5}" text-anchor="middle" font-size="9" font-weight="700" fill="#dc2626">${wl?wl.n:''}</text>`;}
@@ -4914,7 +4910,7 @@ window.showFullBracket = () => {
   ds(fX,fYB,lbl(fSv.teamB||null),fwB,false);
   g+=`<line x1="${fX+5}" y1="${fYA+SH}" x2="${fX+SW-5}" y2="${fYA+SH}" stroke="#e2e8f0" stroke-width="1" stroke-dasharray="2,2"/>`;
 
-  // 오른쪽 그리기
+  // 오른쪽 절반
   const RS=mir(0);
   for(let rr=0;rr<SR;rr++){
     const rmc=mir(rr), rcol=SR*2-rr, rx=cx(rcol);
@@ -4924,18 +4920,17 @@ window.showFullBracket = () => {
       const rwA=rsv.status==='approved'&&rsv.winner===0, rwB=rsv.status==='approved'&&rsv.winner===1;
       const rtA=rr===0?(br[(RS+rmi)*2]||null):(rsv.teamA||null);
       const rtB=rr===0?(br[(RS+rmi)*2+1]||null):(rsv.teamB||null);
-      const {yA:ryA,yB:ryB,midA:rMidA,midB:rMidB}=slotY(rr,rmi);
+      const {yA:ryA,yB:ryB,mA:rmA,mB:rmB}=slotY(rr,rmi);
       ds(rx,ryA,lbl(rtA),rwA,rtA===null&&rr===0);
       ds(rx,ryB,lbl(rtB),rwB,rtB===null&&rr===0);
       g+=`<line x1="${rx+5}" y1="${ryA+SH}" x2="${rx+SW-5}" y2="${ryA+SH}" stroke="#e2e8f0" stroke-width="1" stroke-dasharray="2,2"/>`;
-      const rMidY=(rMidA+rMidB)/2;
-      const rnc=rcol-1, rnRnd=rr+1, rnMi=Math.floor(rmi/2), rnSlot=rmi%2;
-      const rnY=rnRnd<SR?(rnSlot===0?slotY(rnRnd,rnMi).yA+SH/2:slotY(rnRnd,rnMi).yB+SH/2)
-                        :(rnSlot===0?slotY(SR,0).yA+SH/2:slotY(SR,0).yB+SH/2);
-      const rhx=rx-CW/2, rnrx=cx(rnc)+SW;
-      g+=`<polyline points="${rx},${rMidA} ${rhx},${rMidA} ${rhx},${rMidY}" fill="none" stroke="#cbd5e1" stroke-width="1.5"/>`;
-      g+=`<polyline points="${rx},${rMidB} ${rhx},${rMidB} ${rhx},${rMidY}" fill="none" stroke="#cbd5e1" stroke-width="1.5"/>`;
-      g+=`<line x1="${rhx}" y1="${rMidY}" x2="${rnrx}" y2="${rnY}" stroke="#cbd5e1" stroke-width="1.5"/>`;
+      const rmidY=(rmA+rmB)/2, rnc=rcol-1, rhx=rx-CW/2, rnrx=cx(rnc)+SW;
+      const rnr=rr+1, rnmi=Math.floor(rmi/2), rns=rmi%2;
+      const rtoY=rnr<SR ? (rns===0?slotY(rnr,rnmi).yA+SH/2:slotY(rnr,rnmi).yB+SH/2)
+                        : (rns===0?fMidA:fMidB);
+      g+=`<polyline points="${rx},${rmA} ${rhx},${rmA} ${rhx},${rmidY}" fill="none" stroke="#cbd5e1" stroke-width="1.5"/>`;
+      g+=`<polyline points="${rx},${rmB} ${rhx},${rmB} ${rhx},${rmidY}" fill="none" stroke="#cbd5e1" stroke-width="1.5"/>`;
+      g+=`<line x1="${rhx}" y1="${rmidY}" x2="${rnrx}" y2="${rtoY}" stroke="#cbd5e1" stroke-width="1.5"/>`;
     }
   }
 
