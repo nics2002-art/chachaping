@@ -1022,7 +1022,7 @@ body { font-family: 'Noto Sans KR', sans-serif; background: var(--bg); color: va
 <!-- ==================== 예선 순위표 페이지 ==================== -->
 <div class="page" id="pg-ranking">
   <div class="header">
-    <div class="back-btn" onclick="goPage('pg-status')">←</div>
+    <div class="back-btn" onclick="window._statusTourney?.leagueType==='league'?loadLeaguePage():goPage('pg-status')">←</div>
     <div class="header-info">
       <div class="header-title" id="ranking-title"></div>
       <div class="header-sub" id="ranking-sub"></div>
@@ -1067,7 +1067,7 @@ body { font-family: 'Noto Sans KR', sans-serif; background: var(--bg); color: va
 <!-- ==================== 대회현황 페이지 ==================== -->
 <div class="page" id="pg-status">
   <div class="header">
-    <div class="back-btn" onclick="goPage('pg-main')">←</div>
+    <div class="back-btn" onclick="window._statusTourney?.leagueType==='league'?loadLeaguePage():goPage('pg-main')">←</div>
     <div class="header-info">
       <div class="header-title" id="status-name"></div>
       <div class="header-sub" id="status-sub"></div>
@@ -3398,18 +3398,22 @@ window.openGroupMatchByIdx = (gIdx) => {
 
 
 window.openGroupMatchFromRanking = (matchIdx) => {
-  // 현재 대각선 표에서 보고 있는 조/팀 정보로 경기 페이지 이동
   const group = window._curRankingGroup;
   const groupEntries = window._curRankingEntries;
   const ev = window._curRankingEv;
   if(!group || !groupEntries || !ev) return;
-  goPage('pg-ranking'); // 일단 닫고
+
+  const teams = groupEntries.filter(Boolean);
+  const matchOrder = generateMatchOrder(teams.length);
+  const pair = matchOrder[matchIdx];
+  if(!pair) return;
+
+  const nameA = teams[pair[0]]?.members?.map(m=>m.name).join(', ') || '?';
+  const nameB = teams[pair[1]]?.members?.map(m=>m.name).join(', ') || '?';
+
+  // 경기 페이지 먼저 열고 점수판 오픈
   openGroupMatch(group, groupEntries, ev);
-  // 해당 경기로 스크롤
-  setTimeout(() => {
-    const cards = document.querySelectorAll('#match-list .card');
-    if(cards[matchIdx]) cards[matchIdx].scrollIntoView({behavior:'smooth', block:'center'});
-  }, 300);
+  setTimeout(() => openScoreboard(matchIdx, nameA, nameB), 300);
 };
 window.openGroupRanking = (group, groupEntries, ev) => {
   // 경기 이동을 위해 캐시
