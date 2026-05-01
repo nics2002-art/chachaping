@@ -2226,6 +2226,7 @@ window.renderLeagueList = (leagues) => {
   el.innerHTML = leagues.map(t => {
     const evCount = (t.events||[]).length;
     const isOwner = window.currentUser && t.createdBy === window.currentUser.uid;
+    const hasGroups = (t.events||[]).some(ev=>(ev.groups||[]).length>0);
     return `<div class="card" style="margin-bottom:10px;cursor:pointer" onclick="openLeague('${t.id}')">
       <div style="display:flex;align-items:center;justify-content:space-between">
         <div style="min-width:0">
@@ -2233,7 +2234,10 @@ window.renderLeagueList = (leagues) => {
           <div style="font-size:12px;color:var(--text3);margin-top:2px">${t.venue||''} ${t.date?'· '+t.date:''}</div>
           <div style="font-size:12px;color:var(--accent);margin-top:4px">${evCount}개 종목</div>
         </div>
-        ${isOwner?`<button class="btn btn-danger btn-sm" style="flex-shrink:0" onclick="event.stopPropagation();deleteLeague('${t.id}')">삭제</button>`:''}
+        <div style="display:flex;flex-direction:column;gap:4px;align-items:flex-end;flex-shrink:0">
+          ${hasGroups?`<button class="btn btn-ghost btn-sm" onclick="event.stopPropagation();openTourneyStatus('${t.id}')">현황</button>`:''}
+          ${isOwner?`<button class="btn btn-danger btn-sm" onclick="event.stopPropagation();deleteLeague('${t.id}')">삭제</button>`:''}
+        </div>
       </div>
     </div>`;
   }).join('');
