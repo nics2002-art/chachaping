@@ -2397,14 +2397,12 @@ window.showStatusTab = (idx) => {
 
     const gIdx = (ev.groups||[]).findIndex(gg=>gg.no===g.no);
     const clickFn = g.matchStatus==='approved' && !isStatusOwner ? 'openGroupRankingByIdx' : 'openGroupMatchByIdx';
-    const hasResults = g.matchStatus==='approved' || g.matchStatus==='pending';
     return `<tr style="cursor:pointer" onclick="${clickFn}(${gIdx})">
       <td style="padding:8px 10px;border:1px solid var(--border2);font-size:12px;font-weight:700;
         color:var(--amber);white-space:nowrap;background:var(--surface);width:60px;text-align:center">
         ${g.no}조
         ${g.court?`<div style="font-size:9px;color:var(--accent)">${g.court}번코트</div>`:''}
         ${g.matchStatus==='approved'?'<div style="font-size:9px;color:var(--green)">✅승인</div>':g.matchStatus==='pending'?'<div style="font-size:9px;color:var(--amber)">⏳대기</div>':'<div style="font-size:9px;color:var(--text3)">▶</div>'}
-        ${hasResults?`<div onclick="event.stopPropagation();openGroupRankingByIdx(${gIdx})" style="margin-top:4px;font-size:9px;color:var(--accent);cursor:pointer;background:rgba(37,99,235,.1);border-radius:4px;padding:2px 4px">📊결과</div>`:''}
       </td>
       ${teamsHtml}
     </tr>`;
@@ -4851,24 +4849,20 @@ window.showFullBracket = () => {
     const mh=TH/mir(r), cy=OY+mi*mh+mh/2;
     return {yA:cy-SH-SG/2, yB:cy+SG/2, mA:cy-SG/2-SH/2, mB:cy+SG/2+SH/2};
   };
-  // 결승 A/B 중앙에 딱 붙여서
   const fCenter=OY+TH/2;
   const fYA=fCenter-SH-SG/2, fYB=fCenter+SG/2;
   const fMA=fYA+SH/2, fMB=fYB+SH/2;
-
   const rn=r=>{const c=sz/Math.pow(2,r);return c===2?'결승':c===4?'4강':c===8?'8강':c+'강';};
   const lbl=t=>{if(!t)return null;const n=(t.members||[]).map(m=>m.name).join('/');return{n:n.length>11?n.slice(0,11)+'..':n,c:(t.club||'').slice(0,12)};};
 
-  // 클릭 가능한 경기 목록
-  const clickableMatches = []; // {x,y,w,h,rnd,mi,isRight}
+  let g=`<svg xmlns="http://www.w3.org/2000/svg" width="${SVW}" height="${SVH}" style="display:block">`;
 
-  let g=`<svg xmlns="http://www.w3.org/2000/svg" width="${SVW}" height="${SVH}" style="display:block;cursor:pointer">`;
-
-  const ds=(x,y,lb,win,bye,clickData)=>{
+  const ds=(x,y,lb,win,bye,mk)=>{
     const fill=win?'#dbeafe':bye?'#f1f5f9':'#f8fafc';
     const stroke=win?'#2563eb':'#e2e8f0';
-    if(clickData) g+=`<rect x="${x+1}" y="${y}" width="${SW-2}" height="${SH}" rx="5" fill="${fill}" stroke="${stroke}" stroke-width="${win?1.5:1}" style="cursor:pointer" onclick="fullBracketClick(${JSON.stringify(clickData)})"/>`;
-    else g+=`<rect x="${x+1}" y="${y}" width="${SW-2}" height="${SH}" rx="5" fill="${fill}" stroke="${stroke}" stroke-width="${win?1.5:1}"/>`;
+    const cursor=mk?'pointer':'default';
+    const click=mk?`onclick="fullBracketClick('${mk}')" style="cursor:pointer"`:'';
+    g+=`<rect x="${x+1}" y="${y}" width="${SW-2}" height="${SH}" rx="5" fill="${fill}" stroke="${stroke}" stroke-width="${win?1.5:1}" ${click}/>`;
     if(bye)g+=`<text x="${x+SW/2}" y="${y+SH/2+4}" text-anchor="middle" font-size="10" fill="#94a3b8" pointer-events="none">BYE</text>`;
     else if(lb){
       g+=`<text x="${x+7}" y="${y+17}" font-size="10" font-weight="${win?700:500}" fill="${win?'#1d4ed8':'#1e293b'}" pointer-events="none">${lb.n}</text>`;
@@ -4882,7 +4876,6 @@ window.showFullBracket = () => {
   g+=`<text x="${cx(SR)+SW/2}" y="22" text-anchor="middle" font-size="10" font-weight="700" fill="#dc2626">결승</text>`;
   for(let rhi=0;rhi<SR;rhi++) g+=`<text x="${cx(SR*2-rhi)+SW/2}" y="22" text-anchor="middle" font-size="10" font-weight="700" fill="#2563eb">${rn(rhi)}</text>`;
 
-  // nextY: 왼쪽→fMA, 오른쪽→fMB, 일반은 다음 슬롯
   const nextY=(r,mi,isLeft)=>{
     const nr=r+1, nmi=Math.floor(mi/2), ns=mi%2;
     if(nr>=SR) return isLeft?fMA:fMB;
@@ -4899,8 +4892,8 @@ window.showFullBracket = () => {
       const ltA=lr===0?(br[lmi*2]||null):(lsv.teamA||null);
       const ltB=lr===0?(br[lmi*2+1]||null):(lsv.teamB||null);
       const {yA:lyA,yB:lyB,mA:lmA,mB:lmB}=slotY(lr,lmi);
-      const lClick=(ltA||ltB)&&!(ltA===null&&lr===0)&&!(ltB===null&&lr===0)?{rnd:lr,mi:lmi,isRight:false}:null;
-      ds(lx,lyA,lbl(ltA),lwA,ltA===null&&lr===0,lClick);
+      const hasTm=(ltA||ltB)&&!(ltA===null&&lr===0);
+      ds(lx,lyA,lbl(ltA),lwA,ltA===null&&lr===0,hasTm?lmk:null);
       ds(lx,lyB,lbl(ltB),lwB,ltB===null&&lr===0,null);
       g+=`<line x1="${lx+5}" y1="${lyA+SH}" x2="${lx+SW-5}" y2="${lyA+SH}" stroke="#e2e8f0" stroke-width="1" stroke-dasharray="2,2"/>`;
       const lmid=(lmA+lmB)/2, lnx=cx(lr+1), lhx=lx+SW+CW/2, lty=nextY(lr,lmi,true);
@@ -4920,8 +4913,8 @@ window.showFullBracket = () => {
   const fX=cx(SR);
   const winner=fwA?(fSv.teamA||null):fwB?(fSv.teamB||null):null;
   if(winner){const wl=lbl(winner);g+=`<text x="${fX+SW/2}" y="${fYA-18}" text-anchor="middle" font-size="14">🏆</text>`;g+=`<text x="${fX+SW/2}" y="${fYA-5}" text-anchor="middle" font-size="9" font-weight="700" fill="#dc2626">${wl?wl.n:''}</text>`;}
-  const fClick=(fSv.teamA||fSv.teamB)?{rnd:fRnd,mi:0,isRight:false}:null;
-  ds(fX,fYA,lbl(fSv.teamA||null),fwA,false,fClick);
+  const fmk=(fSv.teamA||fSv.teamB)?`r${fRnd}_0`:null;
+  ds(fX,fYA,lbl(fSv.teamA||null),fwA,false,fmk);
   ds(fX,fYB,lbl(fSv.teamB||null),fwB,false,null);
   g+=`<line x1="${fX+5}" y1="${fYA+SH}" x2="${fX+SW-5}" y2="${fYA+SH}" stroke="#e2e8f0" stroke-width="1" stroke-dasharray="2,2"/>`;
 
@@ -4936,8 +4929,8 @@ window.showFullBracket = () => {
       const rtA=rr===0?(br[(RS+rmi)*2]||null):(rsv.teamA||null);
       const rtB=rr===0?(br[(RS+rmi)*2+1]||null):(rsv.teamB||null);
       const {yA:ryA,yB:ryB,mA:rmA,mB:rmB}=slotY(rr,rmi);
-      const rClick=(rtA||rtB)&&!(rtA===null&&rr===0)&&!(rtB===null&&rr===0)?{rnd:rr,mi:rgmi,isRight:true}:null;
-      ds(rx,ryA,lbl(rtA),rwA,rtA===null&&rr===0,rClick);
+      const rHasTm=(rtA||rtB)&&!(rtA===null&&rr===0);
+      ds(rx,ryA,lbl(rtA),rwA,rtA===null&&rr===0,rHasTm?rmk:null);
       ds(rx,ryB,lbl(rtB),rwB,rtB===null&&rr===0,null);
       g+=`<line x1="${rx+5}" y1="${ryA+SH}" x2="${rx+SW-5}" y2="${ryA+SH}" stroke="#e2e8f0" stroke-width="1" stroke-dasharray="2,2"/>`;
       const rmid=(rmA+rmB)/2, rnc=rcol-1, rhx=rx-CW/2, rnrx=cx(rnc)+SW, rty=nextY(rr,rmi,false);
@@ -4956,18 +4949,19 @@ window.showFullBracket = () => {
   el.style.display='block'; el.scrollTop=0;
 };
 
-// 전체보기 슬롯 클릭 → 해당 경기로 이동
-window.fullBracketClick = (data) => {
+window.fullBracketClick = (mk) => {
   const fbEv = window._bracketEv;
-  const fbBm = fbEv?.bracketMatches||{};
-  const mk = `r${data.rnd}_${data.mi}`;
+  if(!fbEv) return;
+  const fbBm = fbEv.bracketMatches||{};
   const saved = fbBm[mk]||{};
-  const teamA = saved.teamA || (data.rnd===0 ? (fbEv?.bracket?.[data.mi*2]||null) : null);
-  const teamB = saved.teamB || (data.rnd===0 ? (fbEv?.bracket?.[data.mi*2+1]||null) : null);
+  const parts = mk.split('_');
+  const rnd = parseInt(parts[0].replace('r',''));
+  const mi  = parseInt(parts[1]);
+  const teamA = saved.teamA || (rnd===0?(fbEv.bracket?.[mi*2]||null):null);
+  const teamB = saved.teamB || (rnd===0?(fbEv.bracket?.[mi*2+1]||null):null);
   if(!teamA && !teamB) return;
   document.getElementById('modal-full-bracket').style.display='none';
-  const fbMk = `r${data.rnd}_${data.mi}`;
-  openBracketMatch(fbMk, data.mi, data.rnd);
+  openBracketMatch(mk, mi, rnd);
 };
 
 
@@ -6084,12 +6078,13 @@ const makeBracketSize = (n) => {
 };
 
 // ── 본선 브라켓 배정 알고리즘 ─────────────────────────────
-// 핵심: (1위BYE경기, 2위vs꼴찌경기)를 쌍으로 묶어 배치
-// → 8강에서 1위가 2위/꼴찌 승자를 만남 (1위끼리 안 만남)
+// BYE 없음(1~2위 진출): 1위 vs 반대편 조 2위
+// BYE 있음(전원 진출): (1위BYE, 2위vs꼴찌) 쌍으로 배치
 const assignBracket = (teams) => {
   const size = makeBracketSize(teams.length);
   const matchCount = size / 2;
   const halfMatch  = matchCount / 2;
+  const byeCount   = size - teams.length;
 
   const byRank = {};
   teams.forEach(t => {
@@ -6101,73 +6096,86 @@ const assignBracket = (teams) => {
   const totalGroups = Math.max(...teams.map(t=>t.groupNo));
   const halfGroups  = Math.floor(totalGroups / 2);
 
-  // 1위 상단/하단 분리
   const r1top    = (byRank[1]||[]).filter(t=>t.groupNo<=halfGroups).sort((a,b)=>a.groupNo-b.groupNo);
   const r1bottom = (byRank[1]||[]).filter(t=>t.groupNo>halfGroups).sort((a,b)=>a.groupNo-b.groupNo);
-
-  // 2위 vs 반대편 꼴찌 매칭
   const rank2    = [...(byRank[2]||[])].sort((a,b)=>a.groupNo-b.groupNo);
   const rankLast = [...(byRank[maxRank]||[])].sort((a,b)=>a.groupNo-b.groupNo);
-  const usedLast = new Set();
-  const pairs    = [];
-
-  rank2.forEach(r2t => {
-    let bestJ = -1;
-    // 반대편 절반 꼴찌 우선
-    for(let j=0;j<rankLast.length;j++){
-      if(usedLast.has(j)||rankLast[j].groupNo===r2t.groupNo) continue;
-      const r2top  = r2t.groupNo<=halfGroups;
-      const rltTop = rankLast[j].groupNo<=halfGroups;
-      if(r2top!==rltTop){ bestJ=j; break; }
-    }
-    // 같은 절반이라도 다른 조
-    if(bestJ<0){
-      for(let j=0;j<rankLast.length;j++){
-        if(usedLast.has(j)||rankLast[j].groupNo===r2t.groupNo) continue;
-        bestJ=j; break;
-      }
-    }
-    if(bestJ>=0){ pairs.push([r2t, rankLast[bestJ]]); usedLast.add(bestJ); }
-  });
-
-  // 상단/하단 pairs 분리 (2위 조번호 기준 반대편)
-  const pairsTop    = pairs.filter(([r2t])=>r2t.groupNo>halfGroups);  // 하단조 2위 → 상단에
-  const pairsBottom = pairs.filter(([r2t])=>r2t.groupNo<=halfGroups); // 상단조 2위 → 하단에
 
   const bracket = new Array(size).fill(null);
 
-  // (1위BYE, 2위vs꼴찌) 쌍으로 배치 - matchCount 범위 초과 방지
-  const placePairs = (r1List, pairsList, startMI, endMI) => {
-    let mi = startMI;
-    const total = Math.max(r1List.length, pairsList.length);
-    for(let i=0; i<total; i++){
-      if(i < r1List.length && mi < endMI){
-        bracket[mi*2]   = r1List[i];
-        bracket[mi*2+1] = null; // BYE
-        mi++;
-      }
-      if(i < pairsList.length && mi < endMI){
-        const [r2t, rlt] = pairsList[i];
-        bracket[mi*2]   = r2t;
-        bracket[mi*2+1] = rlt;
-        mi++;
-      }
-    }
+  const pickOpp = (team, pool, used) => {
+    let bj=-1, bs=-999;
+    pool.forEach((t,j) => {
+      if(used.has(j)||t.groupNo===team.groupNo) return;
+      const r2top  = team.groupNo<=halfGroups;
+      const rltTop = t.groupNo<=halfGroups;
+      // 반대편 절반 우선
+      const sc = (r2top!==rltTop?100:0) + Math.abs(t.groupNo-team.groupNo);
+      if(sc>bs){bs=sc;bj=j;}
+    });
+    return bj;
   };
 
-  placePairs(r1top,    pairsTop,    0,         halfMatch);
-  placePairs(r1bottom, pairsBottom, halfMatch, matchCount);
+  if(byeCount === 0) {
+    // ── BYE 없음: 1위 vs 반대편 조 2위 ──
+    // 1위 배치
+    r1top.forEach((t,i)=>{ if(i<halfMatch) bracket[i*2]=t; });
+    r1bottom.forEach((t,i)=>{ const mi=halfMatch+i; if(mi<matchCount) bracket[mi*2]=t; });
+    // 2위를 1위 B슬롯에 배치
+    const usedR2 = new Set();
+    r1top.forEach((r1t,i)=>{
+      const j=pickOpp(r1t,rank2,usedR2);
+      if(j>=0){ bracket[i*2+1]=rank2[j]; usedR2.add(j); }
+    });
+    r1bottom.forEach((r1t,i)=>{
+      const mi=halfMatch+i;
+      const j=pickOpp(r1t,rank2,usedR2);
+      if(j>=0){ bracket[mi*2+1]=rank2[j]; usedR2.add(j); }
+    });
+    // 남은 2위
+    rank2.forEach((t,i)=>{
+      if(usedR2.has(i)) return;
+      for(let slot=0;slot<size;slot++){
+        if(bracket[slot]!==null) continue;
+        const ps=slot%2===0?slot+1:slot-1;
+        const partner=bracket[ps];
+        if(partner&&partner.groupNo===t.groupNo) continue;
+        bracket[slot]=t; break;
+      }
+    });
+  } else {
+    // ── BYE 있음: (1위BYE, 2위vs꼴찌) 쌍으로 배치 ──
+    const usedLast = new Set();
+    const pairs = [];
+    rank2.forEach(r2t => {
+      const j=pickOpp(r2t,rankLast,usedLast);
+      if(j>=0){ pairs.push([r2t,rankLast[j]]); usedLast.add(j); }
+    });
+    const pairsTop    = pairs.filter(([r2t])=>r2t.groupNo>halfGroups);
+    const pairsBottom = pairs.filter(([r2t])=>r2t.groupNo<=halfGroups);
 
-  // 남은 팀 (매칭 못 한 팀) → 빈 슬롯에 배치
-  const placedNos = new Set(bracket.filter(t=>t).map(t=>t.no));
-  const remaining = teams.filter(t=>!placedNos.has(t.no));
-  for(let slot=0; slot<size; slot++){
-    if(!remaining.length) break;
-    if(bracket[slot]!==null) continue;
-    const ps = slot%2===0?slot+1:slot-1;
-    const partner = (ps>=0&&ps<size)?bracket[ps]:null;
-    if(partner&&partner.groupNo===remaining[0].groupNo) continue;
-    bracket[slot] = remaining.shift();
+    const placePairs = (r1List, pairsList, startMI, endMI) => {
+      let mi=startMI;
+      const total=Math.max(r1List.length,pairsList.length);
+      for(let i=0;i<total;i++){
+        if(i<r1List.length&&mi<endMI){ bracket[mi*2]=r1List[i]; bracket[mi*2+1]=null; mi++; }
+        if(i<pairsList.length&&mi<endMI){ bracket[mi*2]=pairsList[i][0]; bracket[mi*2+1]=pairsList[i][1]; mi++; }
+      }
+    };
+    placePairs(r1top,    pairsTop,    0,         halfMatch);
+    placePairs(r1bottom, pairsBottom, halfMatch, matchCount);
+
+    // 남은 팀
+    const placedNos = new Set(bracket.filter(t=>t).map(t=>t.no));
+    const remaining = teams.filter(t=>!placedNos.has(t.no));
+    for(let slot=0;slot<size;slot++){
+      if(!remaining.length) break;
+      if(bracket[slot]!==null) continue;
+      const ps=slot%2===0?slot+1:slot-1;
+      const partner=bracket[ps];
+      if(partner&&partner.groupNo===remaining[0].groupNo) continue;
+      bracket[slot]=remaining.shift();
+    }
   }
 
   return bracket;
@@ -6496,7 +6504,6 @@ window.openBracketMatch = async (matchKey, matchIdx, roundIdx) => {
   document.getElementById('match-title').textContent = `본선 ${matchIdx+1}경기`;
   document.getElementById('match-sub').textContent = `${nameA} vs ${nameB}`;
   document.getElementById('match-back-btn').onclick = () => {
-    // _bracketEv는 저장 시 이미 최신으로 업데이트됨 → 바로 렌더링
     if(window._bracketEv) renderBracketPage(window._bracketEv);
     goPage('pg-bracket');
   };
