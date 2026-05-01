@@ -3470,7 +3470,8 @@ window.openGroupRanking = (group, groupEntries, ev) => {
         let clickHandler = '';
         let borderLeft = '';
 
-        if(r && !r.isForfeit) {
+        const hasScore = r && (r.isForfeit || r.winsA > 0 || r.winsB > 0);
+        if(hasScore && !r.isForfeit) {
           const iAmA = matchOrder[mi][0]===ai;
           const myW = iAmA?r.winsA:r.winsB;
           const oppW = iAmA?r.winsB:r.winsA;
@@ -3480,7 +3481,7 @@ window.openGroupRanking = (group, groupEntries, ev) => {
           cellBg = won?'rgba(22,163,74,0.1)':'rgba(219,39,119,0.1)';
           borderLeft = won?'border-left:3px solid var(--green)':'border-left:3px solid var(--pink)';
           clickHandler = `onclick="showMatchDetail(${mi})"`;
-        } else if(r && r.isForfeit) {
+        } else if(hasScore && r.isForfeit) {
           const iAmA = matchOrder[mi][0]===ai;
           cellContent = `<div style="font-size:16px;font-weight:700;color:${iAmA?'var(--pink)':'var(--green)'}">
             ${iAmA?'기권':'부전승'}</div>`;
