@@ -6472,7 +6472,23 @@ window.openBracketMatch = async (matchKey, matchIdx, roundIdx) => {
 
   document.getElementById('match-title').textContent = `본선 ${matchIdx+1}경기`;
   document.getElementById('match-sub').textContent = `${nameA} vs ${nameB}`;
-  document.getElementById('match-back-btn').onclick = () => {
+  document.getElementById('match-back-btn').onclick = async () => {
+    // Firebase에서 최신 데이터 불러와서 렌더링
+    const t = window._bracketTourney || window.curTourney;
+    if(t) {
+      _cache.del('tourney_'+t.id);
+      const snap = await getDoc(doc(db,'tournaments',t.id));
+      if(snap.exists()) {
+        const latest = snap.data();
+        t.events = latest.events;
+        _cache.set('tourney_'+t.id, t);
+        const ev = (latest.events||[]).find(e=>e.id===window._bracketEv?.id);
+        if(ev) {
+          window._bracketEv = ev;
+          window._curGroupEv = ev;
+        }
+      }
+    }
     if(window._bracketEv) renderBracketPage(window._bracketEv);
     goPage('pg-bracket');
   };
