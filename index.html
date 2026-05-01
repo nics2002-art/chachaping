@@ -4875,7 +4875,6 @@ window.showFullBracket = () => {
 
   // 목적지 Y 계산
   const firstRoundMC = mir(0); // 첫 라운드 경기 수 (한쪽 절반)
-  // 왼쪽→결승A, 오른쪽→결승B
   const nextYL=(r,mi)=>{
     const nr=r+1, nmi=Math.floor(mi/2), ns=mi%2;
     if(nr>=SR) return fMA;
@@ -6066,13 +6065,12 @@ const makeBracketSize = (n) => {
 };
 
 // ── 본선 브라켓 배정 알고리즘 ─────────────────────────────
-// 케이스B: 1~2위만 진출(BYE없음) → 조번호 절반 기준 상단/하단 배치
-// 케이스A/C: 전원/다위 진출(BYE있음) → 1위BYE우선, 2위vs꼴찌 쌍 배치
+// 핵심: (1위BYE경기, 2위vs꼴찌경기)를 쌍으로 묶어 배치
+// → 8강에서 1위가 2위/꼴찌 승자를 만남 (1위끼리 안 만남)
 const assignBracket = (teams) => {
   const size = makeBracketSize(teams.length);
   const matchCount = size / 2;
   const halfMatch  = matchCount / 2;
-  const byeCount   = size - teams.length;
 
   const byRank = {};
   teams.forEach(t => {
@@ -6083,78 +6081,74 @@ const assignBracket = (teams) => {
   const maxRank     = allRanks[allRanks.length-1];
   const totalGroups = Math.max(...teams.map(t=>t.groupNo));
   const halfGroups  = Math.floor(totalGroups / 2);
-  const bracket     = new Array(size).fill(null);
 
-  if(byeCount === 0 && maxRank === 2) {
-    // ── 케이스B: 1~2위만 진출, BYE 없음 ──
-    // 1~N/2조: 1위→상단A슬롯, 2위→하단B슬롯 (하단 1위 옆)
-    // N/2+1~N조: 1위→하단A슬롯, 2위→상단B슬롯 (상단 1위 옆)
-    const r1 = [...(byRank[1]||[])].sort((a,b)=>a.groupNo-b.groupNo);
-    const r2 = [...(byRank[2]||[])].sort((a,b)=>a.groupNo-b.groupNo);
-    const topR1    = r1.filter(t=>t.groupNo<=halfGroups);
-    const bottomR1 = r1.filter(t=>t.groupNo>halfGroups);
-    const topR2    = r2.filter(t=>t.groupNo<=halfGroups);
-    const bottomR2 = r2.filter(t=>t.groupNo>halfGroups);
+  // 1위 상단/하단 분리
+  const r1top    = (byRank[1]||[]).filter(t=>t.groupNo<=halfGroups).sort((a,b)=>a.groupNo-b.groupNo);
+  const r1bottom = (byRank[1]||[]).filter(t=>t.groupNo>halfGroups).sort((a,b)=>a.groupNo-b.groupNo);
 
-    // 상단: 1~N/2조 1위 + N/2+1~N조 2위 (반대편)
-    topR1.forEach((t,i)=>{ if(i<halfMatch) bracket[i*2]=t; });
-    bottomR2.forEach((t,i)=>{ if(i<halfMatch) bracket[i*2+1]=t; });
+  // 2위 vs 반대편 꼴찌 매칭
+  const rank2    = [...(byRank[2]||[])].sort((a,b)=>a.groupNo-b.groupNo);
+  const rankLast = [...(byRank[maxRank]||[])].sort((a,b)=>a.groupNo-b.groupNo);
+  const usedLast = new Set();
+  const pairs    = [];
 
-    // 하단: N/2+1~N조 1위 + 1~N/2조 2위 (반대편)
-    bottomR1.forEach((t,i)=>{ const mi=halfMatch+i; if(mi<matchCount) bracket[mi*2]=t; });
-    topR2.forEach((t,i)=>{ const mi=halfMatch+i; if(mi<matchCount) bracket[mi*2+1]=t; });
-
-  } else {
-    // ── 케이스A/C: BYE 있음 or 다위 진출 ──
-    const r1top    = (byRank[1]||[]).filter(t=>t.groupNo<=halfGroups).sort((a,b)=>a.groupNo-b.groupNo);
-    const r1bottom = (byRank[1]||[]).filter(t=>t.groupNo>halfGroups).sort((a,b)=>a.groupNo-b.groupNo);
-    const rank2    = [...(byRank[2]||[])].sort((a,b)=>a.groupNo-b.groupNo);
-    const rankLast = [...(byRank[maxRank]||[])].sort((a,b)=>a.groupNo-b.groupNo);
-    const usedLast = new Set();
-    const pairs    = [];
-
-    const pickOpp = (team, pool, used) => {
-      let bj=-1, bs=-999;
-      pool.forEach((t,j) => {
-        if(used.has(j)||t.groupNo===team.groupNo) return;
-        const sc = (team.groupNo<=halfGroups !== t.groupNo<=halfGroups ? 100 : 0)
-                 + Math.abs(t.groupNo-team.groupNo);
-        if(sc>bs){bs=sc;bj=j;}
-      });
-      return bj;
-    };
-
-    rank2.forEach(r2t => {
-      const j = pickOpp(r2t, rankLast, usedLast);
-      if(j>=0){ pairs.push([r2t, rankLast[j]]); usedLast.add(j); }
-    });
-
-    const pairsTop    = pairs.filter(([r2t])=>r2t.groupNo>halfGroups);
-    const pairsBottom = pairs.filter(([r2t])=>r2t.groupNo<=halfGroups);
-
-    const placePairs = (r1List, pairsList, startMI, endMI) => {
-      let mi=startMI;
-      const total=Math.max(r1List.length, pairsList.length);
-      for(let i=0;i<total;i++){
-        if(i<r1List.length&&mi<endMI){ bracket[mi*2]=r1List[i]; bracket[mi*2+1]=null; mi++; }
-        if(i<pairsList.length&&mi<endMI){ bracket[mi*2]=pairsList[i][0]; bracket[mi*2+1]=pairsList[i][1]; mi++; }
-      }
-    };
-
-    placePairs(r1top,    pairsTop,    0,         halfMatch);
-    placePairs(r1bottom, pairsBottom, halfMatch, matchCount);
-
-    // 남은 팀
-    const placedNos = new Set(bracket.filter(t=>t).map(t=>t.no));
-    const remaining = teams.filter(t=>!placedNos.has(t.no));
-    for(let slot=0;slot<size;slot++){
-      if(!remaining.length) break;
-      if(bracket[slot]!==null) continue;
-      const ps=slot%2===0?slot+1:slot-1;
-      const partner=bracket[ps];
-      if(partner&&partner.groupNo===remaining[0].groupNo) continue;
-      bracket[slot]=remaining.shift();
+  rank2.forEach(r2t => {
+    let bestJ = -1;
+    // 반대편 절반 꼴찌 우선
+    for(let j=0;j<rankLast.length;j++){
+      if(usedLast.has(j)||rankLast[j].groupNo===r2t.groupNo) continue;
+      const r2top  = r2t.groupNo<=halfGroups;
+      const rltTop = rankLast[j].groupNo<=halfGroups;
+      if(r2top!==rltTop){ bestJ=j; break; }
     }
+    // 같은 절반이라도 다른 조
+    if(bestJ<0){
+      for(let j=0;j<rankLast.length;j++){
+        if(usedLast.has(j)||rankLast[j].groupNo===r2t.groupNo) continue;
+        bestJ=j; break;
+      }
+    }
+    if(bestJ>=0){ pairs.push([r2t, rankLast[bestJ]]); usedLast.add(bestJ); }
+  });
+
+  // 상단/하단 pairs 분리 (2위 조번호 기준 반대편)
+  const pairsTop    = pairs.filter(([r2t])=>r2t.groupNo>halfGroups);  // 하단조 2위 → 상단에
+  const pairsBottom = pairs.filter(([r2t])=>r2t.groupNo<=halfGroups); // 상단조 2위 → 하단에
+
+  const bracket = new Array(size).fill(null);
+
+  // (1위BYE, 2위vs꼴찌) 쌍으로 배치
+  const placePairs = (r1List, pairsList, startMI) => {
+    let mi = startMI;
+    const total = Math.max(r1List.length, pairsList.length);
+    for(let i=0; i<total; i++){
+      if(i < r1List.length){
+        bracket[mi*2]   = r1List[i];
+        bracket[mi*2+1] = null; // BYE
+        mi++;
+      }
+      if(i < pairsList.length){
+        const [r2t, rlt] = pairsList[i];
+        bracket[mi*2]   = r2t;
+        bracket[mi*2+1] = rlt;
+        mi++;
+      }
+    }
+  };
+
+  placePairs(r1top,    pairsTop,    0);
+  placePairs(r1bottom, pairsBottom, halfMatch);
+
+  // 남은 팀 (매칭 못 한 팀) → 빈 슬롯에 배치
+  const placedNos = new Set(bracket.filter(t=>t).map(t=>t.no));
+  const remaining = teams.filter(t=>!placedNos.has(t.no));
+  for(let slot=0; slot<size; slot++){
+    if(!remaining.length) break;
+    if(bracket[slot]!==null) continue;
+    const ps = slot%2===0?slot+1:slot-1;
+    const partner = (ps>=0&&ps<size)?bracket[ps]:null;
+    if(partner&&partner.groupNo===remaining[0].groupNo) continue;
+    bracket[slot] = remaining.shift();
   }
 
   return bracket;
