@@ -1185,35 +1185,13 @@ body { font-family: 'Noto Sans KR', sans-serif; background: var(--bg); color: va
 <!-- ==================== 클럽 등록 페이지 ==================== -->
 <div class="page" id="pg-club">
   <div class="header">
-    <div class="back-btn" onclick="goPage('pg-main')">←</div>
     <div class="header-info">
-      <div class="header-title">클럽/동호회 등록</div>
+      <div class="header-title">구장리그</div>
     </div>
+    <button class="btn btn-primary btn-sm" id="league-new-btn" onclick="openNewLeagueModal()" style="display:none">+ 리그 만들기</button>
   </div>
   <div class="content">
-    <div class="card" style="margin-bottom:12px">
-      <div class="card-title">새 클럽 등록 신청</div>
-      <div class="form-group">
-        <label class="form-label">클럽/동호회명 *</label>
-        <input class="form-input" id="club-name" placeholder="클럽명 입력">
-      </div>
-      <div class="form-group">
-        <label class="form-label">지역</label>
-        <input class="form-input" id="club-region" placeholder="예: 서울 강남구">
-      </div>
-      <div class="form-group">
-        <label class="form-label">연락처</label>
-        <input class="form-input" id="club-contact" placeholder="전화번호 또는 카카오 오픈채팅 등">
-      </div>
-      <div class="form-group">
-        <label class="form-label">소개</label>
-        <input class="form-input" id="club-desc" placeholder="클럽 소개 (선택)">
-      </div>
-      <button class="btn btn-primary btn-full" onclick="submitClubRequest()">승인 신청</button>
-    </div>
-    <!-- 승인된 클럽 목록 -->
-    <div class="card-title" style="margin-bottom:8px">등록된 클럽</div>
-    <div id="club-list-public"></div>
+    <div id="league-list"><div class="empty"><div class="empty-icon">🏓</div><div class="empty-text">리그가 없어요</div></div></div>
   </div>
 </div>
 
@@ -1822,6 +1800,7 @@ const formatDate = (t) => {
 window.renderTourneys = (tournaments) => {
   const el = document.getElementById('tourney-list');
   const visible = tournaments.filter(t => {
+    if (t.leagueType === 'league') return false; // 리그는 구장리그 탭에서만
     if (t.status === 'open' || t.status === 'closed') return true;
     if (window.currentUser && t.createdBy === window.currentUser.uid) return true;
     return false;
@@ -2208,7 +2187,7 @@ window.switchTab = (tab) => {
   document.getElementById('tab-'+tab)?.classList.add('active');
   if(tab==='home') goPage('pg-main');
   else if(tab==='tourney') goPage('pg-main'); // 나중에 별도 페이지
-  else if(tab==='league') openClubPage();
+  else if(tab==='league') loadLeaguePage();
   else if(tab==='search') goPage('pg-search');
   else if(tab==='mypage') {
     if(window.currentUser) openMypage();
@@ -2230,6 +2209,72 @@ window.openNewTourneyModal = () => {
   setTimeout(() => document.getElementById('new-tourney-name').focus(), 200);
 };
 
+
+// ── 구장리그 ─────────────────────────────────────────────
+window.loadLeaguePage = async () => {
+  goPage('pg-club');
+  const isLoggedIn = !!window.currentUser;
+  document.getElementById('league-new-btn').style.display = isLoggedIn ? '' : 'none';
+
+  try {
+    const snap = await getDocs(query(collection(db,'tournaments'), where('leagueType','==','league')));
+    const leagues = snap.docs.map(d=>({id:d.id,...d.data()})).sort((a,b)=>(b.createdAt||0)-(a.createdAt||0));
+    const el = document.getElementById('league-list');
+    if(!leagues.length){
+      el.innerHTML = '<div class="empty"><div class="empty-icon">🏓</div><div class="empty-text">리그가 없어요</div><div class="empty-sub">+ 리그 만들기로 시작하세요</div></div>';
+      return;
+    }
+    el.innerHTML = leagues.map(t => {
+      const evCount = (t.events||[]).length;
+      const isOwner = window.currentUser && t.createdBy === window.currentUser.uid;
+      return `<div class="card" style="margin-bottom:10px;cursor:pointer" onclick="openLeague('${t.id}')">
+        <div style="display:flex;align-items:center;justify-content:space-between">
+          <div style="min-width:0">
+            <div style="font-size:15px;font-weight:700;color:var(--text)">${t.name}</div>
+            <div style="font-size:12px;color:var(--text3);margin-top:2px">${t.venue||''} ${t.date?'· '+t.date:''}</div>
+            <div style="font-size:12px;color:var(--accent);margin-top:4px">${evCount}개 종목</div>
+          </div>
+          ${isOwner?`<button class="btn btn-danger btn-sm" style="flex-shrink:0" onclick="event.stopPropagation();deleteLeague('${t.id}')">삭제</button>`:''}
+        </div>
+      </div>`;
+    }).join('');
+  } catch(e) { showToast('로드 실패: '+e.message); }
+};
+
+window.openNewLeagueModal = () => {
+  if(!window.currentUser){ goPage('pg-login'); return; }
+  // 기존 대회 만들기 모달 재활용 - leagueMode 플래그 설정
+  window._isLeagueMode = true;
+  const today = new Date().toISOString().slice(0,10);
+  document.getElementById('new-tourney-name').value = '';
+  document.getElementById('new-tourney-date').value = today;
+  document.getElementById('new-tourney-date-end').value = '';
+  document.getElementById('new-tourney-reg-start').value = '';
+  document.getElementById('new-tourney-reg-end-date').value = '';
+  document.getElementById('new-tourney-reg-end-time').value = '23:59';
+  openModal('modal-tourney');
+  setTimeout(()=>document.getElementById('new-tourney-name').focus(), 200);
+};
+
+window.openLeague = (id) => {
+  // 기존 대회 열기와 동일
+  const snap = getDoc(doc(db,'tournaments',id)).then(s=>{
+    if(!s.exists()) return;
+    const t = {id, ...s.data()};
+    window.curTourney = t;
+    window._isLeague = true;
+    renderTourneyDetail(t);
+    goPage('pg-tourney');
+  });
+};
+
+window.deleteLeague = async (id) => {
+  if(!confirm('리그를 삭제할까요?')) return;
+  await deleteDoc(doc(db,'tournaments',id));
+  showToast('삭제됐어요');
+  loadLeaguePage();
+};
+
 window.saveTourney = async () => {
   const name = document.getElementById('new-tourney-name').value.trim();
   if (!name) { showToast('대회명을 입력해주세요'); return; }
@@ -2243,17 +2288,24 @@ window.saveTourney = async () => {
     venue: document.getElementById('new-tourney-venue').value.trim()||'',
     regStart: document.getElementById('new-tourney-reg-start').value||'',
     regEnd: document.getElementById('new-tourney-reg-end-date').value ? document.getElementById('new-tourney-reg-end-date').value+'T'+document.getElementById('new-tourney-reg-end-time').value : '',
-    allowGuest: getChipVal('allowGuest') === 'true',
+    allowGuest: window._isLeagueMode ? true : getChipVal('allowGuest') === 'true',
     courts,
-    status: 'draft',
+    status: window._isLeagueMode ? 'open' : 'draft',
+    leagueType: window._isLeagueMode ? 'league' : null,
     createdBy: window.currentUser.uid,
     createdByName: window.currentUserData?.name || '',
     events: [],
     createdAt: Date.now()
   });
   closeModal('modal-tourney');
-  showToast('대회가 만들어졌어요!');
-  loadTournaments(true);
+  if(window._isLeagueMode) {
+    window._isLeagueMode = false;
+    showToast('리그가 만들어졌어요!');
+    loadLeaguePage();
+  } else {
+    showToast('대회가 만들어졌어요!');
+    loadTournaments(true);
+  }
 };
 
 window.deleteTourney = async (id) => {
