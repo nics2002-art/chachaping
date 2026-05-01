@@ -6293,16 +6293,14 @@ window.rejectMatchResults = async () => {
       if(e.id !== ev.id) return e;
       const groups = (e.groups||[]).map(g => {
         if(g.no !== group.no) return g;
-        return {...g, matchStatus: 'pending', matchResults: []};
+        return {...g, matchStatus: 'pending'};
       });
       return {...e, groups};
     });
     await updateDoc(doc(db,'tournaments',t.id),{events});
     t.events = events;
     _cache.set('tourney_'+t.id, t);
-    window._curGroup = {...group, matchStatus: 'pending', matchResults: []};
-    window._matchScores = {};
-    window._matchForfeits = {};
+    window._curGroup = {...group, matchStatus: 'pending'};
     renderMatchList();
     showToast('수정 모드로 전환됐어요 ✏️');
   } catch(e) { showToast('실패: ' + e.message); }
