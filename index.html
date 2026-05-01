@@ -2257,15 +2257,7 @@ window.openNewLeagueModal = () => {
 };
 
 window.openLeague = (id) => {
-  // 기존 대회 열기와 동일
-  const snap = getDoc(doc(db,'tournaments',id)).then(s=>{
-    if(!s.exists()) return;
-    const t = {id, ...s.data()};
-    window.curTourney = t;
-    window._isLeague = true;
-    renderTourneyDetail(t);
-    goPage('pg-tourney');
-  });
+  openTourney(id);
 };
 
 window.deleteLeague = async (id) => {
