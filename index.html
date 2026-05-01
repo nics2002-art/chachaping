@@ -4797,6 +4797,7 @@ window.showWaitingList = () => {
 
   const getTeamName = (team) => team?.members?.map(m=>m.name).join(', ') || '?';
   const getClub = (team) => team?.club || '';
+  const roundLabel = (sz) => sz===2?'결승':sz===4?'4강':sz===8?'8강':sz===16?'16강':sz+'강';
 
   // 점수 입력된 팀 수집
   const doneTeamNames = new Set();
@@ -4807,7 +4808,19 @@ window.showWaitingList = () => {
     }
   });
 
-  // 본선 진출 팀 전체 (bracket 배열에서)
+  // 팀별 브라켓 위치(matchKey, matchIdx, roundIdx) 매핑
+  // 1라운드(roundIdx=0)만 bracket 배열로 확정 배정
+  const teamMatchInfo = {};
+  const totalRounds = Math.log2(size); // 예: 8강=3라운드, 첫라운드 idx=0
+  const firstRoundMatchCount = size / 2;
+  for(let mi=0; mi<firstRoundMatchCount; mi++){
+    const tA = bracket[mi*2];
+    const tB = bracket[mi*2+1];
+    if(tA) teamMatchInfo[getTeamName(tA)] = { matchKey:`r0_${mi}`, matchIdx:mi, roundIdx:0, strongLabel: roundLabel(size) };
+    if(tB) teamMatchInfo[getTeamName(tB)] = { matchKey:`r0_${mi}`, matchIdx:mi, roundIdx:0, strongLabel: roundLabel(size) };
+  }
+
+  // 본선 진출 팀 전체 (bracket 배열에서) - 아직 경기 안 한 팀
   const waiting = bracket.filter(t => t && !doneTeamNames.has(getTeamName(t)));
 
   let html = `<div style="font-size:13px;font-weight:700;color:var(--text);margin-bottom:12px">
@@ -4816,10 +4829,29 @@ window.showWaitingList = () => {
 
   if(waiting.length) {
     waiting.forEach(team => {
+      const name = getTeamName(team);
+      const club = getClub(team);
+      const info = teamMatchInfo[name];
+      const label = info ? info.strongLabel : '';
+      const mi = info ? info.matchIdx : null;
+      const clickable = info != null;
+
       html += `<div style="padding:10px 12px;background:var(--surface2);border-radius:10px;
-        margin-bottom:8px;border-left:3px solid var(--accent)">
-        <div style="font-size:13px;font-weight:700;color:var(--text)">${getTeamName(team)}</div>
-        <div style="font-size:11px;color:var(--text3)">${getClub(team)}</div>
+        margin-bottom:8px;border-left:3px solid var(--accent);
+        ${clickable?'cursor:pointer;':''}
+        display:flex;align-items:center;gap:10px"
+        ${clickable?`onclick="openBracketMatch('${info.matchKey}',${info.matchIdx},${info.roundIdx})"`:''}>
+        <div style="flex:1;min-width:0">
+          <div style="font-size:13px;font-weight:700;color:var(--text)">${name}</div>
+          <div style="font-size:11px;color:var(--text3)">${club}</div>
+        </div>
+        ${label?`<div style="display:flex;flex-direction:column;align-items:flex-end;gap:3px">
+          <span style="font-size:10px;font-weight:700;color:var(--accent);background:rgba(37,99,235,0.1);
+            border:1px solid rgba(37,99,235,0.25);border-radius:99px;padding:2px 9px;white-space:nowrap">
+            ${label}
+          </span>
+          <span style="font-size:10px;color:var(--text3)">${mi+1}경기 →</span>
+        </div>`:''}
       </div>`;
     });
   } else {
