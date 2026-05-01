@@ -4866,7 +4866,7 @@ window.showWaitingList = () => {
       html += `<div style="padding:10px 12px;background:var(--surface2);border-radius:10px;
         margin-bottom:8px;border-left:3px solid var(--accent);cursor:pointer;
         display:flex;align-items:center;gap:8px"
-        onclick="openBracketMatch('${matchKey}',${matchIdx},${roundIdx})">
+        onclick="openBracketMatch('${matchKey}',${matchIdx},${roundIdx},'waiting')">
         <div style="flex:1;min-width:0;text-align:left;${styleA}">
           <div style="font-size:13px;font-weight:700;color:var(--text);white-space:nowrap;overflow:hidden;text-overflow:ellipsis">${nameA}</div>
           <div style="font-size:11px;color:var(--text3)">${clubA}</div>
@@ -6495,7 +6495,7 @@ window.showBracketPage = (page) => {
   document.getElementById('bracket-content').innerHTML = html + nav;
 };
 
-window.openBracketMatch = async (matchKey, matchIdx, roundIdx) => {
+window.openBracketMatch = async (matchKey, matchIdx, roundIdx, from) => {
   // Firebase에서 최신 bracketMatches 로드
   const t = window.curTourney || window._statusTourney || window._bracketTourney;
   let bracketMatches = (window._bracketEv||{}).bracketMatches || {};
@@ -6543,7 +6543,25 @@ window.openBracketMatch = async (matchKey, matchIdx, roundIdx) => {
 
   document.getElementById('match-title').textContent = `본선 ${matchIdx+1}경기`;
   document.getElementById('match-sub').textContent = `${nameA} vs ${nameB}`;
-  document.getElementById('match-back-btn').onclick = () => goPage('pg-bracket');
+  document.getElementById('match-back-btn').onclick = async () => {
+    // Firebase에서 최신 데이터 다시 불러와서 브라켓 갱신
+    const t2 = window.curTourney || window._statusTourney || window._bracketTourney;
+    if(t2) {
+      try {
+        const snap2 = await getDoc(doc(db,'tournaments',t2.id));
+        if(snap2.exists()) {
+          const evId2 = (window._bracketEv||{}).id;
+          const ev2 = (snap2.data().events||[]).find(e=>e.id===evId2);
+          if(ev2) {
+            window._bracketEv = ev2;
+            renderBracketPage(ev2);
+          }
+        }
+      } catch(e) {}
+    }
+    goPage('pg-bracket');
+    if(from === 'waiting') setTimeout(()=>showWaitingList(), 50);
+  };
 
   document.getElementById('match-players-header').innerHTML = `
     <div style="display:flex;gap:6px">
