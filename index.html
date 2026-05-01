@@ -945,6 +945,7 @@ body { font-family: 'Noto Sans KR', sans-serif; background: var(--bg); color: va
     <div style="display:flex;gap:4px">
       <button class="btn btn-ghost btn-sm" onclick="showFullBracket()">🗺 전체</button>
       <button class="btn btn-ghost btn-sm" onclick="showBracketResults()">🏆 결과</button>
+      <button class="btn btn-ghost btn-sm" onclick="showResultBracket()">🗺 결과판</button>
       <button class="btn btn-ghost btn-sm" onclick="showWaitingList()">⏳ 대기</button>
       <button class="btn btn-ghost btn-sm" id="bracket-gen-btn" style="display:none" onclick="openGenerateBracketModal()">대진 생성</button>
     </div>
@@ -978,6 +979,17 @@ body { font-family: 'Noto Sans KR', sans-serif; background: var(--bg); color: va
 </div>
 
 <!-- ==================== MODAL: 풀 브라켓 전체보기 ==================== -->
+<div id="modal-result-bracket" style="display:none;position:fixed;inset:0;z-index:400;background:var(--surface);overflow-y:auto;overflow-x:auto;-webkit-overflow-scrolling:touch">
+  <div style="display:flex;align-items:center;gap:10px;padding:14px 16px;border-bottom:1px solid var(--border);position:sticky;top:0;background:var(--surface);z-index:1">
+    <button onclick="document.getElementById('modal-result-bracket').style.display='none'" style="width:36px;height:36px;border-radius:50%;background:var(--surface2);border:1px solid var(--border);font-size:18px;cursor:pointer;display:flex;align-items:center;justify-content:center;flex-shrink:0">←</button>
+    <div>
+      <div style="font-size:15px;font-weight:700" id="result-bracket-title">결과 대진표</div>
+      <div style="font-size:11px;color:var(--text3)" id="result-bracket-sub"></div>
+    </div>
+  </div>
+  <div style="font-size:11px;color:var(--text3);padding:8px 16px;text-align:center">이름을 클릭하면 해당 팀의 경로가 표시됩니다</div>
+  <div id="result-bracket-content" style="padding:16px;min-width:max-content"></div>
+</div>
 <div id="modal-full-bracket" style="display:none;position:fixed;inset:0;z-index:400;background:var(--surface);overflow-y:auto;overflow-x:auto;-webkit-overflow-scrolling:touch">
   <div style="position:sticky;top:0;z-index:10;background:var(--surface);border-bottom:1px solid var(--border);padding:12px 16px;display:flex;align-items:center;gap:10px">
     <button onclick="document.getElementById('modal-full-bracket').style.display='none'" style="width:36px;height:36px;border-radius:50%;background:var(--surface2);border:1px solid var(--border);font-size:18px;cursor:pointer;display:flex;align-items:center;justify-content:center;flex-shrink:0">←</button>
@@ -4931,6 +4943,12 @@ window.showFullBracket = () => {
     else if(lb){g+=`<text x="${x+7}" y="${y+17}" font-size="10" font-weight="${w?700:500}" fill="${w?'#1d4ed8':'#1e293b'}">${lb.n}</text>`;if(lb.c)g+=`<text x="${x+7}" y="${y+31}" font-size="8" fill="#94a3b8">${lb.c}</text>`;if(w)g+=`<text x="${x+SW-7}" y="${y+SH/2+4}" text-anchor="end" font-size="11" fill="#16a34a">✓</text>`;}
     else g+=`<text x="${x+SW/2}" y="${y+SH/2+4}" text-anchor="middle" font-size="9" fill="#cbd5e1">대기중</text>`;
   };
+  // 경기 슬롯 클릭 rect (A슬롯+B슬롯 묶어서 클릭)
+  const dc=(x,yA,yB,matchKey,matchIdx,roundIdx,clickable)=>{
+    if(!clickable) return;
+    const top=yA, height=(yB+SH)-yA;
+    g+=`<rect x="${x}" y="${top}" width="${SW}" height="${height}" rx="5" fill="transparent" style="cursor:pointer" onclick="document.getElementById('modal-full-bracket').style.display='none';openBracketMatch('${matchKey}',${matchIdx},${roundIdx})"/>`;
+  };
 
   // 헤더
   for(let hi=0;hi<SR;hi++) g+=`<text x="${cx(hi)+SW/2}" y="22" text-anchor="middle" font-size="10" font-weight="700" fill="#2563eb">${rn(hi)}</text>`;
@@ -4964,6 +4982,7 @@ window.showFullBracket = () => {
       const {yA:lyA,yB:lyB,mA:lmA,mB:lmB}=slotY(lr,lmi);
       ds(lx,lyA,lbl(ltA),lwA,ltA===null&&lr===0);
       ds(lx,lyB,lbl(ltB),lwB,ltB===null&&lr===0);
+      dc(lx,lyA,lyB,`r${lr}_${lmi}`,lmi,lr,ltA&&ltB);
       g+=`<line x1="${lx+5}" y1="${lyA+SH}" x2="${lx+SW-5}" y2="${lyA+SH}" stroke="#e2e8f0" stroke-width="1" stroke-dasharray="2,2"/>`;
       const lmid=(lmA+lmB)/2, lnx=cx(lr+1), lhx=lx+SW+CW/2, lty=nextYL(lr,lmi);
       if(lr===SR-1){
@@ -4984,6 +5003,7 @@ window.showFullBracket = () => {
   if(winner){const wl=lbl(winner);g+=`<text x="${fX+SW/2}" y="${fYA-18}" text-anchor="middle" font-size="14">🏆</text>`;g+=`<text x="${fX+SW/2}" y="${fYA-5}" text-anchor="middle" font-size="9" font-weight="700" fill="#dc2626">${wl?wl.n:''}</text>`;}
   ds(fX,fYA,lbl(fSv.teamA||null),fwA,false);
   ds(fX,fYB,lbl(fSv.teamB||null),fwB,false);
+  dc(fX,fYA,fYB,`r${fRnd}_0`,0,fRnd,fSv.teamA&&fSv.teamB);
   g+=`<line x1="${fX+5}" y1="${fYA+SH}" x2="${fX+SW-5}" y2="${fYA+SH}" stroke="#e2e8f0" stroke-width="1" stroke-dasharray="2,2"/>`;
 
   // 오른쪽 절반
@@ -4999,6 +5019,7 @@ window.showFullBracket = () => {
       const {yA:ryA,yB:ryB,mA:rmA,mB:rmB}=slotY(rr,rmi);
       ds(rx,ryA,lbl(rtA),rwA,rtA===null&&rr===0);
       ds(rx,ryB,lbl(rtB),rwB,rtB===null&&rr===0);
+      dc(rx,ryA,ryB,`r${rr}_${rgmi}`,rgmi,rr,rtA&&rtB);
       g+=`<line x1="${rx+5}" y1="${ryA+SH}" x2="${rx+SW-5}" y2="${ryA+SH}" stroke="#e2e8f0" stroke-width="1" stroke-dasharray="2,2"/>`;
       const rmid=(rmA+rmB)/2, rnc=rcol-1, rhx=rx-CW/2, rnrx=cx(rnc)+SW, rty=nextYR(rr,rmi);
       if(rr===SR-1){
@@ -5017,6 +5038,174 @@ window.showFullBracket = () => {
 };
 
 
+
+window.showResultBracket = () => {
+  const ev = window._bracketEv || {};
+  const br = ev.bracket || [];
+  const sz = ev.bracketSize || br.length;
+  const bm = ev.bracketMatches || {};
+  const el = document.getElementById('modal-result-bracket');
+  document.getElementById('result-bracket-title').textContent = (ev.gender||'') + ' ' + (ev.etype||'') + ' 결과 대진표';
+  document.getElementById('result-bracket-sub').textContent = sz + '강 · ' + ((window._bracketTourney||{}).name||'');
+
+  if(!sz) {
+    document.getElementById('result-bracket-content').innerHTML = '<div class="empty" style="padding:40px"><div class="empty-icon">🏆</div><div class="empty-text">대진표가 없습니다</div></div>';
+    el.style.display = 'block'; return;
+  }
+
+  const HALF=sz/2, TR=Math.log2(sz), SR=TR-1;
+  const SW=110, SH=44, SG=6, CW=18, OY=32;
+  const TH=HALF*(SH+SG)-SG;
+  const SVW=(SR*2+1)*(SW+CW)-CW;
+  const SVH=TH+OY+20;
+  const cx=col=>col*(SW+CW);
+  const mir=r=>HALF/Math.pow(2,r+1);
+  const slotY=(r,mi)=>{
+    const mh=TH/mir(r), cy=OY+mi*mh+mh/2;
+    return {yA:cy-SH-SG/2, yB:cy+SG/2, mA:cy-SG/2-SH/2, mB:cy+SG/2+SH/2};
+  };
+  const fCenter=OY+TH/2, fYA=fCenter-SH-SG/2, fYB=fCenter+SG/2;
+  const fMA=fYA+SH/2, fMB=fYB+SH/2;
+  const rn=r=>{const c=sz/Math.pow(2,r);return c===2?'결승':c===4?'4강':c===8?'8강':c+'강';};
+  const getTeamKey = t => t?.members?.map(m=>m.name).join(',') || '';
+
+  // 팀별 참여 경기 수집 (matchKey 목록)
+  const teamMatchKeys = {}; // teamKey -> [matchKey, ...]
+  Object.entries(bm).forEach(([key, m]) => {
+    [m.teamA, m.teamB].forEach(t => {
+      if(!t) return;
+      const tk = getTeamKey(t);
+      if(!teamMatchKeys[tk]) teamMatchKeys[tk] = [];
+      teamMatchKeys[tk].push(key);
+    });
+  });
+  // 1라운드도 포함
+  for(let mi=0; mi<sz/2; mi++){
+    const tA=br[mi*2], tB=br[mi*2+1];
+    const key=`r0_${mi}`;
+    [tA,tB].forEach(t=>{
+      if(!t) return;
+      const tk=getTeamKey(t);
+      if(!teamMatchKeys[tk]) teamMatchKeys[tk]=[];
+      if(!teamMatchKeys[tk].includes(key)) teamMatchKeys[tk].push(key);
+    });
+  }
+
+  // SVG 생성 (슬롯에 data-teamkey, data-matchkey 부여)
+  const lbl=t=>{if(!t)return null;const n=(t.members||[]).map(m=>m.name).join('/');return{n:n.length>11?n.slice(0,11)+'..':n,c:(t.club||'').slice(0,12),tk:getTeamKey(t)};};
+  let g=`<svg id="result-bracket-svg" xmlns="http://www.w3.org/2000/svg" width="${SVW}" height="${SVH}" style="display:block">`;
+
+  // 슬롯 그리기 (클릭 가능, data 속성 포함)
+  const ds2=(x,y,lb,w,bye,matchKey)=>{
+    const fill=w?'#dbeafe':bye?'#f1f5f9':'#f8fafc';
+    const stroke=w?'#2563eb':'#e2e8f0';
+    g+=`<rect class="rb-slot" data-matchkey="${matchKey||''}" data-teamkey="${lb?lb.tk:''}" x="${x+1}" y="${y}" width="${SW-2}" height="${SH}" rx="5" fill="${fill}" stroke="${stroke}" stroke-width="${w?1.5:1}" style="${lb?'cursor:pointer':''}"/>`;
+    if(bye) g+=`<text x="${x+SW/2}" y="${y+SH/2+4}" text-anchor="middle" font-size="10" fill="#94a3b8" pointer-events="none">BYE</text>`;
+    else if(lb){
+      g+=`<text class="rb-text" data-teamkey="${lb.tk}" x="${x+7}" y="${y+17}" font-size="10" font-weight="${w?700:500}" fill="${w?'#1d4ed8':'#1e293b'}" style="cursor:pointer" pointer-events="none">${lb.n}</text>`;
+      if(lb.c) g+=`<text x="${x+7}" y="${y+31}" font-size="8" fill="#94a3b8" pointer-events="none">${lb.c}</text>`;
+      if(w) g+=`<text x="${x+SW-7}" y="${y+SH/2+4}" text-anchor="end" font-size="11" fill="#16a34a" pointer-events="none">✓</text>`;
+    } else {
+      g+=`<text x="${x+SW/2}" y="${y+SH/2+4}" text-anchor="middle" font-size="9" fill="#cbd5e1" pointer-events="none">대기중</text>`;
+    }
+  };
+
+  // 헤더
+  for(let hi=0;hi<SR;hi++) g+=`<text x="${cx(hi)+SW/2}" y="22" text-anchor="middle" font-size="10" font-weight="700" fill="#2563eb">${rn(hi)}</text>`;
+  g+=`<text x="${cx(SR)+SW/2}" y="22" text-anchor="middle" font-size="10" font-weight="700" fill="#dc2626">결승</text>`;
+  for(let rhi=0;rhi<SR;rhi++) g+=`<text x="${cx(SR*2-rhi)+SW/2}" y="22" text-anchor="middle" font-size="10" font-weight="700" fill="#2563eb">${rn(rhi)}</text>`;
+
+  const nextYL=(r,mi)=>{const nr=r+1,nmi=Math.floor(mi/2),ns=mi%2;if(nr>=SR)return fMA;const {yA,yB}=slotY(nr,nmi);return ns===0?yA+SH/2:yB+SH/2;};
+  const nextYR=(r,mi)=>{const nr=r+1,nmi=Math.floor(mi/2),ns=mi%2;if(nr>=SR)return fMB;const {yA,yB}=slotY(nr,nmi);return ns===0?yA+SH/2:yB+SH/2;};
+
+  // 왼쪽
+  for(let lr=0;lr<SR;lr++){
+    const lmc=mir(lr),lx=cx(lr);
+    for(let lmi=0;lmi<lmc;lmi++){
+      const lsv=bm[`r${lr}_${lmi}`]||{};
+      const lwA=lsv.status==='approved'&&lsv.winner===0,lwB=lsv.status==='approved'&&lsv.winner===1;
+      const ltA=lr===0?(br[lmi*2]||null):(lsv.teamA||null);
+      const ltB=lr===0?(br[lmi*2+1]||null):(lsv.teamB||null);
+      const {yA:lyA,yB:lyB,mA:lmA,mB:lmB}=slotY(lr,lmi);
+      const mk=`r${lr}_${lmi}`;
+      ds2(lx,lyA,lbl(ltA),lwA,ltA===null&&lr===0,mk);
+      ds2(lx,lyB,lbl(ltB),lwB,ltB===null&&lr===0,mk);
+      g+=`<line x1="${lx+5}" y1="${lyA+SH}" x2="${lx+SW-5}" y2="${lyA+SH}" stroke="#e2e8f0" stroke-width="1" stroke-dasharray="2,2"/>`;
+      const lmid=(lmA+lmB)/2,lnx=cx(lr+1),lhx=lx+SW+CW/2,lty=nextYL(lr,lmi);
+      if(lr===SR-1){g+=`<line x1="${lx+SW}" y1="${lmid}" x2="${lnx}" y2="${lty}" stroke="#cbd5e1" stroke-width="1.5"/>`;}
+      else{g+=`<polyline points="${lx+SW},${lmA} ${lhx},${lmA} ${lhx},${lmid}" fill="none" stroke="#cbd5e1" stroke-width="1.5"/>`;g+=`<polyline points="${lx+SW},${lmB} ${lhx},${lmB} ${lhx},${lmid}" fill="none" stroke="#cbd5e1" stroke-width="1.5"/>`;g+=`<line x1="${lhx}" y1="${lmid}" x2="${lnx}" y2="${lty}" stroke="#cbd5e1" stroke-width="1.5"/>`;}
+    }
+  }
+  // 결승
+  const fRnd=TR-1,fSv=bm[`r${fRnd}_0`]||{};
+  const fwA=fSv.status==='approved'&&fSv.winner===0,fwB=fSv.status==='approved'&&fSv.winner===1;
+  const fX=cx(SR);
+  const winner2=fwA?(fSv.teamA||null):fwB?(fSv.teamB||null):null;
+  if(winner2){const wl=lbl(winner2);g+=`<text x="${fX+SW/2}" y="${fYA-18}" text-anchor="middle" font-size="14">🏆</text>`;g+=`<text x="${fX+SW/2}" y="${fYA-5}" text-anchor="middle" font-size="9" font-weight="700" fill="#dc2626">${wl?wl.n:''}</text>`;}
+  ds2(fX,fYA,lbl(fSv.teamA||null),fwA,false,`r${fRnd}_0`);
+  ds2(fX,fYB,lbl(fSv.teamB||null),fwB,false,`r${fRnd}_0`);
+  g+=`<line x1="${fX+5}" y1="${fYA+SH}" x2="${fX+SW-5}" y2="${fYA+SH}" stroke="#e2e8f0" stroke-width="1" stroke-dasharray="2,2"/>`;
+
+  // 오른쪽
+  const RS=mir(0);
+  for(let rr=0;rr<SR;rr++){
+    const rmc=mir(rr),rcol=SR*2-rr,rx=cx(rcol);
+    for(let rmi=0;rmi<rmc;rmi++){
+      const rgmi=Math.floor(RS/Math.pow(2,rr))+rmi;
+      const rsv=bm[`r${rr}_${rgmi}`]||{};
+      const rwA=rsv.status==='approved'&&rsv.winner===0,rwB=rsv.status==='approved'&&rsv.winner===1;
+      const rtA=rr===0?(br[(RS+rmi)*2]||null):(rsv.teamA||null);
+      const rtB=rr===0?(br[(RS+rmi)*2+1]||null):(rsv.teamB||null);
+      const {yA:ryA,yB:ryB,mA:rmA,mB:rmB}=slotY(rr,rmi);
+      const mk2=`r${rr}_${rgmi}`;
+      ds2(rx,ryA,lbl(rtA),rwA,rtA===null&&rr===0,mk2);
+      ds2(rx,ryB,lbl(rtB),rwB,rtB===null&&rr===0,mk2);
+      g+=`<line x1="${rx+5}" y1="${ryA+SH}" x2="${rx+SW-5}" y2="${ryA+SH}" stroke="#e2e8f0" stroke-width="1" stroke-dasharray="2,2"/>`;
+      const rmid=(rmA+rmB)/2,rnc=rcol-1,rhx=rx-CW/2,rnrx=cx(rnc)+SW,rty=nextYR(rr,rmi);
+      if(rr===SR-1){g+=`<line x1="${rx}" y1="${rmid}" x2="${rnrx}" y2="${rty}" stroke="#cbd5e1" stroke-width="1.5"/>`;}
+      else{g+=`<polyline points="${rx},${rmA} ${rhx},${rmA} ${rhx},${rmid}" fill="none" stroke="#cbd5e1" stroke-width="1.5"/>`;g+=`<polyline points="${rx},${rmB} ${rhx},${rmB} ${rhx},${rmid}" fill="none" stroke="#cbd5e1" stroke-width="1.5"/>`;g+=`<line x1="${rhx}" y1="${rmid}" x2="${rnrx}" y2="${rty}" stroke="#cbd5e1" stroke-width="1.5"/>`;}
+    }
+  }
+
+  g += '</svg>';
+  document.getElementById('result-bracket-content').innerHTML = g;
+
+  // 슬롯 클릭 → 해당 팀 경로 하이라이트
+  const svg = document.getElementById('result-bracket-svg');
+  let selectedTeamKey = null;
+  svg.addEventListener('click', e => {
+    const slot = e.target.closest('[data-teamkey]') || e.target;
+    const tk = slot.dataset?.teamkey;
+    if(!tk) return;
+
+    // 이전 하이라이트 초기화
+    svg.querySelectorAll('.rb-slot').forEach(r => {
+      r.style.fill = '';
+      r.style.stroke = '';
+      r.style.strokeWidth = '';
+    });
+
+    if(tk === selectedTeamKey) { selectedTeamKey = null; return; } // 토글
+    selectedTeamKey = tk;
+
+    const myKeys = teamMatchKeys[tk] || [];
+    svg.querySelectorAll('.rb-slot').forEach(r => {
+      if(r.dataset.teamkey === tk) {
+        // 내 슬롯: 진한 초록
+        r.style.fill = 'rgba(22,163,74,0.2)';
+        r.style.stroke = '#16a34a';
+        r.style.strokeWidth = '2';
+      } else if(myKeys.includes(r.dataset.matchkey)) {
+        // 내가 참여한 경기의 상대 슬롯: 연한 표시
+        r.style.fill = 'rgba(22,163,74,0.06)';
+        r.style.stroke = '#86efac';
+        r.style.strokeWidth = '1.5';
+      }
+    });
+  });
+
+  el.style.display = 'block'; el.scrollTop = 0;
+};
 window.showBracketResults = () => {
   const ev = window._bracketEv || {};
   const bracketMatches = ev.bracketMatches || {};
