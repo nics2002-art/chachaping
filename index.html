@@ -4808,50 +4808,54 @@ window.showWaitingList = () => {
     }
   });
 
-  // 팀별 브라켓 위치(matchKey, matchIdx, roundIdx) 매핑
-  // 1라운드(roundIdx=0)만 bracket 배열로 확정 배정
-  const teamMatchInfo = {};
-  const totalRounds = Math.log2(size); // 예: 8강=3라운드, 첫라운드 idx=0
   const firstRoundMatchCount = size / 2;
+
+  // 대기중 경기 단위로 묶기 (A vs B 한 줄)
+  // matchKey 기준으로 그룹핑
+  const waitingMatchMap = {}; // matchKey → {tA, tB, info}
   for(let mi=0; mi<firstRoundMatchCount; mi++){
     const tA = bracket[mi*2];
     const tB = bracket[mi*2+1];
-    if(tA) teamMatchInfo[getTeamName(tA)] = { matchKey:`r0_${mi}`, matchIdx:mi, roundIdx:0, strongLabel: roundLabel(size) };
-    if(tB) teamMatchInfo[getTeamName(tB)] = { matchKey:`r0_${mi}`, matchIdx:mi, roundIdx:0, strongLabel: roundLabel(size) };
+    const bothDone = (!tA || doneTeamNames.has(getTeamName(tA))) && (!tB || doneTeamNames.has(getTeamName(tB)));
+    const eitherWaiting = (tA && !doneTeamNames.has(getTeamName(tA))) || (tB && !doneTeamNames.has(getTeamName(tB)));
+    if(eitherWaiting){
+      waitingMatchMap[`r0_${mi}`] = { tA, tB, matchKey:`r0_${mi}`, matchIdx:mi, roundIdx:0, label: roundLabel(size) };
+    }
   }
-
-  // 본선 진출 팀 전체 (bracket 배열에서) - 아직 경기 안 한 팀
-  const waiting = bracket.filter(t => t && !doneTeamNames.has(getTeamName(t)));
+  const waitingMatches = Object.values(waitingMatchMap);
+  const waitingTeamCount = waitingMatches.reduce((s,m)=>{
+    return s + (m.tA && !doneTeamNames.has(getTeamName(m.tA))?1:0) + (m.tB && !doneTeamNames.has(getTeamName(m.tB))?1:0);
+  }, 0);
 
   let html = `<div style="font-size:13px;font-weight:700;color:var(--text);margin-bottom:12px">
-    대기중 ${waiting.length}팀
+    대기중 ${waitingTeamCount}팀
   </div>`;
 
-  if(waiting.length) {
-    waiting.forEach(team => {
-      const name = getTeamName(team);
-      const club = getClub(team);
-      const info = teamMatchInfo[name];
-      const label = info ? info.strongLabel : '';
-      const mi = info ? info.matchIdx : null;
-      const clickable = info != null;
+  if(waitingMatches.length) {
+    waitingMatches.forEach(({tA, tB, matchKey, matchIdx, roundIdx, label}) => {
+      const nameA = tA ? getTeamName(tA) : 'TBD';
+      const clubA = tA ? getClub(tA) : '';
+      const nameB = tB ? getTeamName(tB) : 'TBD';
+      const clubB = tB ? getClub(tB) : '';
 
       html += `<div style="padding:10px 12px;background:var(--surface2);border-radius:10px;
-        margin-bottom:8px;border-left:3px solid var(--accent);
-        ${clickable?'cursor:pointer;':''}
-        display:flex;align-items:center;gap:10px"
-        ${clickable?`onclick="openBracketMatch('${info.matchKey}',${info.matchIdx},${info.roundIdx})"`:''}>
-        <div style="flex:1;min-width:0">
-          <div style="font-size:13px;font-weight:700;color:var(--text)">${name}</div>
-          <div style="font-size:11px;color:var(--text3)">${club}</div>
+        margin-bottom:8px;border-left:3px solid var(--accent);cursor:pointer;
+        display:flex;align-items:center;gap:8px"
+        onclick="openBracketMatch('${matchKey}',${matchIdx},${roundIdx})">
+        <div style="flex:1;min-width:0;text-align:left">
+          <div style="font-size:13px;font-weight:700;color:var(--text);white-space:nowrap;overflow:hidden;text-overflow:ellipsis">${nameA}</div>
+          <div style="font-size:11px;color:var(--text3)">${clubA}</div>
         </div>
-        ${label?`<div style="display:flex;flex-direction:column;align-items:flex-end;gap:3px">
+        <div style="display:flex;flex-direction:column;align-items:center;gap:2px;flex-shrink:0">
           <span style="font-size:10px;font-weight:700;color:var(--accent);background:rgba(37,99,235,0.1);
-            border:1px solid rgba(37,99,235,0.25);border-radius:99px;padding:2px 9px;white-space:nowrap">
-            ${label}
-          </span>
-          <span style="font-size:10px;color:var(--text3)">${mi+1}경기 →</span>
-        </div>`:''}
+            border:1px solid rgba(37,99,235,0.25);border-radius:99px;padding:2px 8px">${label}</span>
+          <span style="font-size:11px;font-weight:700;color:var(--text3)">vs</span>
+          <span style="font-size:10px;color:var(--text3)">${matchIdx+1}경기</span>
+        </div>
+        <div style="flex:1;min-width:0;text-align:right">
+          <div style="font-size:13px;font-weight:700;color:var(--text);white-space:nowrap;overflow:hidden;text-overflow:ellipsis">${nameB}</div>
+          <div style="font-size:11px;color:var(--text3)">${clubB}</div>
+        </div>
       </div>`;
     });
   } else {
