@@ -2840,6 +2840,7 @@ window.submitBatchEntries = async () => {
   window._batchEntries=[];
   closeModal('modal-register');
   renderPlayers(); renderEvents();
+  if(window.curEvent) openEvent(window.curEvent.id);
   showToast(`${newPlayers.length}명 접수 완료! 🏓`);
 };
 
@@ -2939,6 +2940,7 @@ window.addTeamEntry = async () => {
   await updateDoc(doc(db,'tournaments',window.curTourney.id),{events});
   window.curTourney.events=events;
   renderPlayers();renderEvents();
+  if(window.curEvent) openEvent(window.curEvent.id);
   closeModal('modal-register');
   showToast(`팀 접수 완료! 🏓`);
 };
@@ -2972,6 +2974,7 @@ window.addPlayer = async () => {
   document.getElementById('inp-name').value = '';
   closeModal('modal-register');
   renderPlayers(); renderEvents();
+  if(window.curEvent) openEvent(window.curEvent.id);
   showToast(`${name} 접수 완료! 🏓`);
 };
 
