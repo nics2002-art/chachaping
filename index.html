@@ -4851,9 +4851,10 @@ window.showFullBracket = () => {
     const mh=TH/mir(r), cy=OY+mi*mh+mh/2;
     return {yA:cy-SH-SG/2, yB:cy+SG/2, mA:cy-SG/2-SH/2, mB:cy+SG/2+SH/2};
   };
-  // 결승: A슬롯=위쪽 1/4, B슬롯=아래쪽 3/4 지점
-  const fYA = OY + TH/4 - SH/2;        // A슬롯 (위쪽 절반 중앙)
-  const fYB = OY + TH*3/4 - SH/2;      // B슬롯 (아래쪽 절반 중앙)
+  // 결승: A/B 슬롯을 SVG 정중앙에 딱 붙여서 배치
+  const fCenter = OY + TH/2;
+  const fYA = fCenter - SH - SG/2;     // A슬롯 (중앙 위)
+  const fYB = fCenter + SG/2;          // B슬롯 (중앙 아래)
   const fMA = fYA + SH/2;              // A슬롯 중간
   const fMB = fYB + SH/2;              // B슬롯 중간
 
@@ -4873,13 +4874,12 @@ window.showFullBracket = () => {
   for(let rhi=0;rhi<SR;rhi++) g+=`<text x="${cx(SR*2-rhi)+SW/2}" y="22" text-anchor="middle" font-size="10" font-weight="700" fill="#2563eb">${rn(rhi)}</text>`;
 
   // 목적지 Y 계산
+  const firstRoundMC = mir(0); // 첫 라운드 경기 수 (한쪽 절반)
   const nextY=(r,mi)=>{
     const nr=r+1, nmi=Math.floor(mi/2), ns=mi%2;
     if(nr>=SR){
-      // 4강→결승: 4강 경기가 2개(위/아래)
-      // 4강 mi=0 → 결승A, mi=1 → 결승B
-      const semiFinalMI = Math.floor(mi / Math.pow(2, SR-1-r));
-      return semiFinalMI === 0 ? fMA : fMB;
+      // 4강→결승: 위쪽 절반 경기 → fMA, 아래쪽 절반 경기 → fMB
+      return mi < firstRoundMC/2 ? fMA : fMB;
     }
     const {yA,yB}=slotY(nr,nmi);
     return ns===0?yA+SH/2:yB+SH/2;
