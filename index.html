@@ -4851,11 +4851,12 @@ window.showFullBracket = () => {
     const mh=TH/mir(r), cy=OY+mi*mh+mh/2;
     return {yA:cy-SH-SG/2, yB:cy+SG/2, mA:cy-SG/2-SH/2, mB:cy+SG/2+SH/2};
   };
-  // 결승: A슬롯=위쪽 절반 중앙, B슬롯=아래쪽 절반 중앙
-  const fCYA=OY+TH/4;         // 위쪽 절반 중앙
-  const fCYB=OY+TH*3/4;       // 아래쪽 절반 중앙
-  const fYA=fCYA-SH/2, fYB=fCYB-SH/2;
-  const fMA=fCYA, fMB=fCYB;
+  // 결승: A/B 슬롯을 전체 중앙에 딱 붙여서 배치
+  const fMidY = OY + TH/2;             // 전체 중앙
+  const fYA = fMidY - SH - SG/2;       // A슬롯 위
+  const fYB = fMidY + SG/2;            // B슬롯 아래
+  const fMA = fYA + SH/2;              // A슬롯 중간
+  const fMB = fYB + SH/2;              // B슬롯 중간
 
   const rn=r=>{const c=sz/Math.pow(2,r);return c===2?'결승':c===4?'4강':c===8?'8강':c+'강';};
   const lbl=t=>{if(!t)return null;const n=(t.members||[]).map(m=>m.name).join('/');return{n:n.length>11?n.slice(0,11)+'..':n,c:(t.club||'').slice(0,12)};};
@@ -6118,27 +6119,32 @@ const assignBracket = (teams) => {
   });
 
   // ── 짝을 반대편 빈 경기 슬롯에 배치 ──
+  const placedNos = new Set(); // 배치된 팀 entryNo 추적
+  // 1위 배치 기록
+  bracket.forEach(t => { if(t) placedNos.add(t.no); });
+
   pairs.forEach(([r2t, rlt]) => {
     const oppSlots = getOppSlots(r2t.groupNo);
     for(const mi of oppSlots){
       if(bracket[mi*2]===null && bracket[mi*2+1]===null){
         bracket[mi*2]   = r2t;
         bracket[mi*2+1] = rlt;
+        placedNos.add(r2t.no);
+        placedNos.add(rlt.no);
         break;
       }
     }
   });
 
-  // ── 남은 팀 (매칭 못 한 팀) → 빈 슬롯에 배치 ──
-  const remaining = teams.filter(t => !bracket.includes(t));
+  // ── 남은 팀 → 빈 슬롯에 배치 ──
+  const remaining = teams.filter(t => !placedNos.has(t.no));
   for(let slot=0; slot<size; slot++){
     if(!remaining.length) break;
-    if(bracket[slot]===null){
-      const ps = slot%2===0 ? slot+1 : slot-1;
-      const partner = bracket[ps];
-      if(partner && partner.groupNo === remaining[0].groupNo) continue;
-      bracket[slot] = remaining.shift();
-    }
+    if(bracket[slot]!==null) continue;
+    const ps = slot%2===0 ? slot+1 : slot-1;
+    const partner = (ps>=0&&ps<size) ? bracket[ps] : null;
+    if(partner && partner.groupNo === remaining[0].groupNo) continue;
+    bracket[slot] = remaining.shift();
   }
 
   return bracket;
