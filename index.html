@@ -6011,7 +6011,12 @@ window.submitMatchResults = async () => {
       await updateDoc(doc(db,'tournaments',t2.id),{events});
     }
     showToast('결과 제출 완료! 관리자 승인 대기중 🏓');
-    goPage(isBracket ? 'pg-bracket' : 'pg-status');
+    if(isBracket) {
+      renderBracketPage(window._bracketEv);
+      goPage('pg-bracket');
+    } else {
+      goPage('pg-status');
+    }
   } catch(e) { showToast('저장 실패: '+e.message); }
 };
 
@@ -6544,7 +6549,6 @@ window.openBracketMatch = async (matchKey, matchIdx, roundIdx, from) => {
   document.getElementById('match-title').textContent = `본선 ${matchIdx+1}경기`;
   document.getElementById('match-sub').textContent = `${nameA} vs ${nameB}`;
   document.getElementById('match-back-btn').onclick = async () => {
-    // Firebase에서 최신 데이터 다시 불러와서 브라켓 갱신
     const t2 = window.curTourney || window._statusTourney || window._bracketTourney;
     if(t2) {
       try {
@@ -6552,13 +6556,11 @@ window.openBracketMatch = async (matchKey, matchIdx, roundIdx, from) => {
         if(snap2.exists()) {
           const evId2 = (window._bracketEv||{}).id;
           const ev2 = (snap2.data().events||[]).find(e=>e.id===evId2);
-          if(ev2) {
-            window._bracketEv = ev2;
-            renderBracketPage(ev2);
-          }
+          if(ev2) window._bracketEv = ev2;
         }
       } catch(e) {}
     }
+    renderBracketPage(window._bracketEv);
     goPage('pg-bracket');
     if(from === 'waiting') setTimeout(()=>showWaitingList(), 50);
   };
