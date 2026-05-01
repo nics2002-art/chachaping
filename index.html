@@ -939,7 +939,7 @@ body { font-family: 'Noto Sans KR', sans-serif; background: var(--bg); color: va
 <div class="page" id="pg-bracket">
   <div class="header" style="flex-wrap:wrap;gap:8px">
     <div style="display:flex;align-items:center;gap:10px;flex:1;min-width:0">
-      <div class="back-btn" onclick="goPage('pg-status')">←</div>
+      <div class="back-btn" onclick="window._bracketTourney?.leagueType==='league'?loadLeaguePage():goPage('pg-status')">←</div>
       <div class="header-info" style="min-width:0">
         <div class="header-title" id="bracket-title" style="white-space:nowrap;overflow:hidden;text-overflow:ellipsis"></div>
         <div class="header-sub" id="bracket-sub" style="white-space:nowrap;overflow:hidden;text-overflow:ellipsis"></div>
@@ -6583,16 +6583,17 @@ window.rejectMatchResults = async () => {
 
 // ── 본선 대진표 ──────────────────────────────────────────
 window.openBracketPage = () => {
-  const t = window._statusTourney;
-  const ev = (window._statusEvents||[])[window._statusTabIdx||0];
-  if(!ev) return;
+  const t = window._statusTourney || window.curTourney;
+  const ev = (window._statusEvents||[])[window._statusTabIdx||0]
+          || (window.curTourney?.events||[])[0];
+  if(!t || !ev) return;
   window._bracketEv = ev;
   window._bracketTourney = t;
 
   document.getElementById('bracket-title').textContent = `${ev.gender} ${ev.etype||''} 본선`;
   document.getElementById('bracket-sub').textContent = t.name;
 
-  const isOwner = window.currentUser && t.createdBy === window.currentUser.uid;
+  const isOwner = isTourneyAdmin(t);
   document.getElementById('bracket-gen-btn').style.display = isOwner ? '' : 'none';
 
   renderBracketPage(ev);
