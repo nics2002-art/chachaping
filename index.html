@@ -1368,7 +1368,7 @@ body { font-family: 'Noto Sans KR', sans-serif; background: var(--bg); color: va
       <div class="chip-group">
         <button class="chip on" data-group="ttype" data-val="시도대회">시.도대회</button>
         <button class="chip" data-group="ttype" data-val="전국대회">전국대회</button>
-        <button class="chip" data-group="ttype" data-val="클럽대회">클럽대회</button>
+        <button class="chip" data-group="ttype" data-val="클럽대회" style="display:none">클럽대회</button>
         <button class="chip" data-group="ttype" data-val="친선대회">친선대회</button>
       </div>
     </div>
@@ -1399,11 +1399,11 @@ body { font-family: 'Noto Sans KR', sans-serif; background: var(--bg); color: va
       <label class="form-label">코트 수</label>
       <input class="form-input" id="new-tourney-courts" type="number" min="1" max="100" placeholder="예: 10" value="4">
     </div>
-    <div class="form-group">
+    <div class="form-group" style="display:none">
       <label class="form-label">비로그인 접수</label>
       <div class="chip-group">
-        <button class="chip on green" data-group="allowGuest" data-val="true">허용 (소규모/구장 대회)</button>
-        <button class="chip green" data-group="allowGuest" data-val="false">로그인만 (공식 대회)</button>
+        <button class="chip green" data-group="allowGuest" data-val="true">허용 (소규모/구장 대회)</button>
+        <button class="chip on green" data-group="allowGuest" data-val="false">로그인만 (공식 대회)</button>
       </div>
     </div>
     <button class="btn btn-primary btn-full" onclick="saveTourney()" style="margin-top:8px">대회 만들기</button>
