@@ -1097,11 +1097,11 @@ body { font-family: 'Noto Sans KR', sans-serif; background: var(--bg); color: va
     </div>
     <div class="form-group">
       <label class="form-label">시작일</label>
-      <input class="form-input" id="edit-tourney-date" type="text" placeholder="YYYYMMDD" maxlength="8" inputmode="numeric" oninput="autoFormatDate(this)">
+      <input class="form-input" id="edit-tourney-date" type="date">
     </div>
     <div class="form-group">
       <label class="form-label">종료일 <span style="color:var(--text3);font-size:11px">(하루면 비워두세요)</span></label>
-      <input class="form-input" id="edit-tourney-date-end" type="text" placeholder="YYYYMMDD" maxlength="8" inputmode="numeric" oninput="autoFormatDate(this)">
+      <input class="form-input" id="edit-tourney-date-end" type="date">
     </div>
     <div class="form-group">
       <label class="form-label">대회 유형</label>
@@ -1118,12 +1118,12 @@ body { font-family: 'Noto Sans KR', sans-serif; background: var(--bg); color: va
     </div>
     <div class="form-group">
       <label class="form-label">접수 시작일</label>
-      <input class="form-input" id="edit-tourney-reg-start" type="text" placeholder="YYYYMMDD" maxlength="8" inputmode="numeric" oninput="autoFormatDate(this)">
+      <input class="form-input" id="edit-tourney-reg-start" type="date">
     </div>
     <div class="form-group">
       <label class="form-label">접수 마감일시</label>
       <div class="btn-row">
-        <input class="form-input" id="edit-tourney-reg-end-date" type="text" placeholder="YYYYMMDD" maxlength="8" inputmode="numeric" oninput="autoFormatDate(this)">
+        <input class="form-input" id="edit-tourney-reg-end-date" type="date">
         <input class="form-input" id="edit-tourney-reg-end-time" type="time" value="23:59" style="width:110px">
       </div>
     </div>
@@ -1396,20 +1396,20 @@ body { font-family: 'Noto Sans KR', sans-serif; background: var(--bg); color: va
     </div>
     <div class="form-group">
       <label class="form-label">대회 시작일</label>
-      <input class="form-input" id="new-tourney-date" type="text" placeholder="YYYYMMDD" maxlength="8" inputmode="numeric" oninput="autoFormatDate(this)">
+      <input class="form-input" id="new-tourney-date" type="date">
     </div>
     <div class="form-group">
       <label class="form-label">대회 종료일 <span style="color:var(--text3);font-size:11px">(하루면 비워두세요)</span></label>
-      <input class="form-input" id="new-tourney-date-end" type="text" placeholder="YYYYMMDD" maxlength="8" inputmode="numeric" oninput="autoFormatDate(this)">
+      <input class="form-input" id="new-tourney-date-end" type="date">
     </div>
     <div class="form-group">
       <label class="form-label">접수 시작일</label>
-      <input class="form-input" id="new-tourney-reg-start" type="text" placeholder="YYYYMMDD" maxlength="8" inputmode="numeric" oninput="autoFormatDate(this)">
+      <input class="form-input" id="new-tourney-reg-start" type="date">
     </div>
     <div class="form-group">
       <label class="form-label">접수 마감일시 <span style="color:var(--text3);font-size:11px">(없으면 수동 마감)</span></label>
       <div class="btn-row">
-        <input class="form-input" id="new-tourney-reg-end-date" type="text" placeholder="YYYYMMDD" maxlength="8" inputmode="numeric" oninput="autoFormatDate(this)">
+        <input class="form-input" id="new-tourney-reg-end-date" type="date">
         <input class="form-input" id="new-tourney-reg-end-time" type="time" value="23:59" style="width:110px">
       </div>
     </div>
@@ -2263,11 +2263,12 @@ window.openEditTourneyModal = async (id) => {
   const t = snap.data();
   document.getElementById('edit-tourney-id').value = id;
   document.getElementById('edit-tourney-name').value = t.name || '';
-  document.getElementById('edit-tourney-date').value = t.date || '';
+  const toDateInput = v => { if(!v) return ''; if(v.length===8&&!v.includes('-')) return v.slice(0,4)+'-'+v.slice(4,6)+'-'+v.slice(6,8); return v.slice(0,10); };
+  document.getElementById('edit-tourney-date').value = toDateInput(t.date);
   document.getElementById('edit-tourney-venue').value = t.venue || '';
-  document.getElementById('edit-tourney-reg-start').value = t.regStart || '';
+  document.getElementById('edit-tourney-reg-start').value = toDateInput(t.regStart);
   const regEndParts = (t.regEnd||'').split('T');
-  document.getElementById('edit-tourney-reg-end-date').value = regEndParts[0]||'';
+  document.getElementById('edit-tourney-reg-end-date').value = toDateInput(regEndParts[0]);
   document.getElementById('edit-tourney-reg-end-time').value = regEndParts[1]||'23:59';
   document.querySelectorAll('.chip[data-group="edit-ttype"]').forEach(c => {
     c.classList.toggle('on', c.dataset.val === t.type);
