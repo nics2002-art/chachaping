@@ -6049,100 +6049,97 @@ const makeBracketSize = (n) => {
 };
 
 // ── 본선 브라켓 배정 알고리즘 ─────────────────────────────
-// 규칙: 1위 왼/오 교대, 같은 조 → 반대편, BYE → 1위만
+// 규칙:
+// 1) 조번호 절반 기준: 1~N/2조 1위→상단, N/2+1~N조 1위→하단
+// 2) 같은 조 하위순위는 반대편 절반에 배치
+// 3) BYE = 브라켓크기 - 진출인원, 1위 우선 배정
+// 4) 2위 vs 반대편 조 꼴찌 매칭
+// 5) 같은 조 출신 절대 안 만남
 const assignBracket = (teams) => {
   const size = makeBracketSize(teams.length);
   const matchCount = size / 2;
   const halfMatch  = matchCount / 2;
-  const byeCount   = size - teams.length;
 
+  // 순위별 분리
   const byRank = {};
   teams.forEach(t => {
     if(!byRank[t.rank]) byRank[t.rank] = [];
     byRank[t.rank].push(t);
   });
   const allRanks = Object.keys(byRank).map(Number).sort((a,b)=>a-b);
+  const maxRank  = allRanks[allRanks.length-1];
+  const totalGroups = Math.max(...teams.map(t=>t.groupNo));
+  const halfGroups  = Math.floor(totalGroups / 2);
 
-  const r1  = [...(byRank[1]||[])];
-  const sub = allRanks.filter(r=>r>1).flatMap(r=>[...(byRank[r]||[])]);
+  // 상단/하단 슬롯
+  const topSlots    = [...Array(halfMatch).keys()];              // 0~halfMatch-1
+  const bottomSlots = [...Array(halfMatch).keys()].map(i=>i+halfMatch); // halfMatch~matchCount-1
 
-  // 1위 인터리브 (조번호 상하 교차)
-  const r1s = [...r1].sort((a,b)=>a.groupNo-b.groupNo);
-  const half = Math.ceil(r1s.length/2);
-  const r1o = [];
-  for(let i=0;i<half;i++){
-    r1o.push(r1s[i]);
-    if(i+half<r1s.length) r1o.push(r1s[i+half]);
-  }
-
-  // BYE 받을 1위 랜덤
-  const byeIdx = new Set();
-  [...Array(r1o.length).keys()].sort(()=>Math.random()-0.5)
-    .slice(0,byeCount).forEach(i=>byeIdx.add(i));
-
-  // 브라켓 슬롯(size개) 단위로 관리
   const bracket = new Array(size).fill(null);
-  const r1ZoneMap = {}; // groupNo → 'left'/'right'
 
-  let lMI = 0;           // 왼쪽 다음 경기 인덱스
-  let rMI = halfMatch;   // 오른쪽 다음 경기 인덱스
+  // ── 1위 배치 (A슬롯) ──
+  const r1top    = (byRank[1]||[]).filter(t=>t.groupNo<=halfGroups).sort((a,b)=>a.groupNo-b.groupNo);
+  const r1bottom = (byRank[1]||[]).filter(t=>t.groupNo>halfGroups).sort((a,b)=>a.groupNo-b.groupNo);
+  r1top.forEach((t,i)=>{ if(i<topSlots.length) bracket[topSlots[i]*2]=t; });
+  r1bottom.forEach((t,i)=>{ if(i<bottomSlots.length) bracket[bottomSlots[i]*2]=t; });
 
-  // 1위를 왼/오 교대 배치 (각 경기 A슬롯)
-  r1o.forEach((r1t, i) => {
-    const isBye = byeIdx.has(i);
-    let mi;
-    if(i%2===0 && lMI<halfMatch){
-      mi=lMI++; r1ZoneMap[r1t.groupNo]='left';
-    } else if(rMI<matchCount){
-      mi=rMI++; r1ZoneMap[r1t.groupNo]='right';
-    } else {
-      mi=lMI++; r1ZoneMap[r1t.groupNo]='left';
+  // ── 반대편 슬롯 반환 ──
+  const getOppSlots = (groupNo) => groupNo<=halfGroups ? bottomSlots : topSlots;
+
+  // ── 2위 vs 반대편 꼴찌 매칭 ──
+  const rank2    = [...(byRank[2]||[])].sort((a,b)=>a.groupNo-b.groupNo);
+  const rankLast = [...(byRank[maxRank]||[])].sort((a,b)=>a.groupNo-b.groupNo);
+  const usedLast = new Set();
+  const pairs    = []; // [r2team, lastTeam]
+
+  rank2.forEach(r2t => {
+    // 반대편 조 꼴찌 찾기 (같은 조 제외, 반대편 절반 우선)
+    let bestJ = -1;
+    // 1순위: 반대편 절반 + 다른 조
+    for(let j=0; j<rankLast.length; j++){
+      if(usedLast.has(j)) continue;
+      const rlt = rankLast[j];
+      if(rlt.groupNo === r2t.groupNo) continue;
+      const r2isTop  = r2t.groupNo <= halfGroups;
+      const rltIsTop = rlt.groupNo <= halfGroups;
+      if(r2isTop !== rltIsTop){ bestJ=j; break; } // 반대편 절반
     }
-    bracket[mi*2] = r1t;
-    // BYE면 B슬롯 null 유지, 아니면 나중에 채움
-  });
-
-  // 하위순위를 반대편에 배치
-  const getOppMIs = (groupNo) => {
-    const side = r1ZoneMap[groupNo];
-    if(side==='left')  return [...Array(halfMatch).keys()].map(i=>halfMatch+i);
-    if(side==='right') return [...Array(halfMatch).keys()];
-    return [...Array(matchCount).keys()];
-  };
-
-  [...sub].sort(()=>Math.random()-0.5).forEach(subT => {
-    const oppMIs = getOppMIs(subT.groupNo);
-    let bestSlot=-1, bestScore=-9999;
-
-    // 반대편 빈 슬롯 탐색
-    for(const mi of oppMIs){
-      for(const slot of [mi*2, mi*2+1]){
-        if(bracket[slot]!==null) continue;
-        const ps = slot%2===0?slot+1:slot-1;
-        const partner = (ps>=0&&ps<size)?bracket[ps]:null;
-        let score=0;
-        if(partner){
-          if(partner.groupNo===subT.groupNo) continue;
-          if(partner.rank===1) score+=30;
-          score+=10;
-        }
-        if(score>bestScore){bestScore=score;bestSlot=slot;}
+    // 2순위: 같은 절반이라도 다른 조
+    if(bestJ < 0){
+      for(let j=0; j<rankLast.length; j++){
+        if(usedLast.has(j)) continue;
+        if(rankLast[j].groupNo !== r2t.groupNo){ bestJ=j; break; }
       }
     }
+    if(bestJ >= 0){
+      pairs.push([r2t, rankLast[bestJ]]);
+      usedLast.add(bestJ);
+    }
+  });
 
-    // 반대편 꽉 찼으면 아무 빈 슬롯 (같은 조 아닌 곳)
-    if(bestSlot<0){
-      for(let slot=0;slot<size;slot++){
-        if(bracket[slot]!==null) continue;
-        const ps=slot%2===0?slot+1:slot-1;
-        const partner=(ps>=0&&ps<size)?bracket[ps]:null;
-        if(partner&&partner.groupNo===subT.groupNo) continue;
-        bestSlot=slot; break;
+  // ── 짝을 반대편 빈 경기 슬롯에 배치 ──
+  pairs.forEach(([r2t, rlt]) => {
+    const oppSlots = getOppSlots(r2t.groupNo);
+    for(const mi of oppSlots){
+      if(bracket[mi*2]===null && bracket[mi*2+1]===null){
+        bracket[mi*2]   = r2t;
+        bracket[mi*2+1] = rlt;
+        break;
       }
     }
-
-    if(bestSlot>=0) bracket[bestSlot]=subT;
   });
+
+  // ── 남은 팀 (매칭 못 한 팀) → 빈 슬롯에 배치 ──
+  const remaining = teams.filter(t => !bracket.includes(t));
+  for(let slot=0; slot<size; slot++){
+    if(!remaining.length) break;
+    if(bracket[slot]===null){
+      const ps = slot%2===0 ? slot+1 : slot-1;
+      const partner = bracket[ps];
+      if(partner && partner.groupNo === remaining[0].groupNo) continue;
+      bracket[slot] = remaining.shift();
+    }
+  }
 
   return bracket;
 };
