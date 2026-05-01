@@ -4851,10 +4851,11 @@ window.showFullBracket = () => {
     const mh=TH/mir(r), cy=OY+mi*mh+mh/2;
     return {yA:cy-SH-SG/2, yB:cy+SG/2, mA:cy-SG/2-SH/2, mB:cy+SG/2+SH/2};
   };
-  // 결승: 전체 중앙 고정
-  const fCY=OY+TH/2;
-  const fYA=fCY-SH-SG/2, fYB=fCY+SG/2;
-  const fMA=fCY-SG/2-SH/2, fMB=fCY+SG/2+SH/2;
+  // 결승: A슬롯=위쪽 절반 중앙, B슬롯=아래쪽 절반 중앙
+  const fCYA=OY+TH/4;         // 위쪽 절반 중앙
+  const fCYB=OY+TH*3/4;       // 아래쪽 절반 중앙
+  const fYA=fCYA-SH/2, fYB=fCYB-SH/2;
+  const fMA=fCYA, fMB=fCYB;
 
   const rn=r=>{const c=sz/Math.pow(2,r);return c===2?'결승':c===4?'4강':c===8?'8강':c+'강';};
   const lbl=t=>{if(!t)return null;const n=(t.members||[]).map(m=>m.name).join('/');return{n:n.length>11?n.slice(0,11)+'..':n,c:(t.club||'').slice(0,12)};};
