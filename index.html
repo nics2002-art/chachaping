@@ -6055,6 +6055,7 @@ window.renderMatchList = () => {
           ${done ? `<span style="font-size:12px;font-weight:700;color:var(--green)">${winsA>winsB?nameA:nameB} 승 (${winsA}:${winsB})</span>` : ''}
           ${isTeamMatch ? `<button class="btn btn-ghost btn-sm" style="font-size:11px" onclick="openMatchLineup(${mi},${ai},${bi})">👥 순서</button>` : ''}
           <button class="btn btn-primary btn-sm" style="font-size:11px" onclick="openScoreboard(${mi},'${nameA.replace(/'/g,"\\'")}','${nameB.replace(/'/g,"\\'")}')">🏓 점수판</button>
+          <button class="btn btn-success btn-sm" style="font-size:11px" onclick="saveMatchScore(${mi})">💾 저장</button>
           <button class="btn btn-ghost btn-sm" style="height:28px;font-size:11px;color:var(--pink)" onclick="setForfeit(${mi})">기권</button>
         </div>
       </div>
@@ -6159,6 +6160,20 @@ window.cancelForfeit = (matchIdx) => {
   renderMatchList();
 };
 
+
+window.saveMatchScore = async (mi) => {
+  try {
+    if(window._isBracketMatch) {
+      await saveBracketMatchToFirebase();
+    } else {
+      await saveMatchResultsToFirebase();
+      renderMatchList();
+    }
+    showToast(`${mi+1}경기 점수가 저장됐어요 🏓`);
+  } catch(e) {
+    showToast('저장 실패: ' + (e.message||e));
+  }
+};
 window.submitMatchResults = async () => {
   const group = window._curGroup;
   const teams = window._curGroupTeams;
