@@ -2267,8 +2267,7 @@ window.loadLeaguePage = async () => {
 };
 
 window.openNewLeagueModal = () => {
-  if(!window.currentUser){ goPage('pg-login'); return; }
-  // 기존 대회 만들기 모달 재활용 - leagueMode 플래그 설정
+  // 구장리그는 비로그인도 만들기 가능
   window._isLeagueMode = true;
   const today = new Date().toISOString().slice(0,10);
   document.getElementById('new-tourney-name').value = '';
@@ -2277,6 +2276,10 @@ window.openNewLeagueModal = () => {
   document.getElementById('new-tourney-reg-start').value = '';
   document.getElementById('new-tourney-reg-end-date').value = '';
   document.getElementById('new-tourney-reg-end-time').value = '23:59';
+  // 친선대회 기본 선택
+  document.querySelectorAll('.chip[data-group="ttype"]').forEach(c => {
+    c.classList.toggle('on', c.dataset.val === '친선대회');
+  });
   openModal('modal-tourney');
   setTimeout(()=>document.getElementById('new-tourney-name').focus(), 200);
 };
@@ -2295,6 +2298,7 @@ window.deleteLeague = async (id) => {
 window.saveTourney = async () => {
   const name = document.getElementById('new-tourney-name').value.trim();
   if (!name) { showToast('대회명을 입력해주세요'); return; }
+  if (!window._isLeagueMode && !window.currentUser) { goPage('pg-login'); return; }
   const courts = parseInt(document.getElementById('new-tourney-courts').value)||4;
   const id = 'T' + Date.now();
   await setDoc(doc(db, 'tournaments', id), {
@@ -2309,8 +2313,8 @@ window.saveTourney = async () => {
     courts,
     status: window._isLeagueMode ? 'open' : 'draft',
     leagueType: window._isLeagueMode ? 'league' : null,
-    createdBy: window.currentUser.uid,
-    createdByName: window.currentUserData?.name || '',
+    createdBy: window.currentUser?.uid || 'guest',
+    createdByName: window.currentUserData?.name || '비회원',
     events: [],
     createdAt: Date.now()
   });
