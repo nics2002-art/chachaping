@@ -6659,7 +6659,11 @@ window.generateBracket = async () => {
 
   // 예선 각 조의 순위 정보 수집
   const groupRankings = {}; // groupNo -> [ranked entries in order]
-  const approvedGroups = (ev.groups||[]).filter(g=>g.matchStatus==='approved'&&g.matchResults);
+  // 구장리그: 조 승인 여부 상관없이 전체 조 사용
+  const isLeagueMode = t?.leagueType === 'league';
+  const approvedGroups = isLeagueMode
+    ? (ev.groups||[]).filter(g=>g.entryNos?.length)
+    : (ev.groups||[]).filter(g=>g.matchStatus==='approved'&&g.matchResults);
 
   approvedGroups.forEach(g => {
     const groupEntries = (g.entryNos||[]).map(no=>{
