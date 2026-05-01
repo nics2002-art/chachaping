@@ -2397,12 +2397,14 @@ window.showStatusTab = (idx) => {
 
     const gIdx = (ev.groups||[]).findIndex(gg=>gg.no===g.no);
     const clickFn = g.matchStatus==='approved' && !isStatusOwner ? 'openGroupRankingByIdx' : 'openGroupMatchByIdx';
+    const hasResults = g.matchStatus==='approved' || g.matchStatus==='pending';
     return `<tr style="cursor:pointer" onclick="${clickFn}(${gIdx})">
       <td style="padding:8px 10px;border:1px solid var(--border2);font-size:12px;font-weight:700;
         color:var(--amber);white-space:nowrap;background:var(--surface);width:60px;text-align:center">
         ${g.no}조
         ${g.court?`<div style="font-size:9px;color:var(--accent)">${g.court}번코트</div>`:''}
         ${g.matchStatus==='approved'?'<div style="font-size:9px;color:var(--green)">✅승인</div>':g.matchStatus==='pending'?'<div style="font-size:9px;color:var(--amber)">⏳대기</div>':'<div style="font-size:9px;color:var(--text3)">▶</div>'}
+        ${hasResults?`<div onclick="event.stopPropagation();openGroupRankingByIdx(${gIdx})" style="margin-top:4px;font-size:9px;color:var(--accent);cursor:pointer;background:rgba(37,99,235,.1);border-radius:4px;padding:2px 4px">📊결과</div>`:''}
       </td>
       ${teamsHtml}
     </tr>`;
