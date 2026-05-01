@@ -1097,11 +1097,11 @@ body { font-family: 'Noto Sans KR', sans-serif; background: var(--bg); color: va
     </div>
     <div class="form-group">
       <label class="form-label">시작일</label>
-      <input class="form-input" id="edit-tourney-date" type="date">
+      <input class="form-input" id="edit-tourney-date" type="text" placeholder="YYYYMMDD" maxlength="10" inputmode="numeric" oninput="autoFormatDate(this)">
     </div>
     <div class="form-group">
       <label class="form-label">종료일 <span style="color:var(--text3);font-size:11px">(하루면 비워두세요)</span></label>
-      <input class="form-input" id="edit-tourney-date-end" type="date">
+      <input class="form-input" id="edit-tourney-date-end" type="text" placeholder="YYYYMMDD" maxlength="10" inputmode="numeric" oninput="autoFormatDate(this)">
     </div>
     <div class="form-group">
       <label class="form-label">대회 유형</label>
@@ -1118,12 +1118,12 @@ body { font-family: 'Noto Sans KR', sans-serif; background: var(--bg); color: va
     </div>
     <div class="form-group">
       <label class="form-label">접수 시작일</label>
-      <input class="form-input" id="edit-tourney-reg-start" type="date">
+      <input class="form-input" id="edit-tourney-reg-start" type="text" placeholder="YYYYMMDD" maxlength="10" inputmode="numeric" oninput="autoFormatDate(this)">
     </div>
     <div class="form-group">
       <label class="form-label">접수 마감일시</label>
       <div class="btn-row">
-        <input class="form-input" id="edit-tourney-reg-end-date" type="date">
+        <input class="form-input" id="edit-tourney-reg-end-date" type="text" placeholder="YYYYMMDD" maxlength="10" inputmode="numeric" oninput="autoFormatDate(this)">
         <input class="form-input" id="edit-tourney-reg-end-time" type="time" value="23:59" style="width:110px">
       </div>
     </div>
@@ -1396,20 +1396,20 @@ body { font-family: 'Noto Sans KR', sans-serif; background: var(--bg); color: va
     </div>
     <div class="form-group">
       <label class="form-label">대회 시작일</label>
-      <input class="form-input" id="new-tourney-date" type="date">
+      <input class="form-input" id="new-tourney-date" type="text" placeholder="YYYYMMDD" maxlength="10" inputmode="numeric" oninput="autoFormatDate(this)">
     </div>
     <div class="form-group">
       <label class="form-label">대회 종료일 <span style="color:var(--text3);font-size:11px">(하루면 비워두세요)</span></label>
-      <input class="form-input" id="new-tourney-date-end" type="date">
+      <input class="form-input" id="new-tourney-date-end" type="text" placeholder="YYYYMMDD" maxlength="10" inputmode="numeric" oninput="autoFormatDate(this)">
     </div>
     <div class="form-group">
       <label class="form-label">접수 시작일</label>
-      <input class="form-input" id="new-tourney-reg-start" type="date">
+      <input class="form-input" id="new-tourney-reg-start" type="text" placeholder="YYYYMMDD" maxlength="10" inputmode="numeric" oninput="autoFormatDate(this)">
     </div>
     <div class="form-group">
       <label class="form-label">접수 마감일시 <span style="color:var(--text3);font-size:11px">(없으면 수동 마감)</span></label>
       <div class="btn-row">
-        <input class="form-input" id="new-tourney-reg-end-date" type="date">
+        <input class="form-input" id="new-tourney-reg-end-date" type="text" placeholder="YYYYMMDD" maxlength="10" inputmode="numeric" oninput="autoFormatDate(this)">
         <input class="form-input" id="new-tourney-reg-end-time" type="time" value="23:59" style="width:110px">
       </div>
     </div>
@@ -2219,7 +2219,13 @@ window.switchTab = (tab) => {
 // ── 대회 만들기 ─────────────────────────────────────────
 window.openNewTourneyModal = () => {
   if (!window.currentUser) { goPage('pg-login'); return; }
+  const today = new Date().toISOString().slice(0,10);
   document.getElementById('new-tourney-name').value = '';
+  document.getElementById('new-tourney-date').value = today; // YYYY-MM-DD
+  document.getElementById('new-tourney-date-end').value = '';
+  document.getElementById('new-tourney-reg-start').value = '';
+  document.getElementById('new-tourney-reg-end-date').value = '';
+  document.getElementById('new-tourney-reg-end-time').value = '23:59';
   openModal('modal-tourney');
   setTimeout(() => document.getElementById('new-tourney-name').focus(), 200);
 };
