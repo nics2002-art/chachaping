@@ -6246,10 +6246,19 @@ window.openGenerateBracketModal = () => {
 };
 
 window.generateBracket = async () => {
-  const ev = window._bracketEv;
   const t = window._bracketTourney;
   closeModal('modal-generate-bracket');
-  if(!confirm('대진표를 새로 생성할까요? 기존 대진표가 초기화됩니다.')) return;
+  if(!confirm('⚠️ 주의! 대진표를 새로 생성하면 기존 대진표와 입력된 모든 점수가 삭제됩니다. 계속하시겠습니까?')) return;
+
+  // Firebase에서 최신 ev 로드 (기존 캐시 무시)
+  let ev = window._bracketEv;
+  try {
+    const freshSnap = await getDoc(doc(db,'tournaments',t.id));
+    if(freshSnap.exists()) {
+      const freshEv = (freshSnap.data().events||[]).find(e=>e.id===ev.id);
+      if(freshEv) { ev = freshEv; window._bracketEv = freshEv; }
+    }
+  } catch(e) {}
 
   // 본선 진출 기준 (1=1위만, 2=1~2위, 3=1~3위, all=전원)
   const advanceCount = getChipVal('gen-advanceCount') || ev.advanceCount || '2';
@@ -6337,11 +6346,11 @@ window.generateBracket = async () => {
     }
   }
 
-  // Firestore 저장
+  // Firestore 저장 (기존 bracket/bracketMatches 완전 초기화)
   try {
     const snap = await getDoc(doc(db,'tournaments',t.id));
     const events = (snap.data().events||[]).map(e =>
-      e.id===ev.id ? {...e, bracket, bracketSize:size, bracketMatches} : e
+      e.id===ev.id ? {...e, bracket, bracketSize:size, bracketMatches, advanceCount} : e
     );
     await updateDoc(doc(db,'tournaments',t.id),{events});
     window._bracketEv = {...ev, bracket, bracketSize:size, bracketMatches};
