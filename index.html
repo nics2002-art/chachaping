@@ -2405,6 +2405,9 @@ window.showStatusTab = (idx) => {
         ${g.matchStatus==='approved'?'<div style="font-size:9px;color:var(--green)">✅승인</div>':g.matchStatus==='pending'?'<div style="font-size:9px;color:var(--amber)">⏳대기</div>':'<div style="font-size:9px;color:var(--text3)">▶</div>'}
       </td>
       ${teamsHtml}
+      <td style="padding:6px 8px;border:1px solid var(--border2);background:var(--surface);text-align:center;vertical-align:middle" onclick="event.stopPropagation();openGroupRankingByIdx(${gIdx})">
+        <span style="font-size:11px;color:var(--accent);font-weight:700;cursor:pointer">📊</span>
+      </td>
     </tr>`;
   }).join('');
 
