@@ -4809,22 +4809,44 @@ window.showWaitingList = () => {
   });
 
   const firstRoundMatchCount = size / 2;
+  const totalRounds = Math.log2(size);
 
-  // 대기중 경기 단위로 묶기 (A vs B 한 줄)
-  // matchKey 기준으로 그룹핑
-  const waitingMatchMap = {}; // matchKey → {tA, tB, info}
+  // 경기 단위로 대기중 카드 수집
+  // - 1라운드: bracket 배열 기준
+  // - 이후 라운드: bracketMatches 에 teamA/teamB 있고 결과 없는 경기
+  const waitingMatches = [];
+
+  // 1라운드
   for(let mi=0; mi<firstRoundMatchCount; mi++){
-    const tA = bracket[mi*2];
-    const tB = bracket[mi*2+1];
-    const bothDone = (!tA || doneTeamNames.has(getTeamName(tA))) && (!tB || doneTeamNames.has(getTeamName(tB)));
-    const eitherWaiting = (tA && !doneTeamNames.has(getTeamName(tA))) || (tB && !doneTeamNames.has(getTeamName(tB)));
-    if(eitherWaiting){
-      waitingMatchMap[`r0_${mi}`] = { tA, tB, matchKey:`r0_${mi}`, matchIdx:mi, roundIdx:0, label: roundLabel(size) };
+    const tA = bracket[mi*2] || null;
+    const tB = bracket[mi*2+1] || null;
+    const aDone = !tA || doneTeamNames.has(getTeamName(tA));
+    const bDone = !tB || doneTeamNames.has(getTeamName(tB));
+    // 둘 다 완료면 스킵, 한 팀이라도 대기면 포함
+    if(aDone && bDone) continue;
+    waitingMatches.push({ tA, tB, aDone, bDone, matchKey:`r0_${mi}`, matchIdx:mi, roundIdx:0, label: roundLabel(size) });
+  }
+
+  // 2라운드 이상: bracketMatches 에 팀 배정됐지만 결과 없는 경기
+  for(let r=1; r<totalRounds; r++){
+    const matchCountInRound = size / Math.pow(2, r+1);
+    const roundSz = size / Math.pow(2, r); // 이 라운드가 몇강인지
+    for(let mi=0; mi<matchCountInRound; mi++){
+      const key = `r${r}_${mi}`;
+      const m = bracketMatches[key];
+      if(!m) continue;
+      if(m.results?.length || m.isBye) continue; // 결과 있으면 스킵
+      const tA = m.teamA || null;
+      const tB = m.teamB || null;
+      if(!tA && !tB) continue; // 팀 배정 안 됐으면 스킵
+      const aDone = false; // 결과 없으니 둘 다 대기
+      const bDone = false;
+      waitingMatches.push({ tA, tB, aDone, bDone, matchKey:key, matchIdx:mi, roundIdx:r, label: roundLabel(roundSz) });
     }
   }
-  const waitingMatches = Object.values(waitingMatchMap);
+
   const waitingTeamCount = waitingMatches.reduce((s,m)=>{
-    return s + (m.tA && !doneTeamNames.has(getTeamName(m.tA))?1:0) + (m.tB && !doneTeamNames.has(getTeamName(m.tB))?1:0);
+    return s + (!m.aDone && m.tA ? 1 : 0) + (!m.bDone && m.tB ? 1 : 0);
   }, 0);
 
   let html = `<div style="font-size:13px;font-weight:700;color:var(--text);margin-bottom:12px">
@@ -4832,17 +4854,20 @@ window.showWaitingList = () => {
   </div>`;
 
   if(waitingMatches.length) {
-    waitingMatches.forEach(({tA, tB, matchKey, matchIdx, roundIdx, label}) => {
+    waitingMatches.forEach(({tA, tB, aDone, bDone, matchKey, matchIdx, roundIdx, label}) => {
       const nameA = tA ? getTeamName(tA) : 'TBD';
       const clubA = tA ? getClub(tA) : '';
       const nameB = tB ? getTeamName(tB) : 'TBD';
       const clubB = tB ? getClub(tB) : '';
+      // 이미 경기 완료한 팀은 흐리게
+      const styleA = aDone ? 'opacity:0.35;text-decoration:line-through;' : '';
+      const styleB = bDone ? 'opacity:0.35;text-decoration:line-through;' : '';
 
       html += `<div style="padding:10px 12px;background:var(--surface2);border-radius:10px;
         margin-bottom:8px;border-left:3px solid var(--accent);cursor:pointer;
         display:flex;align-items:center;gap:8px"
         onclick="openBracketMatch('${matchKey}',${matchIdx},${roundIdx})">
-        <div style="flex:1;min-width:0;text-align:left">
+        <div style="flex:1;min-width:0;text-align:left;${styleA}">
           <div style="font-size:13px;font-weight:700;color:var(--text);white-space:nowrap;overflow:hidden;text-overflow:ellipsis">${nameA}</div>
           <div style="font-size:11px;color:var(--text3)">${clubA}</div>
         </div>
@@ -4852,7 +4877,7 @@ window.showWaitingList = () => {
           <span style="font-size:11px;font-weight:700;color:var(--text3)">vs</span>
           <span style="font-size:10px;color:var(--text3)">${matchIdx+1}경기</span>
         </div>
-        <div style="flex:1;min-width:0;text-align:right">
+        <div style="flex:1;min-width:0;text-align:right;${styleB}">
           <div style="font-size:13px;font-weight:700;color:var(--text);white-space:nowrap;overflow:hidden;text-overflow:ellipsis">${nameB}</div>
           <div style="font-size:11px;color:var(--text3)">${clubB}</div>
         </div>
