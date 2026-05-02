@@ -4496,13 +4496,40 @@ window.selectMatchLineup = (mi, ti, gi, val) => {
   if(!window._teamMatchLineups[mi]) window._teamMatchLineups[mi] = {};
   window._teamMatchLineups[mi][ti+'_'+gi] = val;
 
-  // 단단복단단 연동: 1게임↔5게임, 2게임↔4게임 자동 복사
   const ev = window._curGroupEv;
   const teamFormat = ev?.teamFormat || '';
   if(teamFormat === '단단복단단') {
+    const lineup = window._teamMatchLineups[mi];
+
+    // 1번↔5번, 2번↔4번 자동 연동
     const mirror = {0:4, 4:0, 1:3, 3:1};
     if(mirror[gi] !== undefined) {
-      window._teamMatchLineups[mi][ti+'_'+mirror[gi]] = val;
+      lineup[ti+'_'+mirror[gi]] = val;
+    }
+
+    // 1번 또는 2번 선택 시 자동 계산
+    const sel0 = lineup[ti+'_0']; // 1게임(1번)
+    const sel1 = lineup[ti+'_1']; // 2게임(2번)
+
+    if(sel0 !== undefined && sel1 !== undefined) {
+      const teams = window._curGroupTeams || [];
+      const members = teams[ti]?.members || [];
+      const allIdxs = members.map((_,i) => i);
+      const usedIdxs = [Number(sel0), Number(sel1)];
+      const rem = allIdxs.find(i => !usedIdxs.includes(i));
+
+      if(rem !== undefined) {
+        // 4번 = 나머지 선수 (A팀/B팀 공통)
+        lineup[ti+'_3'] = String(rem);
+
+        // 복식 자동 배정
+        // A팀(ti=0): 2번+나머지
+        // B팀(ti=1): 1번+나머지
+        const doubleWith = ti === 0 ? Number(sel1) : Number(sel0);
+        const a = Math.min(doubleWith, rem);
+        const b = Math.max(doubleWith, rem);
+        lineup[ti+'_2'] = a+'-'+b;
+      }
     }
   }
 
