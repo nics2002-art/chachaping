@@ -6394,9 +6394,14 @@ window.renderMatchList = () => {
         </div>
         ${formatArr.map((type, gi) => {
           const {wa, wb, done: gdone, gmscores} = gameResults[gi];
-          // 선수 이름 가져오기
+          // 선수 이름 가져오기 - 양팀 다 오더 확정 시에만 공개
           const tA = teams[ai], tB = teams[bi];
+          const lineupA = lineupForMatch; // 전체 lineup 객체
+          const bothConfirmed = tA.members.every((_,gIdx) => lineupForMatch['0_'+gIdx] !== undefined || true) &&
+            Object.keys(lineupForMatch).some(k=>k.startsWith('0_')) &&
+            Object.keys(lineupForMatch).some(k=>k.startsWith('1_'));
           const getPlayerName = (ti, gi2) => {
+            if(!bothConfirmed) return '?';
             const lineup = lineupForMatch[ti+'_'+gi2];
             const team = ti===0?tA:tB;
             if(!lineup) return '?';
