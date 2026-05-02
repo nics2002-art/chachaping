@@ -1873,8 +1873,9 @@ window.renderTourneys = (tournaments) => {
     const statusColor = t.status === 'open' ? 'var(--green)' : t.status === 'closed' ? 'var(--pink)' : 'var(--text3)';
     const statusText = t.status === 'open' ? '● 접수중' : t.status === 'closed' ? '● 종료' : '● 준비중';
     const hasGroups = (t.events||[]).some(ev=>(ev.groups||[]).length>0);
-    const row = `<div class="tourney-row">
-      <div class="tourney-row-info" onclick="openTourney('${t.id}')">
+    const isLeagueRow = t.leagueType === 'league';
+    const row = `<div class="tourney-row" style="${isLeagueRow?'border-left:3px solid #16a34a;background:linear-gradient(90deg,rgba(240,253,244,0.7) 0%,var(--surface) 100%);':'' }">
+      <div class="tourney-row-info" onclick="${isLeagueRow?`openLeague('${t.id}')`:`openTourney('${t.id}')`}">
         <div class="tourney-row-name">${t.name}</div>
         <div class="tourney-row-date">${formatDate(t)}</div>
         <div class="tourney-row-meta">
