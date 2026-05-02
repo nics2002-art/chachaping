@@ -1924,14 +1924,8 @@ window.renderTourneys = (tournaments) => {
     const isClosed = statusInfo.text === '종료';
     const isOpen = statusInfo.text === '접수중';
 
-    // 상태별 스타일
-    const cardStyle = isClosed
-      ? 'opacity:0.55;'
-      : isOpen
-        ? 'border-left:3px solid var(--green);'
-        : isRunning
-          ? 'border-left:3px solid var(--amber);'
-          : isLeagueRow ? '' : 'border-left:3px solid var(--accent);';
+    // 상태별 스타일 - 짝대기 없이 상태 동그라미만
+    const cardStyle = isClosed ? 'opacity:0.55;' : '';
 
     const nameColor = isClosed ? '#9ca3af' : isLeagueRow ? '#9ca3af' : 'var(--text)';
 
