@@ -1737,7 +1737,7 @@ window.renderMainHeader = () => {
     avatarEl.textContent = name[0];
     avatarEl.title = name;
     greetingEl.innerHTML = `<div style="font-size:15px;font-weight:500">${name}님 안녕하세요! 👋</div><div style="font-size:12px;color:var(--text2);margin-top:2px">${window.currentUserData?.club||''} ${window.currentUserData?.rank||''}${window.currentUserData?.rank?'부':''}</div>`;
-    fabEl.style.display = 'flex';
+    fabEl.style.display = 'none'; // 대회 만들기는 대회 탭에서
   } else {
     avatarEl.innerHTML = `<button onclick="goPage('pg-login')" class="btn btn-outline btn-sm">로그인</button>`;
     avatarEl.className = '';
@@ -1834,7 +1834,6 @@ const formatDate = (t) => {
 window.renderTourneys = (tournaments) => {
   const el = document.getElementById('tourney-list');
   const visible = tournaments.filter(t => {
-    if (t.leagueType === 'league') return false; // 리그는 구장리그 탭에서만
     if (t.status === 'open' || t.status === 'closed') return true;
     if (window.currentUser && t.createdBy === window.currentUser.uid) return true;
     return false;
@@ -1879,8 +1878,9 @@ window.renderTourneys = (tournaments) => {
         <div class="tourney-row-name">${t.name}</div>
         <div class="tourney-row-date">${formatDate(t)}</div>
         <div class="tourney-row-meta">
+          ${t.leagueType==='league'?'<span style="background:#f0fdf4;color:#16a34a;font-size:10px;font-weight:700;padding:1px 7px;border-radius:99px;border:1px solid #86efac;margin-right:4px">🏓 구장리그</span>':''}
           <span style="color:${getStatusText(t).color};font-weight:600">● ${getStatusText(t).text}</span>
-          · ${t.type} · 종목 ${(t.events||[]).length}개
+          · ${t.type||''} · 종목 ${(t.events||[]).length}개
           ${t.venue?`<div style="font-size:11px;color:var(--text3);margin-top:2px">📍 ${t.venue}</div>`:''}
           ${t.regEnd?`<div style="font-size:11px;color:var(--text3)">마감: ${t.regEnd.replace('T',' ')}</div>`:''}
           ${isOwner ? ' · <span style="color:var(--accent)">내 대회</span>' : ''}
@@ -5126,26 +5126,30 @@ window.showWaitingList = () => {
       const clubA = tA ? getClub(tA) : '';
       const nameB = tB ? getTeamName(tB) : 'TBD';
       const clubB = tB ? getClub(tB) : '';
-      // 이미 경기 완료한 팀은 흐리게
-      const styleA = aDone ? 'opacity:0.35;text-decoration:line-through;' : '';
-      const styleB = bDone ? 'opacity:0.35;text-decoration:line-through;' : '';
+      const isTBD = !tA || !tB;
+      // 이미 경기 완료한 팀은 흐리게, TBD는 회색
+      const styleA = aDone ? 'opacity:0.35;text-decoration:line-through;' : !tA ? 'opacity:0.4;' : '';
+      const styleB = bDone ? 'opacity:0.35;text-decoration:line-through;' : !tB ? 'opacity:0.4;' : '';
+      const cardBg = isTBD ? 'var(--surface)' : 'var(--surface2)';
+      const borderColor = isTBD ? 'var(--border)' : 'var(--accent)';
+      const clickable = !isTBD;
 
-      html += `<div style="padding:10px 12px;background:var(--surface2);border-radius:10px;
-        margin-bottom:8px;border-left:3px solid var(--accent);cursor:pointer;
+      html += `<div style="padding:10px 12px;background:${cardBg};border-radius:10px;
+        margin-bottom:8px;border-left:3px solid ${borderColor};${clickable?'cursor:pointer;':'opacity:0.7;'}
         display:flex;align-items:center;gap:8px"
-        onclick="openBracketMatch('${matchKey}',${matchIdx},${roundIdx},'waiting')">
+        ${clickable?`onclick="openBracketMatch('${matchKey}',${matchIdx},${roundIdx},'waiting')"`:''}>
         <div style="flex:1;min-width:0;text-align:left;${styleA}">
-          <div style="font-size:13px;font-weight:700;color:var(--text);white-space:nowrap;overflow:hidden;text-overflow:ellipsis">${nameA}</div>
+          <div style="font-size:13px;font-weight:${tA?'700':'400'};color:${tA?'var(--text)':'var(--text3)'};white-space:nowrap;overflow:hidden;text-overflow:ellipsis">${nameA}</div>
           <div style="font-size:11px;color:var(--text3)">${clubA}</div>
         </div>
         <div style="display:flex;flex-direction:column;align-items:center;gap:2px;flex-shrink:0">
-          <span style="font-size:10px;font-weight:700;color:var(--accent);background:rgba(37,99,235,0.1);
-            border:1px solid rgba(37,99,235,0.25);border-radius:99px;padding:2px 8px">${label}</span>
+          <span style="font-size:10px;font-weight:700;color:${isTBD?'var(--text3)':'var(--accent)'};background:${isTBD?'var(--surface2)':'rgba(37,99,235,0.1)'};
+            border:1px solid ${isTBD?'var(--border)':'rgba(37,99,235,0.25)'};border-radius:99px;padding:2px 8px">${label}</span>
           <span style="font-size:11px;font-weight:700;color:var(--text3)">vs</span>
           <span style="font-size:10px;color:var(--text3)">${matchIdx+1}경기</span>
         </div>
         <div style="flex:1;min-width:0;text-align:right;${styleB}">
-          <div style="font-size:13px;font-weight:700;color:var(--text);white-space:nowrap;overflow:hidden;text-overflow:ellipsis">${nameB}</div>
+          <div style="font-size:13px;font-weight:${tB?'700':'400'};color:${tB?'var(--text)':'var(--text3)'};white-space:nowrap;overflow:hidden;text-overflow:ellipsis">${nameB}</div>
           <div style="font-size:11px;color:var(--text3)">${clubB}</div>
         </div>
       </div>`;
