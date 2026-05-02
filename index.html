@@ -607,6 +607,16 @@ body { font-family: 'Noto Sans KR', sans-serif; background: var(--bg); color: va
     <div class="section-title">📅 대회 목록
       <button class="btn btn-ghost btn-sm" style="margin-left:auto" onclick="openCalendar()">🗓 달력</button>
     </div>
+    <div style="padding:8px 16px 4px;font-size:11px;color:var(--text3)">
+      🔵 접수예정 &nbsp;·&nbsp; 🟢 접수중 &nbsp;·&nbsp; 🟡 진행중 &nbsp;·&nbsp; ⚫ 종료
+    </div>
+    <div style="display:flex;gap:6px;flex-wrap:wrap;padding:4px 16px 0">
+      <button onclick="filterTourneyStatus('all')" id="filter-all" style="display:flex;align-items:center;gap:4px;padding:4px 10px;border-radius:99px;font-size:11px;font-weight:600;border:1px solid var(--border);background:var(--accent);color:#fff;cursor:pointer">전체</button>
+      <button onclick="filterTourneyStatus('pre')" id="filter-pre" style="display:flex;align-items:center;gap:4px;padding:4px 10px;border-radius:99px;font-size:11px;font-weight:600;border:1px solid var(--border);background:var(--surface);color:var(--text2);cursor:pointer">🔵 접수예정</button>
+      <button onclick="filterTourneyStatus('open')" id="filter-open" style="display:flex;align-items:center;gap:4px;padding:4px 10px;border-radius:99px;font-size:11px;font-weight:600;border:1px solid var(--border);background:var(--surface);color:var(--text2);cursor:pointer">🟢 접수중</button>
+      <button onclick="filterTourneyStatus('running')" id="filter-running" style="display:flex;align-items:center;gap:4px;padding:4px 10px;border-radius:99px;font-size:11px;font-weight:600;border:1px solid var(--border);background:var(--surface);color:var(--text2);cursor:pointer">🟡 진행중</button>
+      <button onclick="filterTourneyStatus('closed')" id="filter-closed" style="display:flex;align-items:center;gap:4px;padding:4px 10px;border-radius:99px;font-size:11px;font-weight:600;border:1px solid var(--border);background:var(--surface);color:var(--text2);cursor:pointer">⚫ 종료</button>
+    </div>
     <div class="card" style="padding:0 16px">
       <div id="tourney-list">
         <div class="loading"><div class="spinner"></div><span>불러오는 중...</span></div>
@@ -1818,10 +1828,20 @@ const getTourneyStatus = (t) => {
 };
 
 const getStatusText = (t) => {
+  const today = new Date().toISOString().slice(0,10);
   const s = getTourneyStatus(t);
+
+  // 대회 날짜 기준으로 진행중/종료 구분
+  if(s === 'open' || s === 'closed') {
+    const dateEnd = t.dateEnd || t.date; // 종료일 없으면 시작일=종료일
+    const dateStart = t.date;
+    if(dateEnd && today > dateEnd) return {text:'종료', color:'var(--text3)'};
+    if(dateStart && today >= dateStart) return {text:'진행중', color:'var(--amber)'};
+    if(s === 'closed') return {text:'접수마감', color:'var(--pink)'};
+    return {text:'접수중', color:'var(--green)'};
+  }
+
   if(s==='pre') return {text:'접수예정', color:'var(--amber)'};
-  if(s==='open') return {text:'접수중', color:'var(--green)'};
-  if(s==='closed') return {text:'접수마감', color:'var(--pink)'};
   if(s==='draft') return {text:'준비중', color:'var(--text3)'};
   return {text:s, color:'var(--text3)'};
 };
@@ -1832,12 +1852,37 @@ const formatDate = (t) => {
   return t.date;
 };
 
+
+window._tourneyFilter = 'all';
+window.filterTourneyStatus = (status) => {
+  window._tourneyFilter = status;
+  // 버튼 활성화
+  ['all','pre','open','running','closed'].forEach(s => {
+    const btn = document.getElementById('filter-'+s);
+    if(!btn) return;
+    btn.style.background = s===status ? 'var(--accent)' : 'var(--surface)';
+    btn.style.color = s===status ? '#fff' : 'var(--text2)';
+  });
+  const cached = _cache.get('tournaments');
+  if(cached) renderTourneys(cached);
+};
 window.renderTourneys = (tournaments) => {
   const el = document.getElementById('tourney-list');
-  const visible = tournaments.filter(t => {
+  const allVisible = tournaments.filter(t => {
     if (t.status === 'open' || t.status === 'closed') return true;
     if (window.currentUser && t.createdBy === window.currentUser.uid) return true;
     return false;
+  });
+
+  // 상태 필터 적용
+  const f = window._tourneyFilter || 'all';
+  const visible = f === 'all' ? allVisible : allVisible.filter(t => {
+    const st = getStatusText(t).text;
+    if(f === 'pre') return st === '접수예정';
+    if(f === 'open') return st === '접수중';
+    if(f === 'running') return st === '진행중';
+    if(f === 'closed') return st === '종료' || st === '접수마감';
+    return true;
   });
   // 날짜순 정렬 (최신순, 날짜 없으면 맨 아래)
   visible.sort((a,b) => {
@@ -1871,17 +1916,32 @@ window.renderTourneys = (tournaments) => {
 
   const rows = visible.map((t, idx) => {
     const isOwner = window.currentUser && t.createdBy === window.currentUser.uid;
-    const statusColor = t.status === 'open' ? 'var(--green)' : t.status === 'closed' ? 'var(--pink)' : 'var(--text3)';
-    const statusText = t.status === 'open' ? '● 접수중' : t.status === 'closed' ? '● 종료' : '● 준비중';
     const hasGroups = (t.events||[]).some(ev=>(ev.groups||[]).length>0);
     const isLeagueRow = t.leagueType === 'league';
-    const row = `<div class="tourney-row" style="${isLeagueRow?'color:#9ca3af;':''}">
+
+    const statusInfo = getStatusText(t);
+    const isRunning = statusInfo.text === '진행중';
+    const isClosed = statusInfo.text === '종료';
+    const isOpen = statusInfo.text === '접수중';
+
+    // 상태별 스타일
+    const cardStyle = isClosed
+      ? 'opacity:0.55;'
+      : isOpen
+        ? 'border-left:3px solid var(--green);'
+        : isRunning
+          ? 'border-left:3px solid var(--amber);'
+          : isLeagueRow ? '' : 'border-left:3px solid var(--accent);';
+
+    const nameColor = isClosed ? '#9ca3af' : isLeagueRow ? '#9ca3af' : 'var(--text)';
+
+    const row = `<div class="tourney-row" style="${cardStyle}">
       <div class="tourney-row-info" onclick="${isLeagueRow?`openLeague('${t.id}')`:`openTourney('${t.id}')`}">
-        <div class="tourney-row-name" style="${isLeagueRow?'color:#9ca3af;':'color:var(--text);'}">${t.name}</div>
+        <div class="tourney-row-name" style="color:${nameColor}">${t.name}</div>
         <div class="tourney-row-date">${formatDate(t)}</div>
         <div class="tourney-row-meta">
-          ${t.leagueType==='league'?'<span style="background:#f0fdf4;color:#16a34a;font-size:10px;font-weight:700;padding:1px 7px;border-radius:99px;border:1px solid #86efac;margin-right:4px">🏓 구장리그</span>':''}
-          <span style="color:${getStatusText(t).color};font-weight:600">● ${getStatusText(t).text}</span>
+          ${isLeagueRow?'<span style="background:#f0fdf4;color:#16a34a;font-size:10px;font-weight:700;padding:1px 7px;border-radius:99px;border:1px solid #86efac;margin-right:4px">🏓 구장리그</span>':''}
+          <span style="color:${statusInfo.color};font-weight:600">● ${statusInfo.text}</span>
           · ${t.type||''} · 종목 ${(t.events||[]).length}개
           ${t.venue?`<div style="font-size:11px;color:var(--text3);margin-top:2px">📍 ${t.venue}</div>`:''}
           ${t.regEnd?`<div style="font-size:11px;color:var(--text3)">마감: ${t.regEnd.replace('T',' ')}</div>`:''}
@@ -1889,14 +1949,13 @@ window.renderTourneys = (tournaments) => {
         </div>
       </div>
       <div style="display:flex;flex-direction:column;gap:4px;align-items:flex-end">
-        ${t.status==='open'?`<button class="btn btn-primary btn-sm" onclick="openTourney('${t.id}')">접수</button>`:''}
+        ${isOpen?`<button class="btn btn-primary btn-sm" onclick="${isLeagueRow?`openLeague('${t.id}')`:`openTourney('${t.id}')`}">접수</button>`:''}
         ${hasGroups?`<button class="btn btn-ghost btn-sm" onclick="openTourneyStatus('${t.id}')">현황</button>`:''}
         ${isOwner?`<button class="btn btn-ghost btn-sm" onclick="openEditTourneyModal('${t.id}')">수정</button>`:''}
         ${isOwner?`<button class="btn btn-ghost btn-sm" onclick="copyTourney('${t.id}')">복사</button>`:''}
-        ${isOwner?`<button class="btn btn-danger btn-sm" onclick="deleteTourney('${t.id}')">삭제</button>`:''}
+        ${isOwner?`<button class="btn btn-danger btn-sm" onclick="${isLeagueRow?`deleteLeague('${t.id}')`:`deleteTourney('${t.id}')`}">삭제</button>`:''}
       </div>
     </div>`;
-    // 3번째 대회 뒤에 광고 삽입
     return idx === 2 ? row + adBanner : row;
   });
 
@@ -4398,7 +4457,8 @@ window.openMatchLineup = (mi, ai, bi, targetTi) => {
 
     let html = `<div style="font-size:14px;font-weight:700;color:${color};margin-bottom:12px">
       ${mi+1}경기 · ${teamLabel} 선수 순서</div>
-    <div style="font-size:12px;color:var(--text3);margin-bottom:12px">${targetTeam.members.map(m=>m.name).join(', ')}</div>`;
+    <div style="font-size:12px;color:var(--text3);margin-bottom:12px">${targetTeam.members.map(m=>m.name).join(', ')}</div>
+    ${teamFormat==='단단복단단'?`<div style="font-size:12px;color:var(--accent);background:rgba(37,99,235,0.08);border-radius:8px;padding:8px 12px;margin-bottom:12px">💡 1번 · 2번 선수를 선택하시면 나머진 자동으로 채워집니다</div>`:''}`;
 
     // 단단복단단 자동 연동 게임(4,5번) 여부
     const isDandanboklabeled = teamFormat === '단단복단단';
