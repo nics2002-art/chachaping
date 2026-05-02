@@ -4425,16 +4425,47 @@ window.openMatchLineup = (mi, ai, bi, targetTi) => {
 
       if(type==='복') {
         const members = targetTeam.members;
-        for(let a=0;a<members.length;a++){
-          for(let b=a+1;b<members.length;b++){
-            const pairKey = a+'-'+b;
+        // 단단복단단: 1번(gi=0), 2번(gi=1) 선택된 선수 인덱스 파악
+        const sel0 = lineup[targetTi+'_0']; // 1게임 선택
+        const sel1 = lineup[targetTi+'_1']; // 2게임 선택
+        const usedIdxs = new Set();
+        if(sel0 !== undefined && sel0 !== null) usedIdxs.add(String(sel0));
+        if(sel1 !== undefined && sel1 !== null) usedIdxs.add(String(sel1));
+
+        // 1번/2번 다 선택됐으면 나머지 1명 자동으로 복식에 포함
+        const remaining = members.map((_,i)=>i).filter(i=>!usedIdxs.has(String(i)));
+        const isAutoDouble = teamFormat==='단단복단단' && usedIdxs.size===2 && remaining.length===1;
+
+        if(isAutoDouble) {
+          // 자동으로 복식 조합 결정: 남은 1명 + (1번 or 2번)
+          const remIdx = remaining[0];
+          const used = [...usedIdxs].map(Number);
+          // 복식 조합 2가지만 표시 (남은 선수 포함)
+          const autoPairs = used.map(u => {
+            const a = Math.min(u, remIdx), b = Math.max(u, remIdx);
+            return a+'-'+b;
+          });
+          for(const pairKey of autoPairs) {
+            const [a,b] = pairKey.split('-').map(Number);
             const isSelected = sel===pairKey;
-            const pairOnclick = isAutoFilled ? "showToast('자동 배정됩니다')" : "selectMatchLineup("+mi+","+targetTi+","+gi+",'"+pairKey+"')";
+            const pairOnclick = "selectMatchLineup("+mi+","+targetTi+","+gi+",'"+pairKey+"')";
             html += `<button class="btn ${isSelected?'btn-primary':'btn-ghost'} btn-sm"
-              style="${isAutoFilled?'opacity:0.35;cursor:not-allowed':''}"
               onclick="${pairOnclick}">
               ${members[a].name}+${members[b].name}
             </button>`;
+          }
+        } else {
+          for(let a=0;a<members.length;a++){
+            for(let b=a+1;b<members.length;b++){
+              const pairKey = a+'-'+b;
+              const isSelected = sel===pairKey;
+              const pairOnclick = isAutoFilled ? "showToast('자동 배정됩니다')" : "selectMatchLineup("+mi+","+targetTi+","+gi+",'"+pairKey+"')";
+              html += `<button class="btn ${isSelected?'btn-primary':'btn-ghost'} btn-sm"
+                style="${isAutoFilled?'opacity:0.35;cursor:not-allowed':''}"
+                onclick="${pairOnclick}">
+                ${members[a].name}+${members[b].name}
+              </button>`;
+            }
           }
         }
       } else {
