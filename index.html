@@ -4399,21 +4399,27 @@ window.openMatchLineup = (mi, ai, bi, targetTi) => {
       ${mi+1}경기 · ${teamLabel} 선수 순서</div>
     <div style="font-size:12px;color:var(--text3);margin-bottom:12px">${targetTeam.members.map(m=>m.name).join(', ')}</div>`;
 
+    // 단단복단단 자동 연동 게임(4,5번) 여부
+    const isDandanboklabeled = teamFormat === '단단복단단';
+    const mirroredGames = isDandanboklabeled ? new Set([3,4]) : new Set(); // gi=3(4게임),gi=4(5게임) 자동
+
     formatArr.forEach((type, gi) => {
       const key = targetTi+'_'+gi;
       const sel = lineup[key]||null;
+      const isAutoFilled = mirroredGames.has(gi); // 자동 배정 슬롯
 
       // 이 게임 제외 다른 단식 게임에서 사용된 선수
       const otherUsed = new Set();
       formatArr.forEach((t2, gi2) => {
-        if(gi2!==gi && t2==='단') {
+        if(gi2!==gi && t2==='단' && !mirroredGames.has(gi2)) {
           const otherSel = lineup[targetTi+'_'+gi2];
           if(otherSel!==undefined && otherSel!==null) otherUsed.add(String(otherSel));
         }
       });
 
-      html += `<div style="margin-bottom:12px">
-        <div style="font-size:12px;color:var(--text2);font-weight:700;margin-bottom:6px">${gi+1}게임 (${type}식)</div>
+      const autoLabel = isAutoFilled ? ' <span style="font-size:10px;color:var(--text3)">(자동)</span>' : '';
+      html += `<div style="margin-bottom:12px;${isAutoFilled?'opacity:0.6;':''}">
+        <div style="font-size:12px;color:var(--text2);font-weight:700;margin-bottom:6px">${gi+1}게임 (${type}식)${autoLabel}</div>
         <div style="display:flex;gap:6px;flex-wrap:wrap">`;
 
       if(type==='복') {
@@ -4422,8 +4428,10 @@ window.openMatchLineup = (mi, ai, bi, targetTi) => {
           for(let b=a+1;b<members.length;b++){
             const pairKey = a+'-'+b;
             const isSelected = sel===pairKey;
+            const pairOnclick = isAutoFilled ? "showToast('자동 배정됩니다')" : "selectMatchLineup("+mi+","+targetTi+","+gi+",'"+pairKey+"')";
             html += `<button class="btn ${isSelected?'btn-primary':'btn-ghost'} btn-sm"
-              onclick="selectMatchLineup(${mi},${targetTi},${gi},'${pairKey}')">
+              style="${isAutoFilled?'opacity:0.35;cursor:not-allowed':''}"
+              onclick="${pairOnclick}">
               ${members[a].name}+${members[b].name}
             </button>`;
           }
@@ -4431,11 +4439,11 @@ window.openMatchLineup = (mi, ai, bi, targetTi) => {
       } else {
         targetTeam.members.forEach((m,idx) => {
           const isSelected = sel===String(idx);
-          const isUsed = otherUsed.has(String(idx));
-          html += `<button class="btn ${isSelected?'btn-primary':isUsed?'btn-ghost':'btn-ghost'} btn-sm"
-            style="${isUsed&&!isSelected?'opacity:0.35;cursor:not-allowed':''}"
-            onclick="${isUsed&&!isSelected?'showToast(\"이미 다른 게임에 배정된 선수예요\")':'selectMatchLineup('+mi+','+targetTi+','+gi+',\''+idx+'\')'}"
-            >
+          const isUsed = !isAutoFilled && otherUsed.has(String(idx));
+          const singleOnclick = isAutoFilled ? "showToast('1번/2번 선택 시 자동 배정됩니다')" : (isUsed&&!isSelected ? "showToast('이미 다른 게임에 배정된 선수예요')" : "selectMatchLineup("+mi+","+targetTi+","+gi+",'"+idx+"')");
+          html += `<button class="btn ${isSelected?'btn-primary':'btn-ghost'} btn-sm"
+            style="${isAutoFilled||(isUsed&&!isSelected)?'opacity:0.35;cursor:not-allowed':''}"
+            onclick="${singleOnclick}">
             ${m.name}${isUsed&&!isSelected?' ✗':''}
           </button>`;
         });
@@ -4455,6 +4463,17 @@ window.openMatchLineup = (mi, ai, bi, targetTi) => {
 window.selectMatchLineup = (mi, ti, gi, val) => {
   if(!window._teamMatchLineups[mi]) window._teamMatchLineups[mi] = {};
   window._teamMatchLineups[mi][ti+'_'+gi] = val;
+
+  // 단단복단단 연동: 1게임↔5게임, 2게임↔4게임 자동 복사
+  const ev = window._curGroupEv;
+  const teamFormat = ev?.teamFormat || '';
+  if(teamFormat === '단단복단단') {
+    const mirror = {0:4, 4:0, 1:3, 3:1};
+    if(mirror[gi] !== undefined) {
+      window._teamMatchLineups[mi][ti+'_'+mirror[gi]] = val;
+    }
+  }
+
   if(window._renderMatchLineupFn) window._renderMatchLineupFn();
 };
 
