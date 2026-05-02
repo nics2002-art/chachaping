@@ -4561,10 +4561,14 @@ window.selectMatchLineup = (mi, ti, gi, val) => {
   if(teamFormat === '단단복단단') {
     const lineup = window._teamMatchLineups[mi];
 
-    // 1번↔5번, 2번↔4번 자동 연동
-    const mirror = {0:4, 4:0, 1:3, 3:1};
-    if(mirror[gi] !== undefined) {
-      lineup[ti+'_'+mirror[gi]] = val;
+    // A팀(ti=0): 1번↔5번, 2번↔4번
+    // B팀(ti=1): 2번↔5번, 1번→복식에 포함
+    if(ti === 0) {
+      const mirrorA = {0:4, 4:0, 1:3, 3:1};
+      if(mirrorA[gi] !== undefined) lineup[ti+'_'+mirrorA[gi]] = val;
+    } else {
+      const mirrorB = {1:4, 4:1};
+      if(mirrorB[gi] !== undefined) lineup[ti+'_'+mirrorB[gi]] = val;
     }
 
     // 1번 또는 2번 선택 시 자동 계산
@@ -4579,7 +4583,7 @@ window.selectMatchLineup = (mi, ti, gi, val) => {
       const rem = allIdxs.find(i => !usedIdxs.includes(i));
 
       if(rem !== undefined) {
-        // 4번 = 나머지 선수 (A팀/B팀 공통)
+        // 4번 = 나머지 (A팀/B팀 공통)
         lineup[ti+'_3'] = String(rem);
 
         // 복식 자동 배정
@@ -4589,6 +4593,9 @@ window.selectMatchLineup = (mi, ti, gi, val) => {
         const a = Math.min(doubleWith, rem);
         const b = Math.max(doubleWith, rem);
         lineup[ti+'_2'] = a+'-'+b;
+
+        // B팀 5번 = 2번 선수
+        if(ti === 1) lineup[ti+'_4'] = String(Number(sel1));
       }
     }
   }
