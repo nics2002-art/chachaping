@@ -1836,7 +1836,7 @@ const getStatusText = (t) => {
     const dateEnd = t.dateEnd || t.date; // 종료일 없으면 시작일=종료일
     const dateStart = t.date;
     if(dateEnd && today > dateEnd) return {text:'종료', color:'var(--text3)'};
-    if(dateStart && today >= dateStart) return {text:'진행중', color:'var(--amber)'};
+    if(dateStart && today >= dateStart) return {text:'진행중', color:'#ca8a04'};
     if(s === 'closed') return {text:'접수마감', color:'var(--pink)'};
     return {text:'접수중', color:'var(--green)'};
   }
