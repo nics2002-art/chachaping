@@ -607,15 +607,12 @@ body { font-family: 'Noto Sans KR', sans-serif; background: var(--bg); color: va
     <div class="section-title">📅 대회 목록
       <button class="btn btn-ghost btn-sm" style="margin-left:auto" onclick="openCalendar()">🗓 달력</button>
     </div>
-    <div style="padding:8px 16px 4px;font-size:11px;color:var(--text3)">
-      🔵 접수예정 &nbsp;·&nbsp; 🟢 접수중 &nbsp;·&nbsp; 🟡 진행중 &nbsp;·&nbsp; ⚫ 종료
-    </div>
-    <div style="display:flex;gap:6px;flex-wrap:wrap;padding:4px 16px 0">
+    <div style="display:flex;gap:6px;flex-wrap:wrap;padding:8px 16px 0">
       <button onclick="filterTourneyStatus('all')" id="filter-all" style="display:flex;align-items:center;gap:4px;padding:4px 10px;border-radius:99px;font-size:11px;font-weight:600;border:1px solid var(--border);background:var(--accent);color:#fff;cursor:pointer">전체</button>
-      <button onclick="filterTourneyStatus('pre')" id="filter-pre" style="display:flex;align-items:center;gap:4px;padding:4px 10px;border-radius:99px;font-size:11px;font-weight:600;border:1px solid var(--border);background:var(--surface);color:var(--text2);cursor:pointer">🔵 접수예정</button>
-      <button onclick="filterTourneyStatus('open')" id="filter-open" style="display:flex;align-items:center;gap:4px;padding:4px 10px;border-radius:99px;font-size:11px;font-weight:600;border:1px solid var(--border);background:var(--surface);color:var(--text2);cursor:pointer">🟢 접수중</button>
-      <button onclick="filterTourneyStatus('running')" id="filter-running" style="display:flex;align-items:center;gap:4px;padding:4px 10px;border-radius:99px;font-size:11px;font-weight:600;border:1px solid var(--border);background:var(--surface);color:var(--text2);cursor:pointer">🟡 진행중</button>
-      <button onclick="filterTourneyStatus('closed')" id="filter-closed" style="display:flex;align-items:center;gap:4px;padding:4px 10px;border-radius:99px;font-size:11px;font-weight:600;border:1px solid var(--border);background:var(--surface);color:var(--text2);cursor:pointer">⚫ 종료</button>
+      <button onclick="filterTourneyStatus('pre')" id="filter-pre" style="display:flex;align-items:center;gap:4px;padding:4px 10px;border-radius:99px;font-size:11px;font-weight:600;border:1px solid var(--border);background:var(--surface);color:var(--text2);cursor:pointer"><span style="width:8px;height:8px;border-radius:50%;background:#3b82f6;display:inline-block"></span> 접수예정</button>
+      <button onclick="filterTourneyStatus('open')" id="filter-open" style="display:flex;align-items:center;gap:4px;padding:4px 10px;border-radius:99px;font-size:11px;font-weight:600;border:1px solid var(--border);background:var(--surface);color:var(--text2);cursor:pointer"><span style="width:8px;height:8px;border-radius:50%;background:#22c55e;display:inline-block"></span> 접수중</button>
+      <button onclick="filterTourneyStatus('running')" id="filter-running" style="display:flex;align-items:center;gap:4px;padding:4px 10px;border-radius:99px;font-size:11px;font-weight:600;border:1px solid var(--border);background:var(--surface);color:var(--text2);cursor:pointer"><span style="width:8px;height:8px;border-radius:50%;background:#eab308;display:inline-block"></span> 진행중</button>
+      <button onclick="filterTourneyStatus('closed')" id="filter-closed" style="display:flex;align-items:center;gap:4px;padding:4px 10px;border-radius:99px;font-size:11px;font-weight:600;border:1px solid var(--border);background:var(--surface);color:var(--text2);cursor:pointer"><span style="width:8px;height:8px;border-radius:50%;background:#374151;display:inline-block"></span> 종료</button>
     </div>
     <div class="card" style="padding:0 16px">
       <div id="tourney-list">
@@ -1835,13 +1832,13 @@ const getStatusText = (t) => {
   if(s === 'open' || s === 'closed') {
     const dateEnd = t.dateEnd || t.date; // 종료일 없으면 시작일=종료일
     const dateStart = t.date;
-    if(dateEnd && today > dateEnd) return {text:'종료', color:'var(--text3)'};
+    if(dateEnd && today > dateEnd) return {text:'종료', color:'#374151'};
     if(dateStart && today >= dateStart) return {text:'진행중', color:'#eab308'};
-    if(s === 'closed') return {text:'접수마감', color:'var(--pink)'};
-    return {text:'접수중', color:'var(--green)'};
+    if(s === 'closed') return {text:'접수마감', color:'#374151'};
+    return {text:'접수중', color:'#22c55e'};
   }
 
-  if(s==='pre') return {text:'접수예정', color:'var(--amber)'};
+  if(s==='pre') return {text:'접수예정', color:'#3b82f6'};
   if(s==='draft') return {text:'준비중', color:'var(--text3)'};
   return {text:s, color:'var(--text3)'};
 };
