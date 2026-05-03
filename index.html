@@ -3611,7 +3611,7 @@ window.openGroupRanking = (group, groupEntries, ev) => {
   const currentPage = document.querySelector('.page.active')?.id;
   window._rankingPrevPage = currentPage === 'pg-match' ? 'match' : 'status';
   const prevBtn = document.getElementById('ranking-prev-btn');
-  if(prevBtn) prevBtn.style.display = 'block';
+  if(prevBtn) prevBtn.style.display = window._rankingPrevPage === 'match' ? 'block' : 'none';
   // 경기 이동을 위해 캐시
   window._curRankingGroup = group;
   window._curRankingEntries = groupEntries;
