@@ -2729,8 +2729,8 @@ window.renderTourneyNoticeHistory = (notices) => {
     return;
   }
 
-  // 최근 3개만 표시
-  const recent = notices.slice(0,3);
+  // 최근 5개만 표시
+  const recent = notices.slice(0,5);
   el.innerHTML = recent.map(n => {
     const d = new Date(n.ts);
     const time = `${d.getMonth()+1}/${d.getDate()} ${String(d.getHours()).padStart(2,'0')}:${String(d.getMinutes()).padStart(2,'0')}`;
@@ -2741,7 +2741,7 @@ window.renderTourneyNoticeHistory = (notices) => {
   }).join('');
 
   // 3개 초과면 전체보기 버튼 표시
-  if(allBtn) allBtn.style.display = notices.length > 3 ? '' : 'none';
+  if(allBtn) allBtn.style.display = notices.length > 5 ? '' : 'none';
 
   // 전체 공지 캐시
   window._allNotices = notices;
