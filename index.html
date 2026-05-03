@@ -4340,8 +4340,11 @@ window.showMatchDetail = (mi) => {
   if(!r) return;
 
   const [ai, bi] = matchOrder[mi];
-  const nameA = teams[ai]?.members.map(m=>m.name).join(', ')||'?';
-  const nameB = teams[bi]?.members.map(m=>m.name).join(', ')||'?';
+  // entryNo로 팀 찾기 (건너뛴 경기 대비)
+  const teamA = teams.find(t=>t?.entryNo===r.teamA) || teams[ai];
+  const teamB = teams.find(t=>t?.entryNo===r.teamB) || teams[bi];
+  const nameA = teamA?.members?.map(m=>m.name).join(', ')||'?';
+  const nameB = teamB?.members?.map(m=>m.name).join(', ')||'?';
   const wA = r.winsA, wB = r.winsB;
 
   // 헤더: 팀명 + 스코어
