@@ -2603,10 +2603,76 @@ window.openVisitStats = async () => {
 
 // ── 점수 초기화 ─────────────────────────────────────
 
+window.saveBracketTeamGameScore = async (gi) => {
+  const ev = window._curGroupEv || {};
+  const matchKey = window._bracketMatchKey;
+  const teams = window._curGroupTeams;
+  const t = window.curTourney || window._statusTourney || window._bracketTourney;
+  if(!t || !matchKey) return;
+
+  // 해당 게임(gi) 점수만 메모리에서 읽기
+  const key = '0_' + gi;
+  const gmscores = (window._matchScores||{})[key] || {};
+  let wa=0, wb=0;
+  const sets=[];
+  for(let s=0;s<5;s++){
+    const sa=parseInt(gmscores[s+'a']||0), sb=parseInt(gmscores[s+'b']||0);
+    if(sa>0||sb>0){ sets.push({a:sa,b:sb}); if(sa>sb)wa++; else if(sb>sa)wb++; }
+  }
+  if(!wa && !wb){ showToast('점수를 입력해주세요'); return; }
+
+  const formatArr = (ev.teamFormat||'단단단').split('').filter(c=>c==='단'||c==='복');
+
+  try {
+    const snap = await getDoc(doc(db,'tournaments',t.id));
+    if(!snap.exists()) return;
+    const allEvents = snap.data().events||[];
+    const targetEvId = ev.id || (allEvents.find(e=>e.bracketMatches)||{}).id;
+
+    const events = allEvents.map(e => {
+      if(e.id !== targetEvId) return e;
+      const bm = {...(e.bracketMatches||{})};
+      const existing = bm[matchKey] || {};
+      const existingResults = existing.results || [];
+      const mr = existingResults[0] ? {...existingResults[0]} : {winsA:0, winsB:0, sets:[], gameResults:[]};
+      
+      // gameResults 배열 확보 후 해당 게임만 교체
+      const gameResults = [...(mr.gameResults||[])];
+      while(gameResults.length <= gi) gameResults.push(null);
+      gameResults[gi] = {wa, wb, sets};
+
+      // 전체 경기 승수 재계산
+      let totalA=0, totalB=0;
+      formatArr.forEach((_,idx) => {
+        const gr = gameResults[idx];
+        if(gr){ if(gr.wa>gr.wb)totalA++; else if(gr.wb>gr.wa)totalB++; }
+      });
+
+      bm[matchKey] = {
+        ...existing,
+        teamA: teams[0], teamB: teams[1],
+        results: [{...mr, winsA:totalA, winsB:totalB, gameResults}],
+        lineups: window._teamMatchLineups||{}
+      };
+      return {...e, bracketMatches:bm};
+    });
+
+    await updateDoc(doc(db,'tournaments',t.id), {events});
+    t.events = events;
+    _cache.del('tourney_'+t.id);
+    _cache.set('tourney_'+t.id, t);
+    const updatedEv = events.find(e=>e.id===targetEvId) || ev;
+    window._bracketEv = updatedEv;
+    window._curGroupEv = updatedEv;
+    showToast(`${gi+1}게임 점수 저장됐어요 💾`);
+    renderMatchList();
+  } catch(err) { showToast('저장 실패: '+err.message); }
+};
+
 window.saveTeamGameScore = async (mi, gi) => {
-  // ★ 본선이면 saveBracketMatchToFirebase 경로로
+  // ★ 본선이면 전용 함수로
   if(window._isBracketMatch) {
-    await saveBracketMatchToFirebase();
+    await saveBracketTeamGameScore(gi);
     return;
   }
 
@@ -5387,9 +5453,60 @@ window.selectMatchLineup = (mi, ti, gi, val) => {
   if(window._renderMatchLineupFn) window._renderMatchLineupFn();
 };
 
-window.closeMatchLineupModal = () => {
+window.closeMatchLineupModal = async () => {
   document.getElementById('modal-match-lineup').classList.add('hidden');
   renderMatchList();
+
+  // ★ lineup 즉시 DB 저장 (본선/예선 모두)
+  if(window._isBracketMatch) {
+    const t = window.curTourney || window._statusTourney || window._bracketTourney;
+    const matchKey = window._bracketMatchKey;
+    const ev = window._curGroupEv;
+    if(!t || !matchKey || !ev) return;
+    try {
+      const snap = await getDoc(doc(db,'tournaments',t.id));
+      if(!snap.exists()) return;
+      const allEvents = snap.data().events||[];
+      const targetEvId = ev.id || (allEvents.find(e=>e.bracketMatches)||{}).id;
+      const events = allEvents.map(e => {
+        if(e.id !== targetEvId) return e;
+        const bm = {...(e.bracketMatches||{})};
+        bm[matchKey] = {...(bm[matchKey]||{}), lineups: window._teamMatchLineups||{}};
+        return {...e, bracketMatches:bm};
+      });
+      await updateDoc(doc(db,'tournaments',t.id), {events});
+      t.events = events;
+      _cache.del('tourney_'+t.id);
+      const updatedEv = events.find(e=>e.id===targetEvId) || ev;
+      window._bracketEv = updatedEv;
+      window._curGroupEv = updatedEv;
+      showToast('순서 저장됐어요 💾');
+    } catch(e) { showToast('저장 실패: '+e.message); }
+  } else {
+    // 예선: _curGroup에 lineup 반영 후 DB 저장
+    const group = window._curGroup;
+    const ev = window._curGroupEv;
+    const t = window.curTourney || window._statusTourney;
+    if(group && ev && t) {
+      try {
+        const snap = await getDoc(doc(db,'tournaments',t.id));
+        if(!snap.exists()) return;
+        const events = (snap.data().events||[]).map(e => {
+          if(e.id !== ev.id) return e;
+          const groups = (e.groups||[]).map(g => {
+            if(g.no !== group.no) return g;
+            return {...g, teamMatchLineups: window._teamMatchLineups||{}};
+          });
+          return {...e, groups};
+        });
+        await updateDoc(doc(db,'tournaments',t.id), {events});
+        t.events = events;
+        _cache.del('tourney_'+t.id);
+        window._curGroup = {...group, teamMatchLineups: window._teamMatchLineups||{}};
+        showToast('순서 저장됐어요 💾');
+      } catch(e) { showToast('저장 실패: '+e.message); }
+    }
+  }
 };
 
 window.openGameForfeitModal = (mi, gi, nameA, nameB) => {
