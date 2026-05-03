@@ -4579,7 +4579,7 @@ window.loadMoreRecent = () => {
   renderMypageRecent();
 };
 window.openTourneyNoticeModal = () => {
-  const t = window.curTourney;
+  const t = window.curTourney || window._statusTourney;
   if(!t) return;
   document.getElementById('tourney-notice-input').value = '';
   openModal('modal-tourney-notice');
@@ -4587,13 +4587,15 @@ window.openTourneyNoticeModal = () => {
 
 window.sendTourneyNotice = async () => {
   const msg = document.getElementById('tourney-notice-input').value.trim();
-  const t = window.curTourney;
+  const t = window.curTourney || window._statusTourney;
   if(!msg){ showToast('공지 내용을 입력해주세요'); return; }
+  if(!t) { showToast('대회 정보가 없어요'); return; }
   try {
-    await setDoc(doc(db,'system','notice'), {
-      message: `[${t.name}] ${msg}`,
-      timestamp: Date.now(),
-      sender: window.currentUserData?.name || '주최자'
+    await addDoc(collection(db,'tournaments',t.id,'notices'), {
+      message: msg,
+      ts: Date.now(),
+      sentBy: window.currentUser?.uid || 'guest',
+      sentByName: window.currentUserData?.name || '관리자'
     });
     closeModal('modal-tourney-notice');
     showToast('공지를 전송했어요 📢');
