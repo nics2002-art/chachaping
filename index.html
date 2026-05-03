@@ -3046,7 +3046,10 @@ window.showStatusTab = (idx) => {
       </td>
       ${teamsHtml}
       <td style="padding:6px 8px;border:1px solid var(--border2);background:var(--surface);text-align:center;vertical-align:middle" onclick="event.stopPropagation();openGroupRankingByIdx(${gIdx})">
-        <span style="font-size:11px;color:var(--accent);font-weight:700;cursor:pointer">📊</span>
+        <div style="display:flex;flex-direction:column;align-items:center;gap:2px;cursor:pointer">
+          <span style="font-size:14px;color:var(--accent)">📊</span>
+          <span style="font-size:9px;color:var(--accent);font-weight:700">순위표</span>
+        </div>
       </td>
     </tr>`;
   }).join('');
