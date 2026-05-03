@@ -8266,11 +8266,28 @@ window.openGenerateBracketModal = () => {
   document.querySelectorAll('[data-group="gen-advanceCount"]').forEach(btn => {
     btn.classList.toggle('on', btn.dataset.val === saved);
   });
-  // 승인된 조 수 / 팀 수 미리 보여주기
-  const approvedGroups = (ev.groups||[]).filter(g=>g.matchStatus==='approved');
+
+  // ★ 예선 완료 여부 체크
+  const allGroups = (ev.groups||[]).filter(g=>g.entryNos?.length);
+  const approvedGroups = allGroups.filter(g=>g.matchStatus==='approved');
+  const notDoneGroups = allGroups.filter(g=>g.matchStatus!=='approved');
   const groupCount = approvedGroups.length;
-  document.getElementById('gen-bracket-info').textContent =
-    `승인된 조 ${groupCount}개 · 진출 기준 선택 후 생성하세요`;
+  const totalCount = allGroups.length;
+
+  let infoText = `승인된 조 ${groupCount}/${totalCount}개`;
+  let warnHtml = '';
+
+  if(notDoneGroups.length > 0) {
+    const notDoneNos = notDoneGroups.map(g=>`${g.no}조`).join(', ');
+    warnHtml = `<div style="margin-top:8px;padding:10px 12px;background:rgba(234,88,12,0.1);border-radius:8px;border-left:3px solid #ea580c">
+      <div style="font-size:12px;font-weight:700;color:#ea580c;margin-bottom:2px">⚠️ 예선이 아직 안 끝난 조가 있어요</div>
+      <div style="font-size:11px;color:var(--text3)">${notDoneNos} · 미완료</div>
+      <div style="font-size:11px;color:var(--text3);margin-top:4px">강제 생성 시 해당 조는 현재 점수 기준으로 순위가 결정됩니다</div>
+    </div>`;
+    infoText += ` · <span style="color:#ea580c">미완료 ${notDoneGroups.length}개</span>`;
+  }
+
+  document.getElementById('gen-bracket-info').innerHTML = infoText + warnHtml;
   openModal('modal-generate-bracket');
 };
 
@@ -8303,13 +8320,20 @@ window.generateBracket = async () => {
   const pl = ev.players||[];
   const entries = ev.entries||[];
 
+  // ★ 예선 미완료 조 체크 → 강제 진행 여부 확인
+  const allGroupsForCheck = (ev.groups||[]).filter(g=>g.entryNos?.length);
+  const notDoneGroupsForCheck = allGroupsForCheck.filter(g=>g.matchStatus!=='approved');
+  if(notDoneGroupsForCheck.length > 0) {
+    const notDoneNos = notDoneGroupsForCheck.map(g=>`${g.no}조`).join(', ');
+    if(!confirm(`⚠️ 예선이 아직 안 끝난 조가 있어요\n\n미완료: ${notDoneNos}\n\n현재 점수 기준으로 강제 생성하시겠습니까?`)) return;
+  }
+
   // 예선 각 조의 순위 정보 수집
   const groupRankings = {}; // groupNo -> [ranked entries in order]
   // 구장리그: 조 승인 여부 상관없이 전체 조 사용
   const isLeagueMode = t?.leagueType === 'league';
-  const approvedGroups = isLeagueMode
-    ? (ev.groups||[]).filter(g=>g.entryNos?.length)
-    : (ev.groups||[]).filter(g=>g.matchStatus==='approved'&&g.matchResults);
+  // ★ 미완료 조도 포함 (matchResults 있으면 현재 점수 기준으로 순위 계산)
+  const approvedGroups = (ev.groups||[]).filter(g=>g.entryNos?.length);
 
   approvedGroups.forEach(g => {
     const groupEntries = (g.entryNos||[]).map(no=>{
