@@ -2785,52 +2785,94 @@ window.clearTeamGameScore = async (mi, gi) => {
   if(!confirm(`${mi+1}경기 ${gi+1}게임 점수를 초기화할까요?`)) return;
 
   // 1. 메모리 초기화
-  if(window._matchScores) {
-    Object.keys(window._matchScores).forEach(k => {
-      if(k.startsWith(`${mi}_${gi}`)) delete window._matchScores[k];
-    });
-  }
-  if(window._gameForfeit) delete window._gameForfeit[`${mi}_${gi}`];
+  const scoreKey = `${mi}_${gi}`;
+  if(window._matchScores) delete window._matchScores[scoreKey];
+  if(window._gameForfeit) delete window._gameForfeit[scoreKey];
 
   // 2. DB 초기화
-  const group = window._curGroup;
   const ev = window._curGroupEv;
   const t = window.curTourney || window._statusTourney || window._bracketTourney;
-  if(group && ev && t) {
-    try {
-      const snap = await getDoc(doc(db,'tournaments',t.id));
-      if(snap.exists()) {
-        const events = (snap.data().events||[]).map(e => {
-          if(e.id !== ev.id) return e;
-          const groups = (e.groups||[]).map(g => {
-            if(g.no !== group.no) return g;
-            const matchResults = [...(g.matchResults||[])];
-            if(matchResults[mi]) {
-              const mr = {...matchResults[mi]};
-              if(mr.gameResults) {
-                const gameResults = [...(mr.gameResults||[])];
-                gameResults[gi] = {wa:0, wb:0, sets:[]};
-                mr.gameResults = gameResults;
-              }
-              matchResults[mi] = mr;
-            }
-            return {...g, matchResults, matchStatus:''};
+  if(!ev || !t) { renderMatchList(); return; }
+
+  try {
+    const snap = await getDoc(doc(db,'tournaments',t.id));
+    if(!snap.exists()) { renderMatchList(); return; }
+
+    // ★ 본선 / 예선 경로 분기
+    if(window._isBracketMatch) {
+      const matchKey = window._bracketMatchKey;
+      const allEvents = snap.data().events||[];
+      const targetEvId = ev.id || (allEvents.find(e=>e.bracketMatches)||{}).id;
+      const events = allEvents.map(e => {
+        if(e.id !== targetEvId) return e;
+        const bm = {...(e.bracketMatches||{})};
+        const existing = bm[matchKey] || {};
+        const results = existing.results ? [...existing.results] : [];
+        if(results[0]) {
+          const mr = {...results[0]};
+          const gameResults = [...(mr.gameResults||[])];
+          gameResults[gi] = {wa:0, wb:0, sets:[]};
+          // 승수 재계산
+          const formatArr = (ev.teamFormat||'단단단').split('').filter(c=>c==='단'||c==='복');
+          let totalA=0, totalB=0;
+          formatArr.forEach((_,idx) => {
+            const gr = gameResults[idx];
+            if(gr){ if(gr.wa>gr.wb)totalA++; else if(gr.wb>gr.wa)totalB++; }
           });
-          return {...e, groups};
-        });
-        await updateDoc(doc(db,'tournaments',t.id), {events});
-        const updatedEv = events.find(e=>e.id===ev.id);
-        if(updatedEv) {
-          window._curGroupEv = updatedEv;
-          const updatedGroup = (updatedEv.groups||[]).find(g=>g.no===group.no);
-          if(updatedGroup) window._curGroup = updatedGroup;
-          if(window.curTourney) window.curTourney.events = events;
-          if(window._statusTourney) window._statusTourney.events = events;
-          _cache.del('tourney_'+t.id);
+          mr.gameResults = gameResults;
+          mr.winsA = totalA; mr.winsB = totalB;
+          results[0] = mr;
         }
+        bm[matchKey] = {...existing, results};
+        return {...e, bracketMatches:bm};
+      });
+      await updateDoc(doc(db,'tournaments',t.id), {events});
+      t.events = events;
+      _cache.del('tourney_'+t.id);
+      const updatedEv = events.find(e=>e.id===targetEvId) || ev;
+      window._bracketEv = updatedEv;
+      window._curGroupEv = updatedEv;
+    } else {
+      // 예선 경로
+      const group = window._curGroup;
+      if(!group) { renderMatchList(); return; }
+      const events = (snap.data().events||[]).map(e => {
+        if(e.id !== ev.id) return e;
+        const groups = (e.groups||[]).map(g => {
+          if(g.no !== group.no) return g;
+          const matchResults = [...(g.matchResults||[])];
+          const r = matchResults.find(r=>r&&r.matchNo===mi+1) || matchResults[mi];
+          if(r) {
+            const mr = {...r};
+            const gameResults = [...(mr.gameResults||[])];
+            gameResults[gi] = {wa:0, wb:0, sets:[]};
+            const formatArr = (ev.teamFormat||'단단단').split('').filter(c=>c==='단'||c==='복');
+            let totalA=0, totalB=0;
+            formatArr.forEach((_,idx) => {
+              const gr = gameResults[idx];
+              if(gr){ if(gr.wa>gr.wb)totalA++; else if(gr.wb>gr.wa)totalB++; }
+            });
+            mr.gameResults = gameResults;
+            mr.winsA = totalA; mr.winsB = totalB;
+            const targetIdx = matchResults.findIndex(r=>r&&r.matchNo===mi+1);
+            matchResults[targetIdx !== -1 ? targetIdx : mi] = mr;
+          }
+          return {...g, matchResults, matchStatus:''};
+        });
+        return {...e, groups};
+      });
+      await updateDoc(doc(db,'tournaments',t.id), {events});
+      const updatedEv = events.find(e=>e.id===ev.id);
+      if(updatedEv) {
+        window._curGroupEv = updatedEv;
+        const updatedGroup = (updatedEv.groups||[]).find(g=>g.no===group.no);
+        if(updatedGroup) window._curGroup = updatedGroup;
+        if(window.curTourney) window.curTourney.events = events;
+        if(window._statusTourney) window._statusTourney.events = events;
+        _cache.del('tourney_'+t.id);
       }
-    } catch(e) { showToast('초기화 실패: '+e.message); return; }
-  }
+    }
+  } catch(e) { showToast('초기화 실패: '+e.message); return; }
 
   renderMatchList();
   showToast(`${gi+1}게임 점수 초기화됐어요`);
@@ -2873,8 +2915,45 @@ window.clearGroupScores = async () => {
 window.clearSingleMatchScore = async (mi) => {
   if(!confirm(`⚠️ ${mi+1}경기 점수를 초기화할까요?\n이 작업은 되돌릴 수 없습니다.`)) return;
 
-  // 1. 화면(메모리) 초기화
-  if(window._matchScores) delete window._matchScores[mi];
+  // ★ 본선이면 경기 전체 초기화로 위임
+  if(window._isBracketMatch) {
+    const matchKey = window._bracketMatchKey;
+    if(!matchKey) return;
+    // 메모리 초기화
+    window._matchScores = {};
+    window._matchForfeits = {};
+    window._teamMatchLineups = {};
+    const t = window.curTourney || window._statusTourney || window._bracketTourney;
+    const ev = window._bracketEv;
+    if(t && ev) {
+      try {
+        const snap = await getDoc(doc(db,'tournaments',t.id));
+        const events = (snap.data().events||[]).map(e => {
+          if(e.id !== ev.id) return e;
+          const bm = {...(e.bracketMatches||{})};
+          if(bm[matchKey]) bm[matchKey] = {...bm[matchKey], results:[], status:'pending', winner:null};
+          return {...e, bracketMatches:bm};
+        });
+        await updateDoc(doc(db,'tournaments',t.id), {events});
+        t.events = events;
+        _cache.del('tourney_'+t.id);
+        const freshEv = events.find(e=>e.id===ev.id)||ev;
+        window._bracketEv = freshEv;
+        window._curGroupEv = freshEv;
+      } catch(e) { showToast('초기화 실패: '+e.message); return; }
+    }
+    renderMatchList();
+    showToast('경기 점수 초기화됐어요');
+    return;
+  }
+
+  // 1. 화면(메모리) 초기화 (예선)
+  if(window._matchScores) {
+    // 단체전: mi_gi 키도 모두 삭제
+    Object.keys(window._matchScores).forEach(k => {
+      if(k === String(mi) || k.startsWith(`${mi}_`)) delete window._matchScores[k];
+    });
+  }
   if(window._matchForfeits) delete window._matchForfeits[mi];
 
   // 2. Firebase 초기화 - matchResults[mi]만 빈값으로
@@ -2885,12 +2964,16 @@ window.clearSingleMatchScore = async (mi) => {
     try {
       const snap = await getDoc(doc(db,'tournaments',t.id));
       if(snap.exists()) {
+        const matchOrder = window._curMatchOrder || [];
         const events = (snap.data().events||[]).map(e => {
           if(e.id !== ev.id) return e;
           const groups = (e.groups||[]).map(g => {
             if(g.no !== group.no) return g;
             const matchResults = [...(g.matchResults||[])];
-            matchResults[mi] = { winsA:0, winsB:0, sets:[], cleared:true };
+            // matchNo 기준으로 찾아서 초기화
+            const targetIdx = matchResults.findIndex(r=>r&&r.matchNo===mi+1);
+            const idx2 = targetIdx !== -1 ? targetIdx : mi;
+            matchResults[idx2] = { matchNo:mi+1, winsA:0, winsB:0, sets:[], gameResults:[], cleared:true };
             return { ...g, matchResults, matchStatus:'' };
           });
           return { ...e, groups };
@@ -2933,9 +3016,17 @@ window.clearBracketMatchScore = async (matchKey) => {
     });
     await updateDoc(doc(db,'tournaments',t.id), { events });
     showToast('본선 경기 점수 초기화 완료!');
+    // ★ 메모리 점수도 초기화
+    window._matchScores = {};
+    window._matchForfeits = {};
+    window._teamMatchLineups = {};
     const freshSnap = await getDoc(doc(db,'tournaments',t.id));
     const freshEv = (freshSnap.data().events||[]).find(e=>e.id===ev.id);
-    if(freshEv) { window._bracketEv = freshEv; renderBracketPage(freshEv); }
+    if(freshEv) {
+      window._bracketEv = freshEv;
+      renderBracketPage(freshEv);
+      renderMatchList(); // pg-match도 갱신
+    }
   } catch(e) { showToast('실패: '+e.message); }
 };
 
