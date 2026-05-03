@@ -1094,8 +1094,11 @@ body { font-family: 'Noto Sans KR', sans-serif; background: var(--bg); color: va
   <div class="content" style="padding-top:12px">
     <div id="status-event-content"></div>
     <!-- 공지 히스토리 -->
-    <div class="card" style="margin-top:16px" id="tourney-notice-section" style="display:none">
-      <div style="font-size:13px;font-weight:700;color:var(--text);margin-bottom:10px">📢 공지 내역</div>
+    <div class="card" style="margin-top:16px;display:none" id="tourney-notice-section">
+      <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:10px">
+        <div style="font-size:13px;font-weight:700;color:var(--text)">📢 공지 내역</div>
+        <button class="btn btn-ghost btn-sm" id="notice-view-all-btn" onclick="openTourneyNoticeAll()" style="font-size:11px;display:none">전체 보기</button>
+      </div>
       <div id="tourney-notice-history"><div style="font-size:12px;color:var(--text3);text-align:center;padding:12px">공지 내역이 없어요</div></div>
     </div>
   </div>
@@ -1242,6 +1245,19 @@ body { font-family: 'Noto Sans KR', sans-serif; background: var(--bg); color: va
   </div>
   <div class="content">
     <div id="visit-stats-content"></div>
+  </div>
+</div>
+
+<div class="page" id="pg-notice-all">
+  <div class="header">
+    <div class="back-btn" onclick="goPage('pg-status')">←</div>
+    <div class="header-info">
+      <div class="header-title">전체 공지</div>
+      <div class="header-sub" id="notice-all-sub"></div>
+    </div>
+  </div>
+  <div class="content">
+    <div id="notice-all-content"><div class="loading"><div class="spinner"></div><span>불러오는 중...</span></div></div>
   </div>
 </div>
 
@@ -2701,9 +2717,21 @@ window.stopTourneyNoticeListener = () => {
 
 window.renderTourneyNoticeHistory = (notices) => {
   const el = document.getElementById('tourney-notice-history');
+  const section = document.getElementById('tourney-notice-section');
+  const allBtn = document.getElementById('notice-view-all-btn');
   if(!el) return;
-  if(!notices.length) { el.innerHTML = '<div style="font-size:12px;color:var(--text3);text-align:center;padding:12px">공지 내역이 없어요</div>'; return; }
-  el.innerHTML = notices.slice(0,20).map(n => {
+
+  if(section) section.style.display = '';
+
+  if(!notices.length) {
+    el.innerHTML = '<div style="font-size:12px;color:var(--text3);text-align:center;padding:12px">공지 내역이 없어요</div>';
+    if(allBtn) allBtn.style.display = 'none';
+    return;
+  }
+
+  // 최근 3개만 표시
+  const recent = notices.slice(0,3);
+  el.innerHTML = recent.map(n => {
     const d = new Date(n.ts);
     const time = `${d.getMonth()+1}/${d.getDate()} ${String(d.getHours()).padStart(2,'0')}:${String(d.getMinutes()).padStart(2,'0')}`;
     return `<div style="display:flex;gap:8px;padding:8px 0;border-bottom:1px solid var(--border);align-items:flex-start">
@@ -2711,6 +2739,27 @@ window.renderTourneyNoticeHistory = (notices) => {
       <span style="font-size:13px;color:var(--text)">${n.message}</span>
     </div>`;
   }).join('');
+
+  // 3개 초과면 전체보기 버튼 표시
+  if(allBtn) allBtn.style.display = notices.length > 3 ? '' : 'none';
+
+  // 전체 공지 캐시
+  window._allNotices = notices;
+};
+
+window.openTourneyNoticeAll = () => {
+  const t = window.curTourney || window._statusTourney;
+  const notices = window._allNotices || [];
+  document.getElementById('notice-all-sub').textContent = t?.name || '';
+  document.getElementById('notice-all-content').innerHTML = notices.map(n => {
+    const d = new Date(n.ts);
+    const time = `${d.getFullYear()}.${d.getMonth()+1}.${d.getDate()} ${String(d.getHours()).padStart(2,'0')}:${String(d.getMinutes()).padStart(2,'0')}`;
+    return `<div style="display:flex;gap:10px;padding:12px 0;border-bottom:1px solid var(--border);align-items:flex-start">
+      <span style="font-size:11px;color:var(--text3);white-space:nowrap;margin-top:2px">${time}</span>
+      <span style="font-size:14px;color:var(--text)">${n.message}</span>
+    </div>`;
+  }).join('') || '<div style="font-size:12px;color:var(--text3);text-align:center;padding:24px">공지 내역이 없어요</div>';
+  goPage('pg-notice-all');
 };
 
 window.openTourneyNoticeModal = () => {
@@ -8110,7 +8159,7 @@ window.goPage = (id) => {
     'pg-mypage':'mypage', 'pg-admin':'mypage',
     'pg-tourney':'tourney', 'pg-event':'tourney',
     'pg-tourney-list':'tourney', 'pg-status':'tourney', 'pg-bracket':'tourney', 'pg-match':'tourney', 'pg-lineup':'tourney',
-    'pg-ranking':'tourney', 'pg-club':'league', 'pg-calendar':'home',
+    'pg-ranking':'tourney', 'pg-notice-all':'tourney', 'pg-club':'league', 'pg-calendar':'home',
     'pg-profile-edit':'mypage', 'pg-diary':'home'
   };
   const activeTab = tabMap[id];
