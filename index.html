@@ -2432,20 +2432,29 @@ window.openVisitStats = async () => {
   goPage('pg-visit-stats');
   document.getElementById('visit-stats-content').innerHTML = '<div class="loading"><div class="spinner"></div><span>불러오는 중...</span></div>';
   try {
-    const snap = await getDoc(doc(db,'stats','visitors'));
-    if(!snap.exists()) { document.getElementById('visit-stats-content').innerHTML = '<div class="empty"><div class="empty-icon">📊</div><div class="empty-text">데이터가 없어요</div></div>'; return; }
-    const data = snap.data();
-    // stats/visitors: {YYYY-MM-DD: count, ...}
-    const daily = data;
-    // 월별 집계
-    const monthly = {};
-    Object.entries(data).forEach(([k,v]) => {
-      if(/^\d{4}-\d{2}-\d{2}$/.test(k)) {
-        const m = k.slice(0,7);
-        monthly[m] = (monthly[m]||0) + v;
-      }
-    });
-    const total = Object.entries(data).filter(([k])=>/^\d{4}-\d{2}-\d{2}$/.test(k)).reduce((s,[,v])=>s+v,0);
+    const [pvSnap, uvSnap] = await Promise.all([
+      getDoc(doc(db,'stats','visitors')),
+      getDoc(doc(db,'stats','unique_visitors'))
+    ]);
+    if(!pvSnap.exists() && !uvSnap.exists()) { document.getElementById('visit-stats-content').innerHTML = '<div class="empty"><div class="empty-icon">📊</div><div class="empty-text">데이터가 없어요</div></div>'; return; }
+    const pvData = pvSnap.exists() ? pvSnap.data() : {};
+    const uvData = uvSnap.exists() ? uvSnap.data() : {};
+
+    const makeStats = (data) => {
+      const monthly = {};
+      Object.entries(data).forEach(([k,v]) => {
+        if(/^\d{4}-\d{2}-\d{2}$/.test(k)) { const m=k.slice(0,7); monthly[m]=(monthly[m]||0)+v; }
+      });
+      const total = Object.values(data).reduce((s,v)=>s+(typeof v==='number'?v:0),0);
+      return { daily: data, monthly, total };
+    };
+    const pv = makeStats(pvData);
+    const uv = makeStats(uvData);
+    const data = pvData; // 차트용 (PV 기준)
+    const daily = pv.daily;
+    const monthly = pv.monthly;
+    const total = pv.total;
+    const totalUV = uv.total;
 
     // 최근 30일
     const days = [];
@@ -2467,21 +2476,33 @@ window.openVisitStats = async () => {
 
     document.getElementById('visit-stats-content').innerHTML = `
       <!-- 누적 -->
-      <div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:10px;margin-bottom:20px">
-        <div style="background:var(--surface2);border-radius:12px;padding:16px;text-align:center">
-          <div style="font-size:11px;color:var(--text3);margin-bottom:4px">누적 방문</div>
-          <div style="font-size:28px;font-weight:700;color:var(--accent)">${total.toLocaleString()}</div>
-          <div style="font-size:10px;color:var(--text3)">총 방문 수</div>
+      <div style="font-size:11px;color:var(--text3);margin-bottom:6px;font-weight:600">📊 총 방문(PV) · 🔵 순방문(UV)</div>
+      <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-bottom:10px">
+        <div style="background:var(--surface2);border-radius:12px;padding:14px;text-align:center">
+          <div style="font-size:11px;color:var(--text3);margin-bottom:4px">누적 총방문(PV)</div>
+          <div style="font-size:26px;font-weight:700;color:var(--accent)">${total.toLocaleString()}</div>
         </div>
-        <div style="background:var(--surface2);border-radius:12px;padding:16px;text-align:center">
-          <div style="font-size:11px;color:var(--text3);margin-bottom:4px">오늘</div>
-          <div style="font-size:28px;font-weight:700;color:var(--green)">${(daily[new Date().toISOString().slice(0,10)]||0).toLocaleString()}</div>
-          <div style="font-size:10px;color:var(--text3)">방문 수</div>
+        <div style="background:var(--surface2);border-radius:12px;padding:14px;text-align:center">
+          <div style="font-size:11px;color:var(--text3);margin-bottom:4px">누적 순방문(UV)</div>
+          <div style="font-size:26px;font-weight:700;color:#3b82f6">${totalUV.toLocaleString()}</div>
         </div>
-        <div style="background:var(--surface2);border-radius:12px;padding:16px;text-align:center">
-          <div style="font-size:11px;color:var(--text3);margin-bottom:4px">이번달</div>
-          <div style="font-size:28px;font-weight:700;color:var(--amber)">${(monthly[new Date().toISOString().slice(0,7)]||0).toLocaleString()}</div>
-          <div style="font-size:10px;color:var(--text3)">방문 수</div>
+      </div>
+      <div style="display:grid;grid-template-columns:1fr 1fr 1fr 1fr;gap:8px;margin-bottom:16px">
+        <div style="background:var(--surface2);border-radius:10px;padding:10px;text-align:center">
+          <div style="font-size:10px;color:var(--text3)">오늘 PV</div>
+          <div style="font-size:20px;font-weight:700;color:var(--green)">${(pv.daily[new Date().toISOString().slice(0,10)]||0).toLocaleString()}</div>
+        </div>
+        <div style="background:var(--surface2);border-radius:10px;padding:10px;text-align:center">
+          <div style="font-size:10px;color:var(--text3)">오늘 UV</div>
+          <div style="font-size:20px;font-weight:700;color:#3b82f6">${(uv.daily[new Date().toISOString().slice(0,10)]||0).toLocaleString()}</div>
+        </div>
+        <div style="background:var(--surface2);border-radius:10px;padding:10px;text-align:center">
+          <div style="font-size:10px;color:var(--text3)">이번달 PV</div>
+          <div style="font-size:20px;font-weight:700;color:var(--amber)">${(pv.monthly[new Date().toISOString().slice(0,7)]||0).toLocaleString()}</div>
+        </div>
+        <div style="background:var(--surface2);border-radius:10px;padding:10px;text-align:center">
+          <div style="font-size:10px;color:var(--text3)">이번달 UV</div>
+          <div style="font-size:20px;font-weight:700;color:#8b5cf6">${(uv.monthly[new Date().toISOString().slice(0,7)]||0).toLocaleString()}</div>
         </div>
       </div>
 
@@ -2522,10 +2543,16 @@ window.openVisitStats = async () => {
       <!-- 일별 상세 테이블 -->
       <div class="card">
         <div style="font-size:13px;font-weight:700;color:var(--text);margin-bottom:12px">📋 일별 상세</div>
+        <div style="display:flex;justify-content:space-between;padding:6px 0;border-bottom:1px solid var(--border);font-size:11px;color:var(--text3)">
+          <span>날짜</span><span style="display:flex;gap:24px"><span>PV</span><span>UV</span></span>
+        </div>
         ${days.filter(d=>d.val>0).reverse().map(d=>`
-          <div style="display:flex;justify-content:space-between;padding:8px 0;border-bottom:1px solid var(--border)">
+          <div style="display:flex;justify-content:space-between;align-items:center;padding:8px 0;border-bottom:1px solid var(--border)">
             <span style="font-size:13px;color:var(--text)">${d.key}</span>
-            <span style="font-size:13px;font-weight:700;color:var(--accent)">${d.val}명</span>
+            <span style="display:flex;gap:24px">
+              <span style="font-size:13px;font-weight:700;color:var(--accent)">${d.val}명</span>
+              <span style="font-size:13px;font-weight:700;color:#3b82f6">${uv.daily[d.key]||0}명</span>
+            </span>
           </div>
         `).join('')}
       </div>
@@ -4494,13 +4521,28 @@ const isTourneyAdmin = (tourney) => {
 const trackVisit = async () => {
   try {
     const today = new Date().toISOString().slice(0,10);
-    const visitorRef = doc(db, 'stats', 'visitors');
-    const snap = await getDoc(visitorRef);
-    const data = snap.exists() ? snap.data() : {};
-    const todayCount = (data[today] || 0) + 1;
-    await updateDoc(visitorRef, {[today]: todayCount}).catch(async () => {
-      await setDoc(visitorRef, {[today]: 1}, {merge: true});
+
+    // PV - 총 방문 (매번 카운트)
+    const pvRef = doc(db, 'stats', 'visitors');
+    const pvSnap = await getDoc(pvRef);
+    const pvData = pvSnap.exists() ? pvSnap.data() : {};
+    const todayPV = (pvData[today] || 0) + 1;
+    await updateDoc(pvRef, {[today]: todayPV}).catch(async () => {
+      await setDoc(pvRef, {[today]: 1}, {merge: true});
     });
+
+    // UV - 순방문 (localStorage 기준, 하루 1번)
+    const uvKey = 'uv_' + today;
+    if(!localStorage.getItem(uvKey)) {
+      localStorage.setItem(uvKey, '1');
+      const uvRef = doc(db, 'stats', 'unique_visitors');
+      const uvSnap = await getDoc(uvRef);
+      const uvData = uvSnap.exists() ? uvSnap.data() : {};
+      const todayUV = (uvData[today] || 0) + 1;
+      await updateDoc(uvRef, {[today]: todayUV}).catch(async () => {
+        await setDoc(uvRef, {[today]: 1}, {merge: true});
+      });
+    }
   } catch(e) {}
 };
 
