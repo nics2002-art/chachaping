@@ -954,8 +954,7 @@ body { font-family: 'Noto Sans KR', sans-serif; background: var(--bg); color: va
       </div>
     </div>
     <div style="display:flex;gap:4px;flex-shrink:0">
-      <button class="btn btn-ghost btn-sm" onclick="showFullBracket()">대진표</button>
-      <button class="btn btn-ghost btn-sm" onclick="showBracketResults()">결과</button>
+      <button class="btn btn-ghost btn-sm" id="bracket-fulltree-btn" style="display:none" onclick="showFullBracket()">대진표</button>
       <button class="btn btn-ghost btn-sm" onclick="showResultBracket()">결과판</button>
       <button class="btn btn-ghost btn-sm" id="bracket-waiting-btn" style="display:none" onclick="showWaitingList()">대기목록</button>
       <button class="btn btn-ghost btn-sm" id="bracket-gen-btn" style="display:none" onclick="openGenerateBracketModal()">생성</button>
@@ -1097,7 +1096,7 @@ body { font-family: 'Noto Sans KR', sans-serif; background: var(--bg); color: va
     </div>
     <div style="display:flex;gap:4px">
       <button class="btn btn-ghost btn-sm" id="status-notice-btn" onclick="openTourneyNoticeModal()" style="display:none">📢 공지</button>
-      <button class="btn btn-ghost btn-sm" id="results-btn" onclick="showAllResults()" style="display:none">🏆 결과</button>
+
       <button class="btn btn-ghost btn-sm" id="bracket-btn" onclick="openBracketPage()" style="display:none">본선</button>
       <button class="btn btn-danger btn-sm" id="close-tourney-btn" onclick="closeTourneyScores()" style="display:none">🔒 종료</button>
     </div>
@@ -1967,6 +1966,7 @@ window.renderTourneys = (tournaments) => {
   const rows = visible.map((t, idx) => {
     const isOwner = window.currentUser && t.createdBy === window.currentUser.uid;
     const hasGroups = (t.events||[]).some(ev=>(ev.groups||[]).length>0);
+    const hasBracket = (t.events||[]).some(ev=>ev.bracketSize);
     const isLeagueRow = t.leagueType === 'league';
 
     const statusInfo = getStatusText(t);
@@ -1995,8 +1995,8 @@ window.renderTourneys = (tournaments) => {
       <div style="display:flex;flex-direction:column;gap:4px;align-items:flex-end">
         ${isOpen?`<button class="btn btn-primary btn-sm" onclick="${isLeagueRow?`openLeague('${t.id}')`:`openTourney('${t.id}')`}">접수</button>`:''}
         ${hasGroups?`<button class="btn btn-ghost btn-sm" onclick="openTourneyStatus('${t.id}')">현황</button>`:''}
+        ${hasBracket?`<button class="btn btn-ghost btn-sm" onclick="showLeagueAllResults('${t.id}')">결과</button>`:''}
         ${isOwner?`<button class="btn btn-ghost btn-sm" onclick="openEditTourneyModal('${t.id}')">수정</button>`:''}
-        ${isOwner?`<button class="btn btn-ghost btn-sm" onclick="copyTourney('${t.id}')">복사</button>`:''}
         ${isOwner?`<button class="btn btn-danger btn-sm" onclick="${isLeagueRow?`deleteLeague('${t.id}')`:`deleteTourney('${t.id}')`}">삭제</button>`:''}
       </div>
     </div>`;
@@ -7401,6 +7401,7 @@ window.openBracketPage = () => {
   const isOwner = isTourneyAdmin(t);
   document.getElementById('bracket-gen-btn').style.display = isOwner ? '' : 'none';
   document.getElementById('bracket-waiting-btn').style.display = isOwner ? '' : 'none';
+  document.getElementById('bracket-fulltree-btn').style.display = isOwner ? '' : 'none';
   const clearAllBtn = document.getElementById('bracket-clear-all-btn');
   if(clearAllBtn) clearAllBtn.style.display = window.currentUser?.email === SUPER_ADMIN_EMAIL ? '' : 'none';
 
