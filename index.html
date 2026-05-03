@@ -2632,8 +2632,8 @@ window.saveTeamGameScore = async (mi, gi) => {
         const matchResults = [...(g.matchResults||[])];
         // 중간 빈자리 null로 채우기
         while(matchResults.length <= mi) matchResults.push(null);
-        if(!matchResults[mi]) matchResults[mi] = {gameResults:[]};
-        const mr = {...matchResults[mi], gameResults: [...(matchResults[mi].gameResults||[])]};
+        if(!matchResults[mi]) matchResults[mi] = {matchNo: mi+1, gameResults:[]};
+        const mr = {...matchResults[mi], matchNo: mi+1, gameResults: [...(matchResults[mi].gameResults||[])]};
         // 게임 결과 중간 빈자리 처리
         while(mr.gameResults.length <= gi) mr.gameResults.push(null);
         mr.gameResults[gi] = {winsA, winsB, sets};
