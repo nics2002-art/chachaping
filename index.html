@@ -2632,17 +2632,20 @@ window.saveTeamGameScore = async (mi, gi) => {
       if(e.id !== ev.id) return e;
       const groups = (e.groups||[]).map(g => {
         if(g.no !== group.no) return g;
-        // matchNo 기준으로 기존 결과 배열 복사
-        // saveMatchResultsToFirebase와 동일하게: 인덱스=mi, matchNo=mi+1
-        const matchResults = [...(g.matchResults||[])];
-        // 중간 빈자리 null로 채우기
-        while(matchResults.length <= mi) matchResults.push(null);
-
-        // 기존 경기 결과가 있으면 유지, 없으면 새로 생성
+        // matchNo 기준으로 해당 경기 찾아서 업데이트
+        // (배열 인덱스 불일치 방지: 1경기·3경기만 저장 시 [r0, null, r2] 구조)
+        const rawArr = [...(g.matchResults||[])];
         const [ai, bi] = (matchOrder && matchOrder[mi]) || [0, 1];
         const teamANo = teams?.[ai]?.entryNo;
         const teamBNo = teams?.[bi]?.entryNo;
-        const existing = matchResults[mi] || {};
+
+        // matchNo=mi+1 인 기존 항목 인덱스 찾기, 없으면 mi 위치
+        let targetIdx = rawArr.findIndex(r => r && r.matchNo === mi+1);
+        if(targetIdx === -1) targetIdx = mi;
+        // 배열 길이 확보
+        while(rawArr.length <= targetIdx) rawArr.push(null);
+
+        const existing = rawArr[targetIdx] || {};
         const mr = {
           ...existing,
           matchNo: mi+1,
@@ -2652,7 +2655,7 @@ window.saveTeamGameScore = async (mi, gi) => {
         };
         // 게임 결과 중간 빈자리 처리
         while(mr.gameResults.length <= gi) mr.gameResults.push(null);
-        // ★ 핵심: wa/wb 필드명 사용 (saveMatchResultsToFirebase·showMatchDetail과 통일)
+        // wa/wb 필드명 사용 (saveMatchResultsToFirebase·showMatchDetail과 통일)
         mr.gameResults[gi] = {wa, wb, sets};
         // 전체 경기 승수 재계산 (wa/wb 기준)
         const formatArr2 = (ev.teamFormat||'단단단').split('').filter(c=>c==='단'||c==='복');
@@ -2662,7 +2665,8 @@ window.saveTeamGameScore = async (mi, gi) => {
           if(r){ if(r.wa>r.wb)totalA++; else if(r.wb>r.wa)totalB++; }
         });
         mr.winsA = totalA; mr.winsB = totalB;
-        matchResults[mi] = mr;
+        const matchResults = rawArr;
+        matchResults[targetIdx] = mr;
         const isGubang = t.allowGuest===true;
         const lineups = window._teamMatchLineups||{};
         return {...g, matchResults, teamMatchLineups:lineups, matchStatus: isGubang?'approved':'pending'};
@@ -2677,6 +2681,23 @@ window.saveTeamGameScore = async (mi, gi) => {
       if(updatedGroup) window._curGroup = updatedGroup;
       if(window.curTourney) window.curTourney.events = events;
       if(window._statusTourney) window._statusTourney.events = events;
+      // ★ _statusEvents도 최신으로 동기화 (순위표 재진입 시 올바른 group 전달용)
+      if(window._statusEvents) {
+        const updatedEvForStatus = events.find(e=>e.id===ev.id);
+        if(updatedEvForStatus) {
+          const statusTabIdx = window._statusTabIdx || 0;
+          if(window._statusEvents[statusTabIdx]?.id === ev.id) {
+            window._statusEvents[statusTabIdx] = updatedEvForStatus;
+          } else {
+            const si = window._statusEvents.findIndex(e=>e.id===ev.id);
+            if(si !== -1) window._statusEvents[si] = updatedEvForStatus;
+          }
+        }
+      }
+      // ★ _curRankingGroup도 최신으로 동기화
+      if(window._curRankingGroup && updatedGroup) {
+        window._curRankingGroup = updatedGroup;
+      }
       _cache.del('tourney_'+t.id);
     }
     showToast(`${gi+1}게임 점수 저장됐어요 💾`);
@@ -5713,6 +5734,15 @@ window.saveMatchResultsToFirebase = async () => {
   t.events = events;
   _cache.set('tourney_'+t.id, t);
   window._curGroup = {...group, matchResults:results, matchStatus:isg?'approved':'pending'};
+  // ★ _statusEvents, _curRankingGroup 동기화
+  if(window._statusEvents) {
+    const updatedEvS = events.find(e=>e.id===ev.id);
+    if(updatedEvS) {
+      const si = window._statusEvents.findIndex(e=>e.id===ev.id);
+      if(si !== -1) window._statusEvents[si] = updatedEvS;
+    }
+  }
+  window._curRankingGroup = window._curGroup;
 };
 
 window.sbSave = async () => {
