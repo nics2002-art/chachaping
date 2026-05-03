@@ -2642,13 +2642,19 @@ window.showStatusTab = (idx) => {
     }).join('');
 
     const gIdx = (ev.groups||[]).findIndex(gg=>gg.no===g.no);
-    const clickFn = g.matchStatus==='approved' && !isStatusOwner ? 'openGroupRankingByIdx' : 'openGroupMatchByIdx';
-    return `<tr style="cursor:pointer" onclick="${clickFn}(${gIdx})">
+    const isApproved = g.matchStatus==='approved';
+    // 승인된 조: 행 클릭 → 대각선, 첫번째 셀 클릭 → 수정
+    // 미승인 조: 행 클릭 → 경기 입력
+    const rowClickFn = isApproved ? `openGroupRankingByIdx(${gIdx})` : `openGroupMatchByIdx(${gIdx})`;
+    const firstCellClick = isApproved ? `event.stopPropagation();openGroupMatchByIdx(${gIdx})` : '';
+    return `<tr style="cursor:pointer" onclick="${rowClickFn}">
       <td style="padding:8px 10px;border:1px solid var(--border2);font-size:12px;font-weight:700;
-        color:var(--amber);white-space:nowrap;background:var(--surface);width:60px;text-align:center">
+        color:var(--amber);white-space:nowrap;background:var(--surface);width:60px;text-align:center;
+        ${isApproved?'cursor:pointer;':''}"
+        ${firstCellClick?`onclick="${firstCellClick}"`:''}>
         ${g.no}조
         ${g.court?`<div style="font-size:9px;color:var(--accent)">${g.court}번코트</div>`:''}
-        ${g.matchStatus==='approved'?'<div style="font-size:9px;color:var(--green)">✅승인</div>':g.matchStatus==='pending'?'<div style="font-size:9px;color:var(--amber)">⏳대기</div>':'<div style="font-size:9px;color:var(--text3)">▶</div>'}
+        ${isApproved?'<div style="font-size:9px;color:var(--green)">✅수정</div>':g.matchStatus==='pending'?'<div style="font-size:9px;color:var(--amber)">⏳대기</div>':'<div style="font-size:9px;color:var(--text3)">▶</div>'}
       </td>
       ${teamsHtml}
       <td style="padding:6px 8px;border:1px solid var(--border2);background:var(--surface);text-align:center;vertical-align:middle" onclick="event.stopPropagation();openGroupRankingByIdx(${gIdx})">
@@ -6012,7 +6018,16 @@ window.openGroupMatch = (group, groupEntries, ev) => {
     }
     goPage('pg-status');
   };
-  document.getElementById('lineup-back-btn').onclick = () => goPage('pg-match');
+  document.getElementById('lineup-back-btn').onclick = () => {
+    const g = window._curGroup;
+    const gt = window._curGroupTeams;
+    const gev = window._curGroupEv;
+    if(g && gt && gev) {
+      openGroupMatch(g, gt.map(t=>t), gev);
+    } else {
+      goPage('pg-match');
+    }
+  };
 
   if(isTeamMatch && ev.teamSize >= 2) {
     // 단체/복식 → 팀이 2개면 선수 순서 먼저, 3개 이상이면 바로 경기 입력
