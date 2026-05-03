@@ -1029,7 +1029,7 @@ body { font-family: 'Noto Sans KR', sans-serif; background: var(--bg); color: va
 <!-- ==================== 예선 순위표 페이지 ==================== -->
 <div class="page" id="pg-ranking">
   <div class="header">
-    <div class="back-btn" onclick="(()=>{ const g=window._curRankingGroup, gt=window._curRankingEntries, ev=window._curRankingEv; if(g&&gt&&ev){ openGroupMatch(g,gt,ev); } else { window._statusTourney?.leagueType==='league'?loadLeaguePage():goPage('pg-status'); } })()">←</div>
+    <div class="back-btn" onclick="goBackFromRanking()">←</div>
     <div class="header-info">
       <div class="header-title" id="ranking-title"></div>
       <div class="header-sub" id="ranking-sub"></div>
@@ -3559,6 +3559,19 @@ window.openGroupMatchByIdx = (gIdx) => {
 };
 
 
+
+window.goBackFromRanking = () => {
+  const g = window._curRankingGroup;
+  const gt = window._curRankingEntries;
+  const ev = window._curRankingEv;
+  if(g && gt && ev) {
+    openGroupMatch(g, gt, ev);
+  } else if(window._statusTourney?.leagueType === 'league') {
+    loadLeaguePage();
+  } else {
+    goPage('pg-status');
+  }
+};
 window.openGroupMatchFromRanking = (matchIdx) => {
   const group = window._curRankingGroup;
   const groupEntries = window._curRankingEntries;
