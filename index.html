@@ -2874,8 +2874,17 @@ window.openLeague = (id) => {
   openTourney(id);
 };
 
+const deleteSubcollections = async (tourneyId) => {
+  try {
+    const {getDocs, collection: col, deleteDoc: dd} = await import('https://www.gstatic.com/firebasejs/11.6.0/firebase-firestore.js');
+    const noticesSnap = await getDocs(col(db,'tournaments',tourneyId,'notices'));
+    await Promise.all(noticesSnap.docs.map(d => dd(d.ref)));
+  } catch(e) {}
+};
+
 window.deleteLeague = async (id) => {
   if(!confirm('리그를 삭제할까요?')) return;
+  await deleteSubcollections(id);
   await deleteDoc(doc(db,'tournaments',id));
   showToast('삭제됐어요');
   loadLeaguePage();
@@ -2917,6 +2926,7 @@ window.saveTourney = async () => {
 
 window.deleteTourney = async (id) => {
   if (!confirm('대회를 삭제할까요?')) return;
+  await deleteSubcollections(id);
   await deleteDoc(doc(db, 'tournaments', id));
   showToast('삭제됐어요');
   loadTournaments(true);
