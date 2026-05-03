@@ -2876,9 +2876,8 @@ window.openLeague = (id) => {
 
 const deleteSubcollections = async (tourneyId) => {
   try {
-    const {getDocs, collection: col, deleteDoc: dd} = await import('https://www.gstatic.com/firebasejs/11.6.0/firebase-firestore.js');
-    const noticesSnap = await getDocs(col(db,'tournaments',tourneyId,'notices'));
-    await Promise.all(noticesSnap.docs.map(d => dd(d.ref)));
+    const noticesSnap = await getDocs(collection(db,'tournaments',tourneyId,'notices'));
+    await Promise.all(noticesSnap.docs.map(d => deleteDoc(d.ref)));
   } catch(e) {}
 };
 
