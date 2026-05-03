@@ -4194,7 +4194,11 @@ window.openGroupRanking = (group, groupEntries, ev) => {
   const teams = groupEntries.filter(Boolean);
   const n = teams.length;
   const matchOrder = generateMatchOrder(n);
-  const results = group.matchResults || [];
+  const rawResults = group.matchResults || [];
+  // matchNo 기준으로 올바른 인덱스에 매핑
+  const results = matchOrder.map((_, mi) =>
+    rawResults.find(r => r && r.matchNo === mi+1) || rawResults[mi] || null
+  );
   const ranked = calcGroupRankings(teams, results, matchOrder);
 
   document.getElementById('ranking-title').textContent = `${group.no}조 순위표`;
