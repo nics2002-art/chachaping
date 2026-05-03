@@ -3675,15 +3675,17 @@ window.openGroupRanking = (group, groupEntries, ev) => {
   const totalMatches = matchOrder.length;
   const completedMatches = results.filter(r => r && (r.isForfeit || r.winsA > 0 || r.winsB > 0)).length;
   const allMatchesDone = completedMatches >= totalMatches && totalMatches > 0;
+  const isApproved = group.matchStatus === 'approved';
 
-  // 순위표
+  // 순위표 - 승인됐을 때만 표시
   let rankHtml = '';
-  if(!allMatchesDone) {
+  if(!isApproved) {
     rankHtml = `<div style="font-size:12px;color:var(--amber);padding:8px;text-align:center">
-      ⏳ ${completedMatches}/${totalMatches} 경기 완료 - 모든 경기가 끝나면 순위가 확정됩니다
+      ⏳ ${completedMatches}/${totalMatches} 경기 완료 - 승인이 완료되면 순위가 확정됩니다
     </div>`;
   }
-  ranked.forEach((teamIdx, rank) => {
+  if(isApproved) {
+    ranked.forEach((teamIdx, rank) => {
     const team = teams[teamIdx];
     const isFirst = rank===0;
     const isSecond = rank===1;
@@ -3696,9 +3698,10 @@ window.openGroupRanking = (group, groupEntries, ev) => {
         <div style="font-size:13px;font-weight:700;color:var(--text)">${team.members.map(m=>`${m.name}(${m.rank}부)`).join(', ')}</div>
         <div style="font-size:11px;color:var(--text3)">${team.club}</div>
       </div>
-      ${allMatchesDone && rank<2?`<span style="margin-left:auto;font-size:11px;font-weight:700;color:${isFirst?'var(--accent)':'var(--amber)'}">본선 진출</span>`:''}
+      ${isApproved && rank<2?`<span style="margin-left:auto;font-size:11px;font-weight:700;color:${isFirst?'var(--accent)':'var(--amber)'}">본선 진출</span>`:''}
     </div>`;
   });
+  }
   document.getElementById('ranking-table').innerHTML = rankHtml;
   document.getElementById('ranking-match-detail').style.display = 'none';
 
