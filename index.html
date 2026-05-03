@@ -3017,7 +3017,8 @@ window.openTourneyStatus = async (id, force) => {
   const isStatusOwner = isTourneyAdmin(t);
   const isGubang = t.allowGuest === true;
   document.getElementById('bracket-btn').style.display = hasApproved ? '' : 'none';
-  document.getElementById('results-btn').style.display = hasBracket ? '' : 'none';
+  const resultsBtnEl = document.getElementById('results-btn');
+  if(resultsBtnEl) resultsBtnEl.style.display = hasBracket ? '' : 'none';
   document.getElementById('close-tourney-btn').style.display = (isStatusOwner && isGubang && t.status!=='locked') ? '' : 'none';
 
   // 첫번째 탭 내용 표시
