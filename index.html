@@ -959,6 +959,7 @@ body { font-family: 'Noto Sans KR', sans-serif; background: var(--bg); color: va
       <button class="btn btn-ghost btn-sm" onclick="showResultBracket()" title="결과판">📊</button>
       <button class="btn btn-ghost btn-sm" onclick="showWaitingList()" title="대기">⏳</button>
       <button class="btn btn-ghost btn-sm" id="bracket-gen-btn" style="display:none" onclick="openGenerateBracketModal()">생성</button>
+      <button id="bracket-clear-all-btn" onclick="clearAllScores()" style="display:none;font-size:11px;color:var(--pink);background:none;border:1px solid var(--pink);border-radius:6px;padding:4px 8px;cursor:pointer">🗑 전체초기화</button>
     </div>
   </div>
   <!-- 라운드 탭 -->
@@ -1063,6 +1064,7 @@ body { font-family: 'Noto Sans KR', sans-serif; background: var(--bg); color: va
       <div class="header-title" id="match-title"></div>
       <div class="header-sub" id="match-sub"></div>
     </div>
+    <button id="match-clear-btn" onclick="clearGroupScores()" style="display:none;font-size:11px;color:var(--pink);background:none;border:1px solid var(--pink);border-radius:6px;padding:4px 8px;cursor:pointer">🗑 점수초기화</button>
   </div>
   <div class="content">
     <!-- 선수 헤더 -->
@@ -2560,6 +2562,91 @@ window.openVisitStats = async () => {
   } catch(e) { document.getElementById('visit-stats-content').innerHTML = '<div class="empty"><div class="empty-icon">⚠️</div><div class="empty-text">로드 실패</div></div>'; }
 };
 
+
+// ── 점수 초기화 ─────────────────────────────────────
+window.clearGroupScores = async () => {
+  const group = window._clearTargetGroup;
+  const ev = window._clearTargetEv;
+  const t = window.curTourney || window._statusTourney;
+  if(!group || !ev || !t) return;
+
+  if(!confirm(`⚠️ ${group.no}조 예선 점수를 모두 초기화할까요?\n이 작업은 되돌릴 수 없습니다.`)) return;
+
+  try {
+    const snap = await getDoc(doc(db,'tournaments',t.id));
+    const events = (snap.data().events||[]).map(e => {
+      if(e.id !== ev.id) return e;
+      const groups = (e.groups||[]).map(g => {
+        if(g.no !== group.no) return g;
+        return { ...g, matchResults: [], matchStatus: '', teamMatchLineups: {} };
+      });
+      return { ...e, groups };
+    });
+    await updateDoc(doc(db,'tournaments',t.id), { events });
+    showToast(`${group.no}조 점수 초기화 완료!`);
+    // 화면 새로고침
+    const freshSnap = await getDoc(doc(db,'tournaments',t.id));
+    const freshEv = (freshSnap.data().events||[]).find(e=>e.id===ev.id);
+    if(freshEv) {
+      window._curGroupEv = freshEv;
+      const freshGroup = (freshEv.groups||[]).find(g=>g.no===group.no);
+      if(freshGroup) {
+        window._clearTargetGroup = freshGroup;
+        openGroupMatch(freshGroup, window._curGroupTeams, freshEv);
+      }
+    }
+  } catch(e) { showToast('실패: '+e.message); }
+};
+
+// 본선 경기별 점수 초기화 (관리자/부관리자)
+window.clearBracketMatchScore = async (matchKey) => {
+  const t = window._bracketTourney || window.curTourney || window._statusTourney;
+  const ev = window._bracketEv;
+  if(!t || !ev) return;
+  if(!isTourneyAdmin(t)) { showToast('관리자만 가능해요'); return; }
+  if(!confirm(`⚠️ 이 경기 점수를 초기화할까요?`)) return;
+
+  try {
+    const snap = await getDoc(doc(db,'tournaments',t.id));
+    const events = (snap.data().events||[]).map(e => {
+      if(e.id !== ev.id) return e;
+      const bm = {...(e.bracketMatches||{})};
+      if(bm[matchKey] && !bm[matchKey].isBye) {
+        bm[matchKey] = { ...bm[matchKey], results: [], status: 'pending', winner: null };
+      }
+      return { ...e, bracketMatches: bm };
+    });
+    await updateDoc(doc(db,'tournaments',t.id), { events });
+    showToast('본선 경기 점수 초기화 완료!');
+    const freshSnap = await getDoc(doc(db,'tournaments',t.id));
+    const freshEv = (freshSnap.data().events||[]).find(e=>e.id===ev.id);
+    if(freshEv) { window._bracketEv = freshEv; renderBracketPage(freshEv); }
+  } catch(e) { showToast('실패: '+e.message); }
+};
+
+// 전체 점수 초기화 (슈퍼관리자만)
+window.clearAllScores = async () => {
+  const t = window._bracketTourney || window.curTourney || window._statusTourney;
+  const ev = window._bracketEv;
+  if(!t || !ev) return;
+  if(window.currentUser?.email !== SUPER_ADMIN_EMAIL) { showToast('슈퍼관리자만 가능해요 🔒'); return; }
+
+  const input = prompt(`⚠️ 전체 점수를 초기화하려면 대회명을 정확히 입력하세요:\n"${t.name}"`);
+  if(input !== t.name) { showToast('대회명이 일치하지 않아요. 취소됩니다.'); return; }
+  if(!confirm('🚨 정말로 모든 예선+본선 점수를 초기화할까요? 되돌릴 수 없습니다!')) return;
+
+  try {
+    const snap = await getDoc(doc(db,'tournaments',t.id));
+    const events = (snap.data().events||[]).map(e => {
+      if(e.id !== ev.id) return e;
+      const groups = (e.groups||[]).map(g => ({ ...g, matchResults: [], matchStatus: '', teamMatchLineups: {} }));
+      return { ...e, groups, bracketMatches: {}, bracket: null, bracketSize: null };
+    });
+    await updateDoc(doc(db,'tournaments',t.id), { events });
+    showToast('전체 점수 초기화 완료! 🗑');
+  } catch(e) { showToast('실패: '+e.message); }
+};
+
 window.loadLeaguePage = async () => {
   goPage('pg-club');
   const isLoggedIn = !!window.currentUser;
@@ -3509,6 +3596,13 @@ window.makeGroups = async () => {
   const ev = window.curEvent;
   const pl = ev.players||[];
   const entries = ev.entries||[];
+
+  // 예선 점수가 있으면 조편성 불가
+  const hasScores = (ev.groups||[]).some(g => g.matchResults && g.matchResults.some(r => r && (r.winsA > 0 || r.winsB > 0 || r.isForfeit)));
+  if(hasScores) {
+    showToast('예선 점수가 입력된 종목은 조편성을 다시 할 수 없어요 ⚠️');
+    return;
+  }
 
   // 살아있는 entries로 팀 목록 구성
   const aliveEntries = entries.length
@@ -6099,6 +6193,7 @@ window.renderAdminStat = async () => {
       </div>
       <button class="btn btn-primary btn-full" onclick="sendLiveNotice()">📢 공지 전송</button>
     </div>`;
+    document.getElementById('admin-content').innerHTML = html;
   } catch(e){ document.getElementById('admin-content').innerHTML = '<div style="color:var(--pink)">불러오기 실패</div>'; }
 };
 
@@ -6477,6 +6572,12 @@ window.proceedToTeamMatch = () => {
 window.openMatchPage = (group, teams, ev, matchOrder) => {
   document.getElementById('match-title').textContent = `${group.no}조 경기`;
   document.getElementById('match-sub').textContent = `${teams.length}팀 · ${matchOrder.length}경기`;
+
+  // 관리자/부관리자만 점수 초기화 버튼 표시
+  const clearBtn = document.getElementById('match-clear-btn');
+  if(clearBtn) clearBtn.style.display = isTourneyAdmin(window.curTourney||window._statusTourney||{}) ? '' : 'none';
+  window._clearTargetGroup = group;
+  window._clearTargetEv = ev;
 
   const labels = ['A','B','C','D','E','F'];
   document.getElementById('match-players-header').innerHTML = `
@@ -6973,6 +7074,8 @@ window.openBracketPage = () => {
 
   const isOwner = isTourneyAdmin(t);
   document.getElementById('bracket-gen-btn').style.display = isOwner ? '' : 'none';
+  const clearAllBtn = document.getElementById('bracket-clear-all-btn');
+  if(clearAllBtn) clearAllBtn.style.display = window.currentUser?.email === SUPER_ADMIN_EMAIL ? '' : 'none';
 
   renderBracketPage(ev);
   goPage('pg-bracket');
@@ -7166,6 +7269,15 @@ window.openGenerateBracketModal = () => {
 window.generateBracket = async () => {
   const t = window._bracketTourney;
   closeModal('modal-generate-bracket');
+
+  // 본선 점수가 있으면 대진 재생성 불가
+  const evCheck = window._bracketEv;
+  const hasMainScores = Object.values(evCheck?.bracketMatches||{}).some(m => !m.isBye && m.results && m.results.some(r => r && (r.winsA > 0 || r.winsB > 0)));
+  if(hasMainScores) {
+    showToast('본선 점수가 입력된 대회는 대진을 다시 생성할 수 없어요 ⚠️');
+    return;
+  }
+
   if(!confirm('⚠️ 주의! 대진표를 새로 생성하면 기존 대진표와 입력된 모든 점수가 삭제됩니다. 계속하시겠습니까?')) return;
 
   // Firebase에서 최신 ev 로드 (기존 캐시 무시)
@@ -7445,6 +7557,7 @@ window.showBracketPage = (page) => {
 };
 
 window.openBracketMatch = async (matchKey, matchIdx, roundIdx, from) => {
+  window._curBracketMatchKey = matchKey;
   // Firebase에서 최신 bracketMatches 로드
   const t = window.curTourney || window._statusTourney || window._bracketTourney;
   let bracketMatches = (window._bracketEv||{}).bracketMatches || {};
@@ -7492,6 +7605,13 @@ window.openBracketMatch = async (matchKey, matchIdx, roundIdx, from) => {
 
   document.getElementById('match-title').textContent = `본선 ${matchIdx+1}경기`;
   document.getElementById('match-sub').textContent = `${nameA} vs ${nameB}`;
+
+  // 관리자면 점수 초기화 버튼 표시
+  const clearBtn = document.getElementById('match-clear-btn');
+  if(clearBtn) {
+    clearBtn.style.display = window._curMatchIsOwner ? '' : 'none';
+    clearBtn.onclick = () => clearBracketMatchScore(matchKey);
+  }
   window._bracketMatchFrom = from; // 뒤로가기/제출 후 복귀 위치 저장
   document.getElementById('match-back-btn').onclick = async () => {
     const t2 = window.curTourney || window._statusTourney || window._bracketTourney;
