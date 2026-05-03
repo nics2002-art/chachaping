@@ -2603,16 +2603,116 @@ window.openVisitStats = async () => {
 
 // ── 점수 초기화 ─────────────────────────────────────
 
-window.clearTeamGameScore = (mi, gi) => {
+window.saveTeamGameScore = async (mi, gi) => {
+  const group = window._curGroup;
+  const ev = window._curGroupEv;
+  const t = window.curTourney || window._statusTourney;
+  if(!group || !ev || !t) return;
+
+  // 메모리에서 세트 점수 읽기
+  const gmscores = (window._matchScores||{})[`${mi}_${gi}`] || {};
+  let winsA=0, winsB=0;
+  const sets = [];
+  for(let s=0;s<5;s++){
+    const sa = parseInt(gmscores[s+'a']||0), sb = parseInt(gmscores[s+'b']||0);
+    if(sa>0||sb>0){
+      sets.push({a:sa, b:sb});
+      if(sa>sb) winsA++; else if(sb>sa) winsB++;
+    }
+  }
+  if(!winsA && !winsB){ showToast('점수를 입력해주세요'); return; }
+
+  try {
+    const snap = await getDoc(doc(db,'tournaments',t.id));
+    if(!snap.exists()) return;
+    const events = (snap.data().events||[]).map(e => {
+      if(e.id !== ev.id) return e;
+      const groups = (e.groups||[]).map(g => {
+        if(g.no !== group.no) return g;
+        const matchResults = [...(g.matchResults||[])];
+        if(!matchResults[mi]) matchResults[mi] = {results:[]};
+        const mr = {...matchResults[mi], results: [...(matchResults[mi].results||[])]};
+        mr.results[gi] = {winsA, winsB, sets};
+        // 전체 경기 승수 재계산
+        const formatArr2 = (ev.teamFormat||'단단단').split('');
+        let totalA=0, totalB=0;
+        formatArr2.forEach((_,idx)=>{
+          const r = mr.results[idx];
+          if(r){ if(r.winsA>r.winsB)totalA++; else if(r.winsB>r.winsA)totalB++; }
+        });
+        mr.winsA = totalA; mr.winsB = totalB;
+        matchResults[mi] = mr;
+        const isGubang = t.allowGuest===true;
+        return {...g, matchResults, matchStatus: isGubang?'approved':'pending'};
+      });
+      return {...e, groups};
+    });
+    await updateDoc(doc(db,'tournaments',t.id), {events});
+    const updatedEv = events.find(e=>e.id===ev.id);
+    if(updatedEv) {
+      window._curGroupEv = updatedEv;
+      const updatedGroup = (updatedEv.groups||[]).find(g=>g.no===group.no);
+      if(updatedGroup) window._curGroup = updatedGroup;
+      if(window.curTourney) window.curTourney.events = events;
+      if(window._statusTourney) window._statusTourney.events = events;
+      _cache.del('tourney_'+t.id);
+    }
+    showToast(`${gi+1}게임 점수 저장됐어요 💾`);
+    renderMatchList();
+  } catch(err) { showToast('저장 실패: '+err.message); }
+};
+
+window.clearTeamGameScore = async (mi, gi) => {
   if(!confirm(`${mi+1}경기 ${gi+1}게임 점수를 초기화할까요?`)) return;
-  // 메모리에서 초기화
+
+  // 1. 메모리 초기화
   if(window._matchScores) {
     Object.keys(window._matchScores).forEach(k => {
-      if(k.startsWith(`${mi}_${gi}_`)) delete window._matchScores[k];
+      if(k.startsWith(`${mi}_${gi}`)) delete window._matchScores[k];
     });
-    delete window._matchScores[`${mi}_${gi}`];
   }
   if(window._gameForfeit) delete window._gameForfeit[`${mi}_${gi}`];
+
+  // 2. DB 초기화
+  const group = window._curGroup;
+  const ev = window._curGroupEv;
+  const t = window.curTourney || window._statusTourney;
+  if(group && ev && t) {
+    try {
+      const snap = await getDoc(doc(db,'tournaments',t.id));
+      if(snap.exists()) {
+        const events = (snap.data().events||[]).map(e => {
+          if(e.id !== ev.id) return e;
+          const groups = (e.groups||[]).map(g => {
+            if(g.no !== group.no) return g;
+            const matchResults = [...(g.matchResults||[])];
+            if(matchResults[mi]) {
+              const mr = {...matchResults[mi]};
+              if(mr.results) {
+                const results = [...(mr.results||[])];
+                results[gi] = {winsA:0, winsB:0, sets:[]};
+                mr.results = results;
+              }
+              matchResults[mi] = mr;
+            }
+            return {...g, matchResults, matchStatus:''};
+          });
+          return {...e, groups};
+        });
+        await updateDoc(doc(db,'tournaments',t.id), {events});
+        const updatedEv = events.find(e=>e.id===ev.id);
+        if(updatedEv) {
+          window._curGroupEv = updatedEv;
+          const updatedGroup = (updatedEv.groups||[]).find(g=>g.no===group.no);
+          if(updatedGroup) window._curGroup = updatedGroup;
+          if(window.curTourney) window.curTourney.events = events;
+          if(window._statusTourney) window._statusTourney.events = events;
+          _cache.del('tourney_'+t.id);
+        }
+      }
+    } catch(e) { showToast('초기화 실패: '+e.message); return; }
+  }
+
   renderMatchList();
   showToast(`${gi+1}게임 점수 초기화됐어요`);
 };
@@ -6939,6 +7039,8 @@ window.renderMatchList = () => {
   const labels = ['A','B','C','D','E','F'];
   const scores = window._matchScores || {};
   const forfeits = window._matchForfeits || {};
+  const _isGubang = (window.curTourney || window._statusTourney || window._bracketTourney)?.allowGuest === true;
+  const _canEditTeamGame = _isGubang || window._curMatchIsOwner;
 
   // 모든 경기 완료 여부 체크
   let allDone = true;
@@ -7074,13 +7176,14 @@ window.renderMatchList = () => {
             opacity:${disabled?0.4:1}">
             <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:8px">
               <span style="font-size:11px;color:var(--accent);font-weight:700">${gi+1}게임 · ${type}식</span>
-              <div style="display:flex;gap:4px">
+              <div style="display:flex;gap:4px;flex-wrap:wrap">
                 ${!disabled?`
                   <button class="btn btn-primary btn-sm" style="font-size:10px"
                     onclick="openTeamGameScoreboard(${mi},${gi},'${pNameA}','${pNameB}')">🏓 점수판</button>
+                  ${_canEditTeamGame ? `<button class="btn btn-success btn-sm" style="font-size:10px" onclick="saveTeamGameScore(${mi},${gi})">💾 저장</button>` : ''}
                   <button class="btn btn-ghost btn-sm" style="font-size:10px;color:var(--pink)"
                     onclick="openGameForfeitModal(${mi},${gi},'${pNameA}','${pNameB}')">기권</button>
-                  ${window._curMatchIsOwner && gdone ? `<button onclick="clearTeamGameScore(${mi},${gi})" style="font-size:10px;color:var(--pink);background:none;border:1px solid var(--pink);border-radius:6px;padding:2px 6px;cursor:pointer">🗑</button>` : ''}
+                  ${_canEditTeamGame ? `<button onclick="clearTeamGameScore(${mi},${gi})" style="font-size:10px;color:var(--pink);background:none;border:1px solid var(--pink);border-radius:6px;padding:2px 6px;cursor:pointer">🗑 초기화</button>` : ''}
                 `:''}
               </div>
             </div>
@@ -7095,7 +7198,29 @@ window.renderMatchList = () => {
                 <div style="font-size:18px;font-weight:700;color:var(--pink)">${wb}</div>
               </div>
             </div>
-            ${gdone ? (() => {
+            ${_canEditTeamGame ? `
+              <div style="margin-top:8px;padding-top:8px;border-top:1px solid var(--border)">
+                <div style="display:grid;grid-template-columns:auto 1fr auto 1fr;align-items:center;gap:4px;font-size:11px;color:var(--text3);margin-bottom:4px;padding:0 4px">
+                  <span>세트</span><span style="text-align:center;color:var(--accent)">${pNameA}</span><span></span><span style="text-align:center;color:var(--pink)">${pNameB}</span>
+                </div>
+                ${Array.from({length:5},(_,si)=>{
+                  const va = parseInt(gmscores[si+'a']||'');
+                  const vb = parseInt(gmscores[si+'b']||'');
+                  return `<div style="display:grid;grid-template-columns:auto 1fr auto 1fr;align-items:center;gap:4px;margin-bottom:4px">
+                    <span style="font-size:11px;color:var(--text3);min-width:28px">${si+1}세트</span>
+                    <input type="number" min="0" max="99" placeholder="0"
+                      value="${isNaN(va)||!gmscores[si+'a']?'':va}"
+                      style="width:100%;padding:4px;border:1px solid var(--border);border-radius:6px;text-align:center;font-size:13px;background:var(--surface)"
+                      oninput="if(!window._matchScores)window._matchScores={};if(!window._matchScores['${mi}_${gi}'])window._matchScores['${mi}_${gi}']={};window._matchScores['${mi}_${gi}']['${si}a']=this.value">
+                    <span style="font-size:12px;color:var(--text3);text-align:center">:</span>
+                    <input type="number" min="0" max="99" placeholder="0"
+                      value="${isNaN(vb)||!gmscores[si+'b']?'':vb}"
+                      style="width:100%;padding:4px;border:1px solid var(--border);border-radius:6px;text-align:center;font-size:13px;background:var(--surface)"
+                      oninput="if(!window._matchScores)window._matchScores={};if(!window._matchScores['${mi}_${gi}'])window._matchScores['${mi}_${gi}']={};window._matchScores['${mi}_${gi}']['${si}b']=this.value">
+                  </div>`;
+                }).join('')}
+              </div>
+            ` : gdone ? (() => {
               const totalSets = 5;
               const setItems = Array.from({length: totalSets}, (_,si) => {
                 const va = parseInt(gmscores[si+'a']||0);
