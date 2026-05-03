@@ -2648,12 +2648,36 @@ window.saveBracketTeamGameScore = async (gi) => {
         if(gr){ if(gr.wa>gr.wb)totalA++; else if(gr.wb>gr.wa)totalB++; }
       });
 
+      // ★ 과반수 달성 시 승자 확정 + 다음 라운드 진출
+      const winThreshold = Math.ceil(formatArr.length / 2);
+      const matchDecided = totalA >= winThreshold || totalB >= winThreshold;
+      const winnerIdx = totalA >= winThreshold ? 0 : (totalB >= winThreshold ? 1 : -1);
+      const isAutoApprove = t.allowGuest === true;
+
       bm[matchKey] = {
         ...existing,
         teamA: teams[0], teamB: teams[1],
         results: [{...mr, winsA:totalA, winsB:totalB, gameResults}],
-        lineups: window._teamMatchLineups||{}
+        lineups: window._teamMatchLineups||{},
+        status: matchDecided ? (isAutoApprove ? 'approved' : 'pending') : 'playing',
+        winner: matchDecided ? winnerIdx : undefined
       };
+
+      // 다음 라운드 진출 (구장대회 자동승인 또는 일반대회 과반수 달성 시)
+      if(matchDecided && winnerIdx !== -1) {
+        const parts = matchKey.match(/^r(\d+)_(\d+)$/);
+        if(parts) {
+          const roundIdx = parseInt(parts[1]);
+          const matchIdx2 = parseInt(parts[2]);
+          const nextKey = 'r'+(roundIdx+1)+'_'+Math.floor(matchIdx2/2);
+          const winnerTeam = winnerIdx === 0 ? teams[0] : teams[1];
+          const nextMatch = {...(bm[nextKey]||{})};
+          if(matchIdx2 % 2 === 0) nextMatch.teamA = winnerTeam;
+          else nextMatch.teamB = winnerTeam;
+          bm[nextKey] = nextMatch;
+        }
+      }
+
       return {...e, bracketMatches:bm};
     });
 
