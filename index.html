@@ -6723,7 +6723,7 @@ window.openGroupMatch = (group, groupEntries, ev) => {
     return;
   }
   // 승인된 경기는 관리자만 수정 가능
-  if(group.matchStatus === 'approved' && !isTourneyAdmin(window.curTourney)) {
+  if(group.matchStatus === 'approved' && !isTourneyAdmin(window.curTourney||window._statusTourney||{})) {
     showToast('승인된 경기는 관리자만 수정할 수 있어요');
     return;
   }
