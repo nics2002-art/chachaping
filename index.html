@@ -2604,6 +2604,12 @@ window.openVisitStats = async () => {
 // ── 점수 초기화 ─────────────────────────────────────
 
 window.saveTeamGameScore = async (mi, gi) => {
+  // ★ 본선이면 saveBracketMatchToFirebase 경로로
+  if(window._isBracketMatch) {
+    await saveBracketMatchToFirebase();
+    return;
+  }
+
   const group = window._curGroup;
   const ev = window._curGroupEv;
   const t = window.curTourney || window._statusTourney || window._bracketTourney;
@@ -5613,7 +5619,7 @@ window.saveBracketMatchToFirebase = async () => {
         if(a>0||b>0){ gameSets.push({a,b}); if(a>b)wa++; else if(b>a)wb++; }
       }
       if(wa>wb) gameWinsA++; else if(wb>wa) gameWinsB++;
-      return {winsA:wa, winsB:wb, sets:gameSets};
+      return {wa, wb, sets:gameSets};
     });
     winsA = gameWinsA;
     winsB = gameWinsB;
