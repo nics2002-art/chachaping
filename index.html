@@ -6289,6 +6289,7 @@ let _noticeListenerStarted = false;
 const startNoticeListener = () => {
   if(_noticeListenerStarted) return;
   _noticeListenerStarted = true;
+  _noticeLastTs = Date.now(); // 접속 시점 이후 공지만 팝업으로 표시
   onSnapshot(doc(db,'system','notice'), (snap) => {
     if(!snap.exists()) return;
     const data = snap.data();
@@ -6300,6 +6301,10 @@ const startNoticeListener = () => {
 };
 
 window.showLiveNotice = (msg) => {
+  // 대회 관련 페이지에서만 팝업 표시
+  const allowedPages = ['pg-tourney','pg-event','pg-status','pg-bracket','pg-match','pg-lineup','pg-ranking','pg-notice-all'];
+  const activePage = document.querySelector('.page.active')?.id;
+  if(!activePage || !allowedPages.includes(activePage)) return;
   const popup = document.getElementById('live-notice-popup');
   document.getElementById('live-notice-text').textContent = msg;
   popup.style.display = '';
