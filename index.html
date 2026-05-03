@@ -5742,7 +5742,11 @@ window.saveBracketMatchToFirebase = async () => {
     winsB = gameWinsB;
     sets = [];
     const results2 = [{sets, winsA, winsB, gameResults, isForfeit}];
-    const winnerIdx2 = winsA>winsB ? 0 : 1;
+
+    // ★ 단체전 승리 조건: 과반수 게임 이겨야 확정 (예: 5게임이면 3게임 이상)
+    const winThreshold2 = Math.ceil(formatArr3.length / 2);
+    const matchDecided = isForfeit || winsA >= winThreshold2 || winsB >= winThreshold2;
+    const winnerIdx2 = winsA >= winThreshold2 ? 0 : (winsB >= winThreshold2 ? 1 : -1);
     const teamA2 = teams[0], teamB2 = teams[1];
 
     const snap2 = await getDoc(doc(db,'tournaments',t.id));
@@ -5754,9 +5758,15 @@ window.saveBracketMatchToFirebase = async () => {
     const events2 = allEvents2.map(e => {
       if(e.id!==targetEvId2) return e;
       const bm = {...(e.bracketMatches||{})};
-      bm[matchKey] = {teamA:teamA2, teamB:teamB2, results:results2, status:isAutoApprove2?'approved':'pending', winner:winnerIdx2, lineups: window._teamMatchLineups||{}};
-      // 구장 대회(자동승인)이면 다음 라운드 진출 즉시 처리
-      if(isAutoApprove2 && roundIdx !== undefined) {
+      // ★ 아직 경기 미완료면 winner/status 확정 안 함
+      bm[matchKey] = {
+        teamA:teamA2, teamB:teamB2, results:results2,
+        status: matchDecided ? (isAutoApprove2?'approved':'pending') : 'playing',
+        winner: matchDecided ? winnerIdx2 : undefined,
+        lineups: window._teamMatchLineups||{}
+      };
+      // 구장 대회(자동승인)이면 다음 라운드 진출 즉시 처리 (승자 확정 시에만)
+      if(isAutoApprove2 && matchDecided && winnerIdx2 !== -1 && roundIdx !== undefined) {
         const nextRound2 = roundIdx + 1;
         const nextMatchIdx2 = Math.floor(matchIdx / 2);
         const nextSlot2 = matchIdx % 2;
