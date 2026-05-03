@@ -6135,7 +6135,11 @@ window.showResultBracket = () => {
       document.getElementById('rb-popup-title').textContent = '아직 점수가 없어요';
       document.getElementById('rb-popup-content').innerHTML = '<div style="text-align:center;color:var(--text3);font-size:13px;padding:12px">점수가 입력되지 않았습니다</div>';
     } else {
-      document.getElementById('rb-popup-title').textContent = nameA + ' vs ' + nameB;
+      // matchKey에서 라운드 추출 (r0_3 → 0라운드)
+      const roundIdx = parseInt((mk||'').split('_')[0].replace('r','')) || 0;
+      const roundSize = sz / Math.pow(2, roundIdx);
+      const roundName = roundSize===2?'결승':roundSize===4?'4강':roundSize===8?'8강':roundSize===16?'16강':roundSize+'강';
+      document.getElementById('rb-popup-title').innerHTML = `<span style="font-size:12px;color:var(--accent);font-weight:700;margin-right:6px">[${roundName}]</span>` + nameA + ' vs ' + nameB;
       let html = `<div style="display:flex;justify-content:center;align-items:center;gap:16px;margin-bottom:16px;padding:12px;background:var(--surface2);border-radius:10px">
         <div style="text-align:center">
           <div style="font-size:11px;color:var(--text3);margin-bottom:2px">${nameA}</div>
