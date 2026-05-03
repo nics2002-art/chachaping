@@ -6717,13 +6717,14 @@ const generateMatchOrder = (n) => {
 };
 
 window.openGroupMatch = (group, groupEntries, ev) => {
+  const t = window.curTourney || window._statusTourney || window._bracketTourney || {};
   // 종료된 대회는 점수 수정 불가
-  if(window.curTourney?.status === 'locked') {
+  if(t?.status === 'locked') {
     showToast('종료된 대회는 점수 수정이 불가능해요 🔒');
     return;
   }
   // 승인된 경기는 관리자만 수정 가능
-  if(group.matchStatus === 'approved' && !isTourneyAdmin(window.curTourney||window._statusTourney||{})) {
+  if(group.matchStatus === 'approved' && !isTourneyAdmin(t)) {
     showToast('승인된 경기는 관리자만 수정할 수 있어요');
     return;
   }
@@ -6735,7 +6736,7 @@ window.openGroupMatch = (group, groupEntries, ev) => {
   window._curGroup = group;
   window._curGroupTeams = teams;
   window._curGroupEv = ev;
-  window._curMatchIsOwner = isTourneyAdmin(window.curTourney||{});
+  window._curMatchIsOwner = isTourneyAdmin(t);
   window._isBracketMatch = false;
 
   // 현재 조의 역대전적 계산 (클럽+이름 기준)
