@@ -957,7 +957,7 @@ body { font-family: 'Noto Sans KR', sans-serif; background: var(--bg); color: va
       <button class="btn btn-ghost btn-sm" onclick="showFullBracket()">대진표</button>
       <button class="btn btn-ghost btn-sm" onclick="showBracketResults()">결과</button>
       <button class="btn btn-ghost btn-sm" onclick="showResultBracket()">결과판</button>
-      <button class="btn btn-ghost btn-sm" onclick="showWaitingList()">대기목록</button>
+      <button class="btn btn-ghost btn-sm" id="bracket-waiting-btn" style="display:none" onclick="showWaitingList()">대기목록</button>
       <button class="btn btn-ghost btn-sm" id="bracket-gen-btn" style="display:none" onclick="openGenerateBracketModal()">생성</button>
       <button id="bracket-clear-all-btn" onclick="clearAllScores()" style="display:none;font-size:11px;color:var(--pink);background:none;border:1px solid var(--pink);border-radius:6px;padding:4px 8px;cursor:pointer">🗑 전체초기화</button>
     </div>
@@ -7366,6 +7366,7 @@ window.openBracketPage = () => {
 
   const isOwner = isTourneyAdmin(t);
   document.getElementById('bracket-gen-btn').style.display = isOwner ? '' : 'none';
+  document.getElementById('bracket-waiting-btn').style.display = isOwner ? '' : 'none';
   const clearAllBtn = document.getElementById('bracket-clear-all-btn');
   if(clearAllBtn) clearAllBtn.style.display = window.currentUser?.email === SUPER_ADMIN_EMAIL ? '' : 'none';
 
