@@ -2636,6 +2636,50 @@ window.clearGroupScores = async () => {
   } catch(e) { showToast('실패: '+e.message); }
 };
 
+// 개별 경기 점수 초기화
+window.clearSingleMatchScore = async (mi) => {
+  if(!confirm(`⚠️ ${mi+1}경기 점수를 초기화할까요?\n이 작업은 되돌릴 수 없습니다.`)) return;
+
+  // 1. 화면(메모리) 초기화
+  if(window._matchScores) delete window._matchScores[mi];
+  if(window._matchForfeits) delete window._matchForfeits[mi];
+
+  // 2. Firebase 초기화 - matchResults[mi]만 빈값으로
+  const group = window._curGroup;
+  const ev = window._curGroupEv;
+  const t = window.curTourney || window._statusTourney;
+  if(group && ev && t) {
+    try {
+      const snap = await getDoc(doc(db,'tournaments',t.id));
+      if(snap.exists()) {
+        const events = (snap.data().events||[]).map(e => {
+          if(e.id !== ev.id) return e;
+          const groups = (e.groups||[]).map(g => {
+            if(g.no !== group.no) return g;
+            const matchResults = [...(g.matchResults||[])];
+            matchResults[mi] = { winsA:0, winsB:0, sets:[], cleared:true };
+            return { ...g, matchResults, matchStatus:'' };
+          });
+          return { ...e, groups };
+        });
+        await updateDoc(doc(db,'tournaments',t.id), { events });
+        const updatedEv = events.find(e=>e.id===ev.id);
+        if(updatedEv) {
+          window._curGroupEv = updatedEv;
+          const updatedGroup = (updatedEv.groups||[]).find(g=>g.no===group.no);
+          if(updatedGroup) window._curGroup = updatedGroup;
+          if(window.curTourney) window.curTourney.events = events;
+          if(window._statusTourney) window._statusTourney.events = events;
+          _cache.del('tourney_'+t.id);
+        }
+      }
+    } catch(e) { showToast('저장 실패: '+e.message); return; }
+  }
+
+  renderMatchList();
+  showToast(`${mi+1}경기 점수 초기화됐어요`);
+};
+
 // 본선 경기별 점수 초기화 (관리자/부관리자)
 window.clearBracketMatchScore = async (matchKey) => {
   const t = window._bracketTourney || window.curTourney || window._statusTourney;
@@ -6832,6 +6876,7 @@ window.renderMatchList = () => {
           <div style="display:flex;align-items:center;gap:8px">
             ${matchDone?`<span style="font-size:12px;font-weight:700;color:var(--green)">${gameWinsA>gameWinsB?nameA:nameB} 승 (${gameWinsA}:${gameWinsB})</span>`:''}
             <button class="btn btn-ghost btn-sm" style="height:28px;font-size:11px;color:var(--pink)" onclick="setForfeit(${mi})">기권</button>
+            ${window._curMatchIsOwner ? `<button style="height:28px;font-size:11px;color:var(--pink);background:none;border:1px solid var(--pink);border-radius:6px;padding:0 8px;cursor:pointer" onclick="clearSingleMatchScore(${mi})">🗑 초기화</button>` : ''}
           </div>
         </div>
         <div style="display:flex;align-items:center;gap:8px;margin-bottom:12px">
@@ -6941,6 +6986,7 @@ window.renderMatchList = () => {
           <button class="btn btn-primary btn-sm" style="font-size:11px" onclick="openScoreboard(${mi},'${nameA.replace(/'/g,"\\'")}','${nameB.replace(/'/g,"\\'")}')">🏓 점수판</button>
           <button class="btn btn-success btn-sm" style="font-size:11px" onclick="saveMatchScore(${mi})">💾 저장</button>
           <button class="btn btn-ghost btn-sm" style="height:28px;font-size:11px;color:var(--pink)" onclick="setForfeit(${mi})">기권</button>
+          ${window._curMatchIsOwner ? `<button style="height:28px;font-size:11px;color:var(--pink);background:none;border:1px solid var(--pink);border-radius:6px;padding:0 8px;cursor:pointer" onclick="clearSingleMatchScore(${mi})">🗑 초기화</button>` : ''}
         </div>
       </div>
       <div style="display:flex;align-items:center;gap:8px;margin-bottom:12px">
