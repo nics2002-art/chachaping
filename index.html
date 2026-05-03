@@ -4379,21 +4379,22 @@ window.showMatchDetail = (mi) => {
     return members[parseInt(s)]?.name || '';
   };
 
-  // 헤더: 팀명 + 스코어
-  let html = `<div style="text-align:center;padding:12px 0;margin-bottom:12px;border-bottom:2px solid var(--border)">
-    <div style="display:flex;align-items:center;justify-content:space-between;gap:8px">
-      <div style="flex:1;text-align:center">
-        <div style="font-size:13px;font-weight:700;color:var(--accent);margin-bottom:4px">${nameA}</div>
+  // 헤더: 팀명 + 토탈 스코어
+  let html = `<div style="padding:12px 0;margin-bottom:12px;border-bottom:2px solid var(--border)">
+    <div style="display:grid;grid-template-columns:1fr auto 1fr;align-items:center;gap:8px">
+      <div style="text-align:center">
+        <div style="font-size:13px;font-weight:700;color:var(--accent);line-height:1.4;word-break:keep-all">${nameA}</div>
       </div>
-      <div style="text-align:center;min-width:80px">
-        <div style="font-size:32px;font-weight:900">
+      <div style="text-align:center;min-width:72px">
+        <div style="font-size:11px;color:var(--text3);margin-bottom:2px">토탈</div>
+        <div style="font-size:32px;font-weight:900;line-height:1">
           <span style="color:${wA>wB?'var(--green)':'var(--pink)'}">${wA}</span>
-          <span style="color:var(--text3);font-size:20px"> : </span>
+          <span style="color:var(--text3);font-size:20px">:</span>
           <span style="color:${wB>wA?'var(--green)':'var(--pink)'}">${wB}</span>
         </div>
       </div>
-      <div style="flex:1;text-align:center">
-        <div style="font-size:13px;font-weight:700;color:var(--pink);margin-bottom:4px">${nameB}</div>
+      <div style="text-align:center">
+        <div style="font-size:13px;font-weight:700;color:var(--pink);line-height:1.4;word-break:keep-all">${nameB}</div>
       </div>
     </div>
   </div>`;
@@ -4403,31 +4404,53 @@ window.showMatchDetail = (mi) => {
     r.gameResults.forEach((gr,gi) => {
       const sets = (gr.sets||[]).filter(s=>s.a>0||s.b>0);
       const aWin = gr.wa > gr.wb;
-      // 게임별 출전 선수 이름 (teamMatchLineups 기준)
-      // ai=0번팀(A), bi=1번팀(B) → lineup key: '0_gi', '1_gi'
       const playerA = getMemberName(teamA?.members||[], matchLineup[`0_${gi}`]);
       const playerB = getMemberName(teamB?.members||[], matchLineup[`1_${gi}`]);
-      const playerLine = (playerA || playerB)
-        ? `<div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:8px;padding:0 4px">
-            <span style="font-size:12px;font-weight:600;color:var(--accent)">${playerA||'-'}</span>
-            <span style="font-size:10px;color:var(--text3)">vs</span>
-            <span style="font-size:12px;font-weight:600;color:var(--pink)">${playerB||'-'}</span>
-          </div>` : '';
-      html += `<div style="margin-bottom:12px;background:var(--surface2);border-radius:12px;padding:12px">
-        <div style="font-size:12px;font-weight:700;color:var(--accent);margin-bottom:8px;text-align:center">${gi+1}게임</div>
-        ${playerLine}
-        <div style="display:flex;align-items:center;justify-content:center;gap:16px;margin-bottom:10px">
-          <span style="font-size:28px;font-weight:900;color:${aWin?'var(--green)':'var(--pink)'}">${gr.wa}</span>
-          <span style="font-size:18px;color:var(--text3)">:</span>
-          <span style="font-size:28px;font-weight:900;color:${!aWin?'var(--green)':'var(--pink)'}">${gr.wb}</span>
+      const hasPlayers = !!(playerA || playerB);
+
+      // 게임 헤더: 이름(좌) | N게임 총점(중) | 이름(우)
+      // 라인업 있으면 선수명, 없으면 팀 전체 이름
+      const labelA = playerA || nameA;
+      const labelB = playerB || nameB;
+      const gameHeader = `<div style="display:grid;grid-template-columns:1fr auto 1fr;align-items:center;gap:6px;margin-bottom:10px">
+        <div style="font-size:12px;font-weight:700;color:var(--accent);line-height:1.3;word-break:keep-all;text-align:center">
+          ${labelA}
         </div>
-        ${sets.map((s,si)=>`
-          <div style="display:flex;align-items:center;justify-content:center;gap:12px;padding:6px 0;border-top:1px solid var(--border)">
+        <div style="text-align:center;flex-shrink:0;min-width:60px">
+          <div style="font-size:10px;color:var(--text3);margin-bottom:1px">${gi+1}게임</div>
+          <div style="font-size:20px;font-weight:900;line-height:1">
+            <span style="color:${aWin?'var(--green)':'var(--pink)'}">${gr.wa}</span>
+            <span style="font-size:13px;color:var(--text3)">:</span>
+            <span style="color:${!aWin?'var(--green)':'var(--pink)'}">${gr.wb}</span>
+          </div>
+        </div>
+        <div style="font-size:12px;font-weight:700;color:var(--pink);line-height:1.3;word-break:keep-all;text-align:center">
+          ${labelB}
+        </div>
+      </div>`;
+
+      // 세트 행: 이름 있으면 좌/우에 점수 배치, 없으면 중앙 정렬
+      const setsHtml = sets.map((s,si) => hasPlayers
+        ? `<div style="display:grid;grid-template-columns:1fr 28px 1fr;align-items:center;padding:5px 0;border-top:1px solid var(--border)">
+            <div style="display:flex;align-items:center;gap:4px;justify-content:flex-end">
+              <span style="font-size:10px;color:var(--text3)">${si+1}세트</span>
+              <span style="font-size:16px;font-weight:${s.a>s.b?800:500};color:${s.a>s.b?'var(--green)':'var(--text2)'}">${s.a}</span>
+            </div>
+            <span style="font-size:12px;color:var(--text3);text-align:center">:</span>
+            <div style="display:flex;align-items:center;gap:4px">
+              <span style="font-size:16px;font-weight:${s.b>s.a?800:500};color:${s.b>s.a?'var(--green)':'var(--text2)'}">${s.b}</span>
+            </div>
+          </div>`
+        : `<div style="display:flex;align-items:center;justify-content:center;gap:12px;padding:5px 0;border-top:1px solid var(--border)">
             <span style="font-size:11px;color:var(--text3);width:40px;text-align:right">${si+1}세트</span>
-            <span style="font-size:18px;font-weight:700;color:${s.a>s.b?'var(--green)':'var(--pink)'}">${s.a}</span>
-            <span style="font-size:14px;color:var(--text3)">:</span>
-            <span style="font-size:18px;font-weight:700;color:${s.b>s.a?'var(--green)':'var(--pink)'}">${s.b}</span>
-          </div>`).join('')}
+            <span style="font-size:16px;font-weight:700;color:${s.a>s.b?'var(--green)':'var(--pink)'}">${s.a}</span>
+            <span style="font-size:13px;color:var(--text3)">:</span>
+            <span style="font-size:16px;font-weight:700;color:${s.b>s.a?'var(--green)':'var(--pink)'}">${s.b}</span>
+          </div>`
+      ).join('');
+
+      html += `<div style="margin-bottom:12px;background:var(--surface2);border-radius:12px;padding:12px">
+        ${gameHeader}${setsHtml}
       </div>`;
     });
   } else {
@@ -6832,13 +6855,60 @@ window.openGroupMatch = (group, groupEntries, ev) => {
       // 3팀 이상 리그전 → 경기마다 순서 정하게
       const matchOrder = generateMatchOrder(n);
       window._curMatchOrder = matchOrder;
-      window._teamMatchLineups = {};
+
+      // ★ 기존 저장된 teamMatchLineups 복원 (초기화 X)
+      window._teamMatchLineups = {...(group.teamMatchLineups||{})};
+
+      // ★ 기존 저장된 matchResults → _matchScores 복원 (matchNo 기준)
+      window._matchScores = {};
+      window._matchForfeits = {};
+      const _restoreResults = group.matchResults||[];
+      matchOrder.forEach((pair, mi) => {
+        // matchNo=mi+1 인 결과 우선, 없으면 인덱스 mi로 폴백
+        const r = _restoreResults.find(r=>r&&r.matchNo===mi+1) || _restoreResults[mi];
+        if(!r) return;
+        if(r.isForfeit) { window._matchForfeits[mi] = true; return; }
+        if(r.gameResults && r.gameResults.length) {
+          r.gameResults.forEach((gr, gi) => {
+            if(!gr) return;
+            const key = mi+'_'+gi;
+            window._matchScores[key] = {};
+            (gr.sets||[]).forEach((s,si) => {
+              window._matchScores[key][si+'a'] = s.a;
+              window._matchScores[key][si+'b'] = s.b;
+            });
+          });
+        } else {
+          window._matchScores[mi] = {};
+          (r.sets||[]).filter(s=>s.a>0||s.b>0).forEach((s,si) => {
+            window._matchScores[mi][si+'a'] = s.a;
+            window._matchScores[mi][si+'b'] = s.b;
+          });
+        }
+      });
+
       openMatchPage(group, teams, ev, matchOrder);
     }
   } else {
     // 개인전 → 바로 경기 점수 입력
     const matchOrder = generateMatchOrder(n);
     window._curMatchOrder = matchOrder;
+
+    // ★ 기존 저장된 matchResults → _matchScores 복원 (matchNo 기준)
+    window._matchScores = {};
+    window._matchForfeits = {};
+    const _restoreResultsS = group.matchResults||[];
+    matchOrder.forEach((pair, mi) => {
+      const r = _restoreResultsS.find(r=>r&&r.matchNo===mi+1) || _restoreResultsS[mi];
+      if(!r) return;
+      if(r.isForfeit) { window._matchForfeits[mi] = true; return; }
+      window._matchScores[mi] = {};
+      (r.sets||[]).filter(s=>s.a>0||s.b>0).forEach((s,si) => {
+        window._matchScores[mi][si+'a'] = s.a;
+        window._matchScores[mi][si+'b'] = s.b;
+      });
+    });
+
     openMatchPage(group, teams, ev, matchOrder);
   }
 };
@@ -6846,6 +6916,30 @@ window.openGroupMatch = (group, groupEntries, ev) => {
 window.openLineupPage = (group, teams, ev) => {
   const teamFormat = ev.teamFormat || '단단단';
   const uid = window.currentUser?.uid;
+
+  // ★ 기존 저장된 teamMatchLineups·matchScores 복원
+  if(!window._teamMatchLineups || Object.keys(window._teamMatchLineups).length === 0) {
+    window._teamMatchLineups = {...(group.teamMatchLineups||{})};
+  }
+  if(!window._matchScores || Object.keys(window._matchScores).length === 0) {
+    window._matchScores = {};
+    window._matchForfeits = {};
+    (group.matchResults||[]).forEach((r, mi) => {
+      if(!r) return;
+      if(r.isForfeit) { window._matchForfeits[mi] = true; return; }
+      if(r.gameResults && r.gameResults.length) {
+        r.gameResults.forEach((gr, gi) => {
+          if(!gr) return;
+          const key = mi+'_'+gi;
+          window._matchScores[key] = {};
+          (gr.sets||[]).forEach((s,si) => {
+            window._matchScores[key][si+'a'] = s.a;
+            window._matchScores[key][si+'b'] = s.b;
+          });
+        });
+      }
+    });
+  }
 
   // 내 팀 찾기
   const myTeamIdx = teams.findIndex(t=>t.memberIds?.some(mid=>mid===uid) || t.addedBy===uid);
