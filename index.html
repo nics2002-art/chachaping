@@ -4201,6 +4201,11 @@ window.openGroupRanking = (group, groupEntries, ev) => {
   );
   const ranked = calcGroupRankings(teams, results, matchOrder);
 
+  // showMatchDetail에서 사용할 데이터 캐시
+  window._rankingTeams = teams;
+  window._rankingResults = results;
+  window._rankingMatchOrder = matchOrder;
+
   document.getElementById('ranking-title').textContent = `${group.no}조 순위표`;
   document.getElementById('ranking-sub').textContent = ev.gender + ' ' + (ev.etype||'');
 
