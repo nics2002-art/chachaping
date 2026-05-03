@@ -1077,12 +1077,13 @@ body { font-family: 'Noto Sans KR', sans-serif; background: var(--bg); color: va
 <!-- ==================== 대회현황 페이지 ==================== -->
 <div class="page" id="pg-status">
   <div class="header">
-    <div class="back-btn" onclick="window._statusTourney?.leagueType==='league'?loadLeaguePage():goPage('pg-main')">←</div>
+    <div class="back-btn" onclick="stopTourneyNoticeListener(); window._statusTourney?.leagueType==='league'?loadLeaguePage():goPage('pg-main')">←</div>
     <div class="header-info">
       <div class="header-title" id="status-name"></div>
       <div class="header-sub" id="status-sub"></div>
     </div>
     <div style="display:flex;gap:4px">
+      <button class="btn btn-ghost btn-sm" id="tourney-notice-btn" onclick="openTourneyNoticeModal()" style="display:none">📢 공지</button>
       <button class="btn btn-ghost btn-sm" id="results-btn" onclick="showAllResults()" style="display:none">🏆 결과</button>
       <button class="btn btn-ghost btn-sm" id="bracket-btn" onclick="openBracketPage()" style="display:none">본선</button>
       <button class="btn btn-danger btn-sm" id="close-tourney-btn" onclick="closeTourneyScores()" style="display:none">🔒 종료</button>
@@ -1092,6 +1093,11 @@ body { font-family: 'Noto Sans KR', sans-serif; background: var(--bg); color: va
   <div id="status-tabs" style="display:flex;overflow-x:auto;background:var(--surface);border-bottom:1px solid var(--border);padding:0 4px;gap:4px;-webkit-overflow-scrolling:touch;scrollbar-width:none"></div>
   <div class="content" style="padding-top:12px">
     <div id="status-event-content"></div>
+    <!-- 공지 히스토리 -->
+    <div class="card" style="margin-top:16px" id="tourney-notice-section" style="display:none">
+      <div style="font-size:13px;font-weight:700;color:var(--text);margin-bottom:10px">📢 공지 내역</div>
+      <div id="tourney-notice-history"><div style="font-size:12px;color:var(--text3);text-align:center;padding:12px">공지 내역이 없어요</div></div>
+    </div>
   </div>
 </div>
 
@@ -1601,7 +1607,7 @@ body { font-family: 'Noto Sans KR', sans-serif; background: var(--bg); color: va
 <script type="module">
 import { initializeApp } from "https://www.gstatic.com/firebasejs/11.6.0/firebase-app.js";
 import { getAuth, signInWithEmailAndPassword, createUserWithEmailAndPassword, signInWithPopup, GoogleAuthProvider, signOut, onAuthStateChanged, sendPasswordResetEmail, updatePassword } from "https://www.gstatic.com/firebasejs/11.6.0/firebase-auth.js";
-import { getFirestore, collection, doc, setDoc, getDoc, getDocs, updateDoc, deleteDoc, query, where, orderBy, onSnapshot } from "https://www.gstatic.com/firebasejs/11.6.0/firebase-firestore.js";
+import { getFirestore, collection, doc, setDoc, getDoc, getDocs, updateDoc, deleteDoc, query, where, orderBy, onSnapshot, addDoc } from "https://www.gstatic.com/firebasejs/11.6.0/firebase-firestore.js";
 
 const firebaseConfig = {
   apiKey: "AIzaSyAnRp3jSlY_1Cxea8MgWWiaxJ-glcsI7Vo",
@@ -2661,6 +2667,68 @@ window.clearAllScores = async () => {
   } catch(e) { showToast('실패: '+e.message); }
 };
 
+
+// ── 대회별 공지 ─────────────────────────────────────
+let _tourneyNoticeUnsubscribe = null;
+let _tourneyNoticeLastTs = 0;
+
+window.startTourneyNoticeListener = (tourneyId) => {
+  if(_tourneyNoticeUnsubscribe) { _tourneyNoticeUnsubscribe(); _tourneyNoticeUnsubscribe = null; }
+  _tourneyNoticeLastTs = Date.now();
+  _tourneyNoticeUnsubscribe = onSnapshot(
+    query(collection(db,'tournaments',tourneyId,'notices'), orderBy('ts','desc')),
+    (snap) => {
+      // 최신 공지 팝업
+      snap.docChanges().forEach(change => {
+        if(change.type === 'added') {
+          const d = change.doc.data();
+          if(d.ts > _tourneyNoticeLastTs - 3000) {
+            if(!isAdmin()) showLiveNotice(d.message);
+          }
+        }
+      });
+      // 히스토리 렌더
+      renderTourneyNoticeHistory(snap.docs.map(d=>({id:d.id,...d.data()})));
+    }
+  );
+};
+
+window.stopTourneyNoticeListener = () => {
+  if(_tourneyNoticeUnsubscribe) { _tourneyNoticeUnsubscribe(); _tourneyNoticeUnsubscribe = null; }
+};
+
+window.renderTourneyNoticeHistory = (notices) => {
+  const el = document.getElementById('tourney-notice-history');
+  if(!el) return;
+  if(!notices.length) { el.innerHTML = '<div style="font-size:12px;color:var(--text3);text-align:center;padding:12px">공지 내역이 없어요</div>'; return; }
+  el.innerHTML = notices.slice(0,20).map(n => {
+    const d = new Date(n.ts);
+    const time = `${d.getMonth()+1}/${d.getDate()} ${String(d.getHours()).padStart(2,'0')}:${String(d.getMinutes()).padStart(2,'0')}`;
+    return `<div style="display:flex;gap:8px;padding:8px 0;border-bottom:1px solid var(--border);align-items:flex-start">
+      <span style="font-size:11px;color:var(--text3);white-space:nowrap;margin-top:1px">${time}</span>
+      <span style="font-size:13px;color:var(--text)">${n.message}</span>
+    </div>`;
+  }).join('');
+};
+
+window.openTourneyNoticeModal = () => {
+  const t = window.curTourney || window._statusTourney;
+  if(!t) return;
+  const msg = prompt('공지 내용을 입력하세요:');
+  if(!msg?.trim()) return;
+  sendTourneyNotice(t.id, msg.trim());
+};
+
+window.sendTourneyNotice = async (tourneyId, message) => {
+  try {
+    await addDoc(collection(db,'tournaments',tourneyId,'notices'), {
+      message, ts: Date.now(), sentBy: window.currentUser?.uid||'guest',
+      sentByName: window.currentUserData?.name||'관리자'
+    });
+    showToast('공지 전송 완료! 📢');
+  } catch(e) { showToast('전송 실패: '+e.message); }
+};
+
 window.loadLeaguePage = async () => {
   goPage('pg-club');
   const isLoggedIn = !!window.currentUser;
@@ -2791,6 +2859,14 @@ window.openTourneyStatus = async (id, force) => {
     t = {id, ...snap.data()};
     _cache.set('tourney_'+id, t);
   }
+
+  // 대회별 공지 리스너 시작
+  startTourneyNoticeListener(id);
+
+  // 공지 버튼 - 관리자만
+  const noticeBtn = document.getElementById('tourney-notice-btn');
+  if(noticeBtn) noticeBtn.style.display = isTourneyAdmin(t) ? '' : 'none';
+  document.getElementById('tourney-notice-section').style.display = '';
 
   document.getElementById('status-name').textContent = t.name;
   document.getElementById('status-sub').textContent = `${t.type} · ${formatDate(t)}`;
@@ -6192,20 +6268,6 @@ window.renderAdminStat = async () => {
           </div>
           <div style="font-size:12px;font-weight:700;color:var(--text);width:30px;text-align:right">${count}</div>
         </div>`).join('')}
-    </div>`;
-    // 관리자 공지 발송
-    html += `<div class="card" style="margin-bottom:12px">
-      <div class="card-title">📢 실시간 공지 발송</div>
-      <div class="info-box" style="margin-bottom:10px">앱 열고 있는 모든 사용자에게 즉시 전송됩니다</div>
-      <div class="form-group" style="margin-bottom:8px">
-        <input class="form-input" id="notice-msg-input" placeholder="예: 남자 5부 단식 경기 입장하세요">
-      </div>
-      <div style="display:flex;gap:6px;flex-wrap:wrap;margin-bottom:8px">
-        ${['남자 단식 입장하세요','여자 단식 입장하세요','단체전 입장하세요','점심 식사 후 속개','잠시 대기 바랍니다'].map(t=>
-          `<button class="btn btn-ghost btn-sm" onclick="document.getElementById('notice-msg-input').value='${t}'">${t}</button>`
-        ).join('')}
-      </div>
-      <button class="btn btn-primary btn-full" onclick="sendLiveNotice()">📢 공지 전송</button>
     </div>`;
     document.getElementById('admin-content').innerHTML = html;
   } catch(e){ document.getElementById('admin-content').innerHTML = '<div style="color:var(--pink)">불러오기 실패</div>'; }
