@@ -8535,16 +8535,19 @@ window.openBracketMatch = async (matchKey, matchIdx, roundIdx, from) => {
   window._bracketMatchFrom = from; // 뒤로가기/제출 후 복귀 위치 저장
   document.getElementById('match-back-btn').onclick = async () => {
     const t2 = window.curTourney || window._statusTourney || window._bracketTourney;
-    if(t2) {
-      try {
+    // DB에서 최신 데이터 읽기 (초기화/저장 후 대진표 반영)
+    try {
+      if(t2) {
         const snap2 = await getDoc(doc(db,'tournaments',t2.id));
         if(snap2.exists()) {
+          t2.events = snap2.data().events||[];
+          _cache.del('tourney_'+t2.id);
           const evId2 = (window._bracketEv||{}).id;
-          const ev2 = (snap2.data().events||[]).find(e=>e.id===evId2);
+          const ev2 = t2.events.find(e=>e.id===evId2);
           if(ev2) window._bracketEv = ev2;
         }
-      } catch(e) {}
-    }
+      }
+    } catch(e) {}
     renderBracketPage(window._bracketEv);
     goPage('pg-bracket');
     if(window._bracketMatchFrom === 'waiting') setTimeout(()=>{ goPage('pg-bracket'); showWaitingList(); }, 100);
