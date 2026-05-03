@@ -6971,21 +6971,6 @@ window.openGroupMatch = (group, groupEntries, ev) => {
     const matchOrder = generateMatchOrder(n);
     window._curMatchOrder = matchOrder;
 
-    // ★ 기존 저장된 matchResults → _matchScores 복원 (matchNo 기준)
-    window._matchScores = {};
-    window._matchForfeits = {};
-    const _restoreResultsS = group.matchResults||[];
-    matchOrder.forEach((pair, mi) => {
-      const r = _restoreResultsS.find(r=>r&&r.matchNo===mi+1) || _restoreResultsS[mi];
-      if(!r) return;
-      if(r.isForfeit) { window._matchForfeits[mi] = true; return; }
-      window._matchScores[mi] = {};
-      (r.sets||[]).filter(s=>s.a>0||s.b>0).forEach((s,si) => {
-        window._matchScores[mi][si+'a'] = s.a;
-        window._matchScores[mi][si+'b'] = s.b;
-      });
-    });
-
     openMatchPage(group, teams, ev, matchOrder);
   }
 };
@@ -6993,30 +6978,6 @@ window.openGroupMatch = (group, groupEntries, ev) => {
 window.openLineupPage = (group, teams, ev) => {
   const teamFormat = ev.teamFormat || '단단단';
   const uid = window.currentUser?.uid;
-
-  // ★ 기존 저장된 teamMatchLineups·matchScores 복원
-  if(!window._teamMatchLineups || Object.keys(window._teamMatchLineups).length === 0) {
-    window._teamMatchLineups = {...(group.teamMatchLineups||{})};
-  }
-  if(!window._matchScores || Object.keys(window._matchScores).length === 0) {
-    window._matchScores = {};
-    window._matchForfeits = {};
-    (group.matchResults||[]).forEach((r, mi) => {
-      if(!r) return;
-      if(r.isForfeit) { window._matchForfeits[mi] = true; return; }
-      if(r.gameResults && r.gameResults.length) {
-        r.gameResults.forEach((gr, gi) => {
-          if(!gr) return;
-          const key = mi+'_'+gi;
-          window._matchScores[key] = {};
-          (gr.sets||[]).forEach((s,si) => {
-            window._matchScores[key][si+'a'] = s.a;
-            window._matchScores[key][si+'b'] = s.b;
-          });
-        });
-      }
-    });
-  }
 
   // 내 팀 찾기
   const myTeamIdx = teams.findIndex(t=>t.memberIds?.some(mid=>mid===uid) || t.addedBy===uid);
@@ -7279,11 +7240,15 @@ window.openMatchPage = (group, teams, ev, matchOrder) => {
   window._matchForfeits = {};
   // 선수 순서 복원
   window._teamMatchLineups = group.teamMatchLineups || {};
-  existingResults.forEach((r,mi)=>{
-    if(r.isForfeit) window._matchForfeits[mi]=true;
-    else if(isTeamMatch && r.gameResults) {
-      // 단체전: mi_gi 키로 복원
+  // ★ matchNo 기준으로 matchOrder 인덱스(mi)에 맞게 복원
+  matchOrder.forEach((pair, mi) => {
+    // matchNo=mi+1 인 결과 우선 탐색, 없으면 배열 인덱스 mi로 폴백
+    const r = existingResults.find(r => r && r.matchNo === mi+1) || existingResults[mi];
+    if(!r) return;
+    if(r.isForfeit) { window._matchForfeits[mi]=true; return; }
+    if(isTeamMatch && r.gameResults) {
       r.gameResults.forEach((gr,gi)=>{
+        if(!gr) return;
         const key = mi+'_'+gi;
         window._matchScores[key]={};
         (gr.sets||[]).forEach((s,si)=>{ if(s.a>0||s.b>0){ window._matchScores[key][`${si}a`]=s.a; window._matchScores[key][`${si}b`]=s.b; } });
