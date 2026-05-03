@@ -3086,6 +3086,9 @@ window.openTourneyStatus = async (id, force) => {
   // 대회별 공지 리스너 시작
   startTourneyNoticeListener(id);
 
+  window._statusTourney = t;
+  window.curTourney = t; // 구장리그에서도 curTourney 사용 가능하게
+
   // 공지 버튼 - 관리자만
   const noticeBtn = document.getElementById('status-notice-btn');
   if(noticeBtn) noticeBtn.style.display = isTourneyAdmin(t) ? '' : 'none';
