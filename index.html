@@ -696,6 +696,7 @@ body { font-family: 'Noto Sans KR', sans-serif; background: var(--bg); color: va
     <!-- 관리자 버튼 -->
     <div id="admin-btn-area" style="display:none;margin-top:12px">
       <button class="btn btn-outline btn-full" onclick="openAdmin()">⚙️ 관리자 모드</button>
+      <button id="visit-stats-btn" class="btn btn-ghost btn-full" onclick="openVisitStats()" style="display:none;margin-top:8px">📊 방문 통계</button>
     </div>
   </div>
 </div>
@@ -1218,6 +1219,19 @@ body { font-family: 'Noto Sans KR', sans-serif; background: var(--bg); color: va
       <input id="tourney-list-search" class="form-input" placeholder="🔍 대회 검색" oninput="filterTourneyList(this.value)" style="margin-bottom:0">
     </div>
     <div id="tourney-list-content"><div class="empty"><div class="empty-icon">🏆</div><div class="empty-text">대회가 없어요</div></div></div>
+  </div>
+</div>
+
+<div class="page" id="pg-visit-stats">
+  <div class="header">
+    <div class="back-btn" onclick="goPage('pg-admin')">←</div>
+    <div class="header-info">
+      <div class="header-title">방문 통계</div>
+      <div class="header-sub">관리자 전용</div>
+    </div>
+  </div>
+  <div class="content">
+    <div id="visit-stats-content"></div>
   </div>
 </div>
 
@@ -2402,6 +2416,121 @@ window.loadTourneyListPage = async () => {
     }).sort((a,b)=>(b.date||'').localeCompare(a.date||''));
     renderTourneyList(window._tourneyListCache);
   } catch(e) { showToast('로드 실패: '+e.message); }
+};
+
+
+// ── 방문 통계 ─────────────────────────────────────
+const SUPER_ADMIN_EMAIL = 'nics11@hanmail.net';
+
+// logVisit은 trackVisit으로 대체됨
+
+window.openVisitStats = async () => {
+  if(window.currentUser?.email !== SUPER_ADMIN_EMAIL) {
+    showToast('권한이 없어요');
+    return;
+  }
+  goPage('pg-visit-stats');
+  document.getElementById('visit-stats-content').innerHTML = '<div class="loading"><div class="spinner"></div><span>불러오는 중...</span></div>';
+  try {
+    const snap = await getDoc(doc(db,'stats','visitors'));
+    if(!snap.exists()) { document.getElementById('visit-stats-content').innerHTML = '<div class="empty"><div class="empty-icon">📊</div><div class="empty-text">데이터가 없어요</div></div>'; return; }
+    const data = snap.data();
+    // stats/visitors: {YYYY-MM-DD: count, ...}
+    const daily = data;
+    // 월별 집계
+    const monthly = {};
+    Object.entries(data).forEach(([k,v]) => {
+      if(/^\d{4}-\d{2}-\d{2}$/.test(k)) {
+        const m = k.slice(0,7);
+        monthly[m] = (monthly[m]||0) + v;
+      }
+    });
+    const total = Object.entries(data).filter(([k])=>/^\d{4}-\d{2}-\d{2}$/.test(k)).reduce((s,[,v])=>s+v,0);
+
+    // 최근 30일
+    const days = [];
+    for(let i=29;i>=0;i--) {
+      const d = new Date(); d.setDate(d.getDate()-i);
+      const key = d.toISOString().slice(0,10);
+      days.push({ key, val: daily[key]||0 });
+    }
+    const maxDay = Math.max(...days.map(d=>d.val), 1);
+
+    // 최근 12개월
+    const months = [];
+    for(let i=11;i>=0;i--) {
+      const d = new Date(); d.setMonth(d.getMonth()-i);
+      const key = d.toISOString().slice(0,7);
+      months.push({ key, val: monthly[key]||0 });
+    }
+    const maxMonth = Math.max(...months.map(m=>m.val), 1);
+
+    document.getElementById('visit-stats-content').innerHTML = `
+      <!-- 누적 -->
+      <div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:10px;margin-bottom:20px">
+        <div style="background:var(--surface2);border-radius:12px;padding:16px;text-align:center">
+          <div style="font-size:11px;color:var(--text3);margin-bottom:4px">누적 방문</div>
+          <div style="font-size:28px;font-weight:700;color:var(--accent)">${total.toLocaleString()}</div>
+          <div style="font-size:10px;color:var(--text3)">총 방문 수</div>
+        </div>
+        <div style="background:var(--surface2);border-radius:12px;padding:16px;text-align:center">
+          <div style="font-size:11px;color:var(--text3);margin-bottom:4px">오늘</div>
+          <div style="font-size:28px;font-weight:700;color:var(--green)">${(daily[new Date().toISOString().slice(0,10)]||0).toLocaleString()}</div>
+          <div style="font-size:10px;color:var(--text3)">방문 수</div>
+        </div>
+        <div style="background:var(--surface2);border-radius:12px;padding:16px;text-align:center">
+          <div style="font-size:11px;color:var(--text3);margin-bottom:4px">이번달</div>
+          <div style="font-size:28px;font-weight:700;color:var(--amber)">${(monthly[new Date().toISOString().slice(0,7)]||0).toLocaleString()}</div>
+          <div style="font-size:10px;color:var(--text3)">방문 수</div>
+        </div>
+      </div>
+
+      <!-- 일별 차트 (최근 30일) -->
+      <div class="card" style="margin-bottom:16px">
+        <div style="font-size:13px;font-weight:700;color:var(--text);margin-bottom:12px">📅 일별 방문 (최근 30일)</div>
+        <div style="display:flex;align-items:flex-end;gap:2px;height:80px">
+          ${days.map(d => `
+            <div style="flex:1;display:flex;flex-direction:column;align-items:center;gap:2px">
+              <div style="font-size:8px;color:var(--text3)">${d.val||''}</div>
+              <div style="width:100%;background:var(--accent);border-radius:2px 2px 0 0;height:${Math.round((d.val/maxDay)*60)+2}px;min-height:2px;opacity:${d.val?1:0.2}"></div>
+            </div>
+          `).join('')}
+        </div>
+        <div style="display:flex;justify-content:space-between;margin-top:4px;font-size:9px;color:var(--text3)">
+          <span>${days[0].key.slice(5)}</span>
+          <span>${days[14].key.slice(5)}</span>
+          <span>${days[29].key.slice(5)}</span>
+        </div>
+      </div>
+
+      <!-- 월별 차트 (최근 12개월) -->
+      <div class="card" style="margin-bottom:16px">
+        <div style="font-size:13px;font-weight:700;color:var(--text);margin-bottom:12px">📆 월별 방문 (최근 12개월)</div>
+        <div style="display:flex;align-items:flex-end;gap:4px;height:80px">
+          ${months.map(m => `
+            <div style="flex:1;display:flex;flex-direction:column;align-items:center;gap:2px">
+              <div style="font-size:9px;color:var(--text3)">${m.val||''}</div>
+              <div style="width:100%;background:var(--pink);border-radius:2px 2px 0 0;height:${Math.round((m.val/maxMonth)*60)+2}px;min-height:2px;opacity:${m.val?1:0.2}"></div>
+            </div>
+          `).join('')}
+        </div>
+        <div style="display:flex;justify-content:space-between;margin-top:4px;font-size:9px;color:var(--text3)">
+          ${months.filter((_,i)=>i%3===0).map(m=>`<span>${m.key.slice(2)}</span>`).join('')}
+        </div>
+      </div>
+
+      <!-- 일별 상세 테이블 -->
+      <div class="card">
+        <div style="font-size:13px;font-weight:700;color:var(--text);margin-bottom:12px">📋 일별 상세</div>
+        ${days.filter(d=>d.val>0).reverse().map(d=>`
+          <div style="display:flex;justify-content:space-between;padding:8px 0;border-bottom:1px solid var(--border)">
+            <span style="font-size:13px;color:var(--text)">${d.key}</span>
+            <span style="font-size:13px;font-weight:700;color:var(--accent)">${d.val}명</span>
+          </div>
+        `).join('')}
+      </div>
+    `;
+  } catch(e) { document.getElementById('visit-stats-content').innerHTML = '<div class="empty"><div class="empty-icon">⚠️</div><div class="empty-text">로드 실패</div></div>'; }
 };
 
 window.loadLeaguePage = async () => {
@@ -4062,6 +4191,9 @@ window.showCalendarDay = (day) => {
 
 // ── 마이페이지 ──────────────────────────────────────────
 window.openMypage = async () => {
+  // 슈퍼관리자 통계 버튼
+  const vsBtn = document.getElementById('visit-stats-btn');
+  if(vsBtn) vsBtn.style.display = window.currentUser?.email === SUPER_ADMIN_EMAIL ? '' : 'none';
   const user = window.currentUser;
   const userData = window.currentUserData;
   if(!user) { goPage('pg-login'); return; }
