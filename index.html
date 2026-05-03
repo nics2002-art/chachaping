@@ -2636,18 +2636,19 @@ window.saveTeamGameScore = async (mi, gi) => {
         const mr = {...matchResults[mi], gameResults: [...(matchResults[mi].gameResults||[])]};
         // 게임 결과 중간 빈자리 처리
         while(mr.gameResults.length <= gi) mr.gameResults.push(null);
-        mr.gameResults[gi] = {wa:winsA, wb:winsB, sets};
+        mr.gameResults[gi] = {winsA, winsB, sets};
         // 전체 경기 승수 재계산
         const formatArr2 = (ev.teamFormat||'단단단').split('');
         let totalA=0, totalB=0;
         formatArr2.forEach((_,idx)=>{
           const r = mr.gameResults[idx];
-          if(r){ if(r.wa>r.wb)totalA++; else if(r.wb>r.wa)totalB++; }
+          if(r){ if(r.winsA>r.winsB)totalA++; else if(r.winsB>r.winsA)totalB++; }
         });
         mr.winsA = totalA; mr.winsB = totalB;
         matchResults[mi] = mr;
         const isGubang = t.allowGuest===true;
-        return {...g, matchResults, matchStatus: isGubang?'approved':'pending'};
+        const lineups = window._teamMatchLineups||{};
+        return {...g, matchResults, teamMatchLineups:lineups, matchStatus: isGubang?'approved':'pending'};
       });
       return {...e, groups};
     });
@@ -5719,18 +5720,20 @@ window.autoSaveMatchScores = async () => {
     }
   });
 
-  const t = window.curTourney;
+  const t = window.curTourney || window._statusTourney;
   const isGubang = t?.allowGuest===true;
   const events = (t.events||[]).map(e=>{
     if(e.id!==ev.id) return e;
     const groups = (e.groups||[]).map(g=>{
       if(g.no!==group.no) return g;
-      return {...g, matchResults:results, matchStatus:isGubang?'approved':'pending', submittedAt:Date.now()};
+      const lineups = window._teamMatchLineups||{};
+      return {...g, matchResults:results, teamMatchLineups:lineups, matchStatus:isGubang?'approved':'pending', submittedAt:Date.now()};
     });
     return {...e, groups};
   });
   await updateDoc(doc(db,'tournaments',t.id),{events});
-  t.events=events;
+  if(window.curTourney) window.curTourney.events=events;
+  if(window._statusTourney) window._statusTourney.events=events;
   _cache.set('tourney_'+t.id, t);
   window._curGroup = {...group, matchResults:results, matchStatus:isGubang?'approved':'pending'};
 };
