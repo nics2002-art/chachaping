@@ -6986,8 +6986,32 @@ window.proceedToTeamMatch = () => {
   const n = teams.length;
   const matchOrder = generateMatchOrder(n);
   window._curMatchOrder = matchOrder;
-  // 단체전은 경기별로 순서 정하게
-  window._teamMatchLineups = {}; // {matchIdx: {teamAIdx: lineup, teamBIdx: lineup}}
+  window._teamMatchLineups = {};
+
+  // group.lineups → _teamMatchLineups 형식으로 변환
+  // lineups: {0: [{memberIdx, type, game}...], 1: [...]}
+  // _teamMatchLineups: {mi: {'0_gi': val, '1_gi': val}}
+  const lineups = group.lineups || {};
+  const formatArr = (ev.teamFormat||'단단단').split('').filter(c=>c==='단'||c==='복');
+  matchOrder.forEach(([ai, bi], mi) => {
+    const lineupEntry = {};
+    [ai, bi].forEach((ti, side) => {
+      const teamLineup = lineups[ti] || [];
+      formatArr.forEach((type, gi) => {
+        if(type === '복') {
+          const doublers = teamLineup.filter(l=>l.type==='복');
+          if(doublers.length >= 2) {
+            lineupEntry[side+'_'+gi] = doublers[0].memberIdx+'-'+doublers[1].memberIdx;
+          }
+        } else {
+          const single = teamLineup.find(l=>l.game===gi && l.type==='단');
+          if(single) lineupEntry[side+'_'+gi] = String(single.memberIdx);
+        }
+      });
+    });
+    if(Object.keys(lineupEntry).length) window._teamMatchLineups[mi] = lineupEntry;
+  });
+
   openMatchPage(group, teams, ev, matchOrder);
 };
 
