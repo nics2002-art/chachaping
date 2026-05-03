@@ -2931,7 +2931,21 @@ window.clearSingleMatchScore = async (mi) => {
         const events = (snap.data().events||[]).map(e => {
           if(e.id !== ev.id) return e;
           const bm = {...(e.bracketMatches||{})};
-          if(bm[matchKey]) bm[matchKey] = {...bm[matchKey], results:[], status:'pending', winner:null};
+          if(bm[matchKey]) {
+            bm[matchKey] = { teamA: bm[matchKey].teamA, teamB: bm[matchKey].teamB, isBye: bm[matchKey].isBye, results:[], status:'pending', winner:null, lineups:{} };
+            // ★ 다음 라운드 슬롯에서 승자 제거
+            const parts2 = matchKey.match(/^r(\d+)_(\d+)$/);
+            if(parts2) {
+              const rIdx = parseInt(parts2[1]), mIdx = parseInt(parts2[2]);
+              const nKey = 'r'+(rIdx+1)+'_'+Math.floor(mIdx/2);
+              if(bm[nKey]) {
+                const nm = {...bm[nKey]};
+                if(mIdx%2===0) nm.teamA = null; else nm.teamB = null;
+                if(!nm.results||!nm.results.length){ nm.status='pending'; nm.winner=null; }
+                bm[nKey] = nm;
+              }
+            }
+          }
           return {...e, bracketMatches:bm};
         });
         await updateDoc(doc(db,'tournaments',t.id), {events});
@@ -3010,7 +3024,30 @@ window.clearBracketMatchScore = async (matchKey) => {
       if(e.id !== ev.id) return e;
       const bm = {...(e.bracketMatches||{})};
       if(bm[matchKey] && !bm[matchKey].isBye) {
-        bm[matchKey] = { ...bm[matchKey], results: [], status: 'pending', winner: null };
+        bm[matchKey] = { teamA: bm[matchKey].teamA, teamB: bm[matchKey].teamB, isBye: bm[matchKey].isBye, results: [], status: 'pending', winner: null, lineups: {} };
+
+        // ★ 다음 라운드 슬롯에서 이 경기 승자 제거
+        // matchKey 형식: 'r{roundIdx}_{matchIdx}'
+        const parts = matchKey.match(/^r(\d+)_(\d+)$/);
+        if(parts) {
+          const roundIdx = parseInt(parts[1]);
+          const matchIdx = parseInt(parts[2]);
+          const nextRound = roundIdx + 1;
+          const nextMatchIdx = Math.floor(matchIdx / 2);
+          const nextSlot = matchIdx % 2; // 0=teamA, 1=teamB
+          const nextKey = 'r' + nextRound + '_' + nextMatchIdx;
+          if(bm[nextKey]) {
+            const nextMatch = {...bm[nextKey]};
+            if(nextSlot === 0) nextMatch.teamA = null;
+            else nextMatch.teamB = null;
+            // 다음 라운드 경기도 아직 시작 안 했으면 status 초기화
+            if(!nextMatch.results || !nextMatch.results.length) {
+              nextMatch.status = 'pending';
+              nextMatch.winner = null;
+            }
+            bm[nextKey] = nextMatch;
+          }
+        }
       }
       return { ...e, bracketMatches: bm };
     });
