@@ -947,7 +947,7 @@ body { font-family: 'Noto Sans KR', sans-serif; background: var(--bg); color: va
 <div class="page" id="pg-bracket">
   <div class="header" style="flex-wrap:wrap;gap:8px">
     <div style="display:flex;align-items:center;gap:10px;flex:1;min-width:0">
-      <div class="back-btn" onclick="window._bracketTourney?.leagueType==='league'?loadLeaguePage():goPage('pg-status')">←</div>
+      <div class="back-btn" onclick="window._bracketTourney ? openTourneyStatus(window._bracketTourney.id) : goPage('pg-status')">←</div>
       <div class="header-info" style="min-width:0">
         <div class="header-title" id="bracket-title" style="white-space:nowrap;overflow:hidden;text-overflow:ellipsis"></div>
         <div class="header-sub" id="bracket-sub" style="white-space:nowrap;overflow:hidden;text-overflow:ellipsis"></div>
@@ -3243,7 +3243,6 @@ window.loadLeaguePage = async () => {
 };
 
 window.openNewLeagueModal = () => {
-  // 구장리그는 비로그인도 만들기 가능
   window._isLeagueMode = true;
   const today = new Date().toISOString().slice(0,10);
   document.getElementById('new-tourney-name').value = '';
