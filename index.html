@@ -2611,16 +2611,19 @@ window.saveTeamGameScore = async (mi, gi) => {
 
   // 메모리에서 세트 점수 읽기
   const gmscores = (window._matchScores||{})[`${mi}_${gi}`] || {};
-  let winsA=0, winsB=0;
+  let wa=0, wb=0;
   const sets = [];
   for(let s=0;s<5;s++){
     const sa = parseInt(gmscores[s+'a']||0), sb = parseInt(gmscores[s+'b']||0);
     if(sa>0||sb>0){
       sets.push({a:sa, b:sb});
-      if(sa>sb) winsA++; else if(sb>sa) winsB++;
+      if(sa>sb) wa++; else if(sb>sa) wb++;
     }
   }
-  if(!winsA && !winsB){ showToast('점수를 입력해주세요'); return; }
+  if(!wa && !wb){ showToast('점수를 입력해주세요'); return; }
+
+  const teams = window._curGroupTeams;
+  const matchOrder = window._curMatchOrder;
 
   try {
     const snap = await getDoc(doc(db,'tournaments',t.id));
@@ -2629,20 +2632,34 @@ window.saveTeamGameScore = async (mi, gi) => {
       if(e.id !== ev.id) return e;
       const groups = (e.groups||[]).map(g => {
         if(g.no !== group.no) return g;
+        // matchNo 기준으로 기존 결과 배열 복사
+        // saveMatchResultsToFirebase와 동일하게: 인덱스=mi, matchNo=mi+1
         const matchResults = [...(g.matchResults||[])];
         // 중간 빈자리 null로 채우기
         while(matchResults.length <= mi) matchResults.push(null);
-        if(!matchResults[mi]) matchResults[mi] = {matchNo: mi+1, gameResults:[]};
-        const mr = {...matchResults[mi], matchNo: mi+1, gameResults: [...(matchResults[mi].gameResults||[])]};
+
+        // 기존 경기 결과가 있으면 유지, 없으면 새로 생성
+        const [ai, bi] = (matchOrder && matchOrder[mi]) || [0, 1];
+        const teamANo = teams?.[ai]?.entryNo;
+        const teamBNo = teams?.[bi]?.entryNo;
+        const existing = matchResults[mi] || {};
+        const mr = {
+          ...existing,
+          matchNo: mi+1,
+          teamA: existing.teamA ?? teamANo,
+          teamB: existing.teamB ?? teamBNo,
+          gameResults: [...(existing.gameResults||[])]
+        };
         // 게임 결과 중간 빈자리 처리
         while(mr.gameResults.length <= gi) mr.gameResults.push(null);
-        mr.gameResults[gi] = {winsA, winsB, sets};
-        // 전체 경기 승수 재계산
-        const formatArr2 = (ev.teamFormat||'단단단').split('');
+        // ★ 핵심: wa/wb 필드명 사용 (saveMatchResultsToFirebase·showMatchDetail과 통일)
+        mr.gameResults[gi] = {wa, wb, sets};
+        // 전체 경기 승수 재계산 (wa/wb 기준)
+        const formatArr2 = (ev.teamFormat||'단단단').split('').filter(c=>c==='단'||c==='복');
         let totalA=0, totalB=0;
         formatArr2.forEach((_,idx)=>{
           const r = mr.gameResults[idx];
-          if(r){ if(r.winsA>r.winsB)totalA++; else if(r.winsB>r.winsA)totalB++; }
+          if(r){ if(r.wa>r.wb)totalA++; else if(r.wb>r.wa)totalB++; }
         });
         mr.winsA = totalA; mr.winsB = totalB;
         matchResults[mi] = mr;
@@ -4347,6 +4364,21 @@ window.showMatchDetail = (mi) => {
   const nameB = teamB?.members?.map(m=>m.name).join(', ')||'?';
   const wA = r.winsA, wB = r.winsB;
 
+  // 단체전 게임별 선수 이름 조회용 헬퍼
+  // group.teamMatchLineups[matchIdx][teamIdx_gameIdx] = memberIdx 또는 'a-b'(복식)
+  const group = window._curRankingGroup || {};
+  const lineups = group.teamMatchLineups || {};
+  const matchLineup = lineups[mi] || {};
+  const getMemberName = (members, idxStr) => {
+    if(idxStr === undefined || idxStr === null || idxStr === '') return '';
+    const s = String(idxStr);
+    if(s.includes('-')) {
+      const [a,b] = s.split('-').map(Number);
+      return [members[a]?.name, members[b]?.name].filter(Boolean).join('+');
+    }
+    return members[parseInt(s)]?.name || '';
+  };
+
   // 헤더: 팀명 + 스코어
   let html = `<div style="text-align:center;padding:12px 0;margin-bottom:12px;border-bottom:2px solid var(--border)">
     <div style="display:flex;align-items:center;justify-content:space-between;gap:8px">
@@ -4371,8 +4403,19 @@ window.showMatchDetail = (mi) => {
     r.gameResults.forEach((gr,gi) => {
       const sets = (gr.sets||[]).filter(s=>s.a>0||s.b>0);
       const aWin = gr.wa > gr.wb;
+      // 게임별 출전 선수 이름 (teamMatchLineups 기준)
+      // ai=0번팀(A), bi=1번팀(B) → lineup key: '0_gi', '1_gi'
+      const playerA = getMemberName(teamA?.members||[], matchLineup[`0_${gi}`]);
+      const playerB = getMemberName(teamB?.members||[], matchLineup[`1_${gi}`]);
+      const playerLine = (playerA || playerB)
+        ? `<div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:8px;padding:0 4px">
+            <span style="font-size:12px;font-weight:600;color:var(--accent)">${playerA||'-'}</span>
+            <span style="font-size:10px;color:var(--text3)">vs</span>
+            <span style="font-size:12px;font-weight:600;color:var(--pink)">${playerB||'-'}</span>
+          </div>` : '';
       html += `<div style="margin-bottom:12px;background:var(--surface2);border-radius:12px;padding:12px">
         <div style="font-size:12px;font-weight:700;color:var(--accent);margin-bottom:8px;text-align:center">${gi+1}게임</div>
+        ${playerLine}
         <div style="display:flex;align-items:center;justify-content:center;gap:16px;margin-bottom:10px">
           <span style="font-size:28px;font-weight:900;color:${aWin?'var(--green)':'var(--pink)'}">${gr.wa}</span>
           <span style="font-size:18px;color:var(--text3)">:</span>
