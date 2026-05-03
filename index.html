@@ -3567,8 +3567,9 @@ window.openGroupMatchFromRanking = (matchIdx) => {
   const nameA = teams[pair[0]]?.members?.map(m=>m.name).join(', ') || '?';
   const nameB = teams[pair[1]]?.members?.map(m=>m.name).join(', ') || '?';
 
-  // 경기 페이지 먼저 열고 점수판 오픈
+  // 단체전이면 경기 목록으로만, 개인전이면 점수판 바로 오픈
   openGroupMatch(group, groupEntries, ev);
+  if(ev.teamSize > 1) return; // 단체전은 경기 목록에서 순서 짜게
   setTimeout(() => openScoreboard(matchIdx, nameA, nameB), 300);
 };
 window.openGroupRanking = (group, groupEntries, ev) => {
@@ -6011,7 +6012,7 @@ window.openGroupMatch = (group, groupEntries, ev) => {
     }
     goPage('pg-status');
   };
-  document.getElementById('lineup-back-btn').onclick = () => goPage('pg-status');
+  document.getElementById('lineup-back-btn').onclick = () => goPage('pg-match');
 
   if(isTeamMatch && ev.teamSize >= 2) {
     // 단체/복식 → 팀이 2개면 선수 순서 먼저, 3개 이상이면 바로 경기 입력
