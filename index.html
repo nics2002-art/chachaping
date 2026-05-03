@@ -3577,15 +3577,18 @@ window.goPrevFromRanking = () => {
   }
 };
 window.goBackFromRanking = () => {
-  const g = window._curRankingGroup;
-  const gt = window._curRankingEntries;
-  const ev = window._curRankingEv;
-  if(g && gt && ev) {
-    openGroupMatch(g, gt, ev);
-  } else if(window._statusTourney?.leagueType === 'league') {
+  const savedTabIdx = window._statusTabIdx || 0;
+  if(window._statusTourney?.leagueType === 'league') {
     loadLeaguePage();
   } else {
-    goPage('pg-status');
+    const t = window.curTourney || window._statusTourney;
+    if(t) {
+      openTourneyStatus(t.id, true).then(() => {
+        setTimeout(() => showStatusTab(savedTabIdx), 100);
+      });
+    } else {
+      goPage('pg-status');
+    }
   }
 };
 window.openGroupMatchFromRanking = (matchIdx) => {
