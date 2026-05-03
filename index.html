@@ -6953,7 +6953,7 @@ window.confirmLineup = async (teamIdx) => {
 
   const lineup = Object.values(selections);
   const group = window._curGroup;
-  const t = window.curTourney;
+  const t = window.curTourney || window._statusTourney;
 
   try {
     const snap = await getDoc(doc(db,'tournaments',t.id));
@@ -6967,7 +6967,9 @@ window.confirmLineup = async (teamIdx) => {
       return {...e, groups};
     });
     await updateDoc(doc(db,'tournaments',t.id),{events});
-    window.curTourney.events = events;
+    if(window.curTourney) window.curTourney.events = events;
+    if(window._statusTourney) window._statusTourney.events = events;
+    _cache.del('tourney_'+t.id);
     window._curGroup = {...group, lineups:{...(group.lineups||{}), [teamIdx]:lineup}};
 
     showToast('순서 확정! 상대팀을 기다리는 중...');
