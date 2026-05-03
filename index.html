@@ -2375,6 +2375,7 @@ window.renderLeagueList = (leagues) => {
         </div>
         <div style="display:flex;flex-direction:column;gap:4px;align-items:flex-end;flex-shrink:0">
           ${hasGroups?`<button class="btn btn-ghost btn-sm" onclick="event.stopPropagation();openTourneyStatus('${t.id}')">현황</button>`:''}
+          ${hasGroups?`<button class="btn btn-ghost btn-sm" onclick="event.stopPropagation();showLeagueAllResults('${t.id}')">결과</button>`:''}
           ${isOwner?`<button class="btn btn-danger btn-sm" onclick="event.stopPropagation();deleteLeague('${t.id}')">삭제</button>`:''}
         </div>
       </div>
@@ -5629,77 +5630,110 @@ window.closeTourneyScores = async () => {
   showToast('대회가 종료됐어요 🔒 점수 수정이 잠겼습니다');
 };
 
-window.showAllResults = () => {
-  const t = window._statusTourney;
+// 결과 표 생성 공통 함수
+window._buildResultsTable = (t) => {
   const events = (t.events||[]).filter(ev=>ev.bracketSize);
   const getTeamName = (team) => team?.members?.map(m=>m.name).join(', ') || '?';
   const getClub = (team) => team?.club || '';
+  const rankLabel2 = (ev) => {
+    const r = ev.ranks||[];
+    if(!r.length||r.length===10) return '전체';
+    const s=[...r].sort((a,b)=>a-b);
+    const cont=s.every((v,i)=>i===0||v===s[i-1]+1);
+    return cont?s[0]+'~'+s[s.length-1]+'부':s.map(x=>x+'부').join(',');
+  };
 
   let shareText = `🏓 ${t.name} 대회 결과\n${'─'.repeat(20)}\n`;
-  let html = '';
 
-  if(!events.length){
-    html = '<div style="font-size:12px;color:var(--text3);padding:16px;text-align:center">아직 본선 결과가 없습니다</div>';
-  } else {
-    events.forEach(ev => {
-      const bracketMatches = ev.bracketMatches || {};
-      const size = ev.bracketSize || 0;
-      const rounds = Math.log2(size);
-      const title = `${ev.gender} ${ev.etype||''}`;
+  if(!events.length) return { html:'<div style="text-align:center;color:var(--text3);padding:24px">아직 본선 결과가 없습니다</div>', shareText };
 
-      const finalKey = `r${rounds-1}_0`;
-      const final = bracketMatches[finalKey];
-      const semis = [0,1].map(i=>bracketMatches[`r${rounds-2}_${i}`]).filter(Boolean);
+  // 색상 팔레트 (종목별 교대)
+  const rowColors = ['rgba(186,230,253,0.4)', 'rgba(187,247,208,0.4)', 'rgba(253,230,138,0.4)', 'rgba(251,207,232,0.4)', 'rgba(221,214,254,0.4)'];
+  let rows = '';
+  let colorIdx = 0;
 
-      let winner = null, runnerUp = null, third = [];
-      if(final?.status==='approved'){
-        winner = final.winner===0 ? final.teamA : final.teamB;
-        runnerUp = final.winner===0 ? final.teamB : final.teamA;
+  events.forEach(ev => {
+    const bracketMatches = ev.bracketMatches || {};
+    const size = ev.bracketSize || 0;
+    const rounds = Math.log2(size);
+    const title = `${ev.gender} ${ev.etype||''} ${rankLabel2(ev)}`;
+
+    const finalKey = `r${rounds-1}_0`;
+    const final = bracketMatches[finalKey];
+    const semis = [0,1].map(i=>bracketMatches[`r${rounds-2}_${i}`]).filter(Boolean);
+
+    let winner = null, runnerUp = null, third = [];
+    if(final?.status==='approved'){
+      winner = final.winner===0 ? final.teamA : final.teamB;
+      runnerUp = final.winner===0 ? final.teamB : final.teamA;
+    }
+    semis.forEach(s=>{
+      if(s?.status==='approved'){
+        const loser = s.winner===0 ? s.teamB : s.teamA;
+        if(loser) third.push(loser);
       }
-      semis.forEach(s=>{
-        if(s?.status==='approved'){
-          const loser = s.winner===0 ? s.teamB : s.teamA;
-          if(loser) third.push(loser);
-        }
-      });
-
-      html += `<div style="margin-bottom:16px;padding-bottom:16px;border-bottom:1px solid var(--border)">
-        <div style="font-size:14px;font-weight:700;color:var(--accent);margin-bottom:10px">${title}</div>
-        ${[
-          {emoji:'🥇', label:'우승', team:winner, color:'#FFD700'},
-          {emoji:'🥈', label:'준우승', team:runnerUp, color:'#C0C0C0'},
-        ].map(({emoji,label,team,color})=>team?`
-          <div style="display:flex;align-items:center;gap:10px;padding:8px 0;border-bottom:1px solid var(--border2)">
-            <span style="font-size:20px">${emoji}</span>
-            <div>
-              <div style="font-size:11px;color:var(--text3)">${label}</div>
-              <div style="font-size:14px;font-weight:700;color:var(--text)">${getTeamName(team)}</div>
-              <div style="font-size:11px;color:var(--text3)">${getClub(team)}</div>
-            </div>
-          </div>`:'').join('')}
-        ${third.length?`
-          <div style="display:flex;align-items:flex-start;gap:10px;padding:8px 0">
-            <span style="font-size:20px">🥉</span>
-            <div>
-              <div style="font-size:11px;color:var(--text3)">공동 3위</div>
-              ${third.map(tm=>`
-                <div style="font-size:14px;font-weight:700;color:var(--text)">${getTeamName(tm)}</div>
-                <div style="font-size:11px;color:var(--text3);margin-bottom:2px">${getClub(tm)}</div>
-              `).join('')}
-            </div>
-          </div>`:''}
-      </div>`;
-
-      shareText += `\n[${title}]\n`;
-      shareText += `🥇 우승: ${winner?getTeamName(winner):'미결정'}\n`;
-      shareText += `🥈 준우승: ${runnerUp?getTeamName(runnerUp):'미결정'}\n`;
-      if(third.length) shareText += `🥉 공동3위: ${third.map(getTeamName).join(', ')}\n`;
     });
-  }
 
-  window._shareAllText = shareText + '\n📱 ChaChaPing';
+    const bg = rowColors[colorIdx % rowColors.length];
+    const placements = [
+      {label:'우승', team:winner},
+      {label:'준우승', team:runnerUp},
+      ...third.map(tm=>({label:'3위', team:tm}))
+    ];
+
+    placements.forEach(({label, team}, idx) => {
+      if(!team) return;
+      rows += `<tr style="background:${idx===0?bg:''}">
+        ${idx===0?`<td rowspan="${placements.filter(p=>p.team).length}" style="text-align:center;font-weight:700;font-size:12px;border:1px solid var(--border2);padding:8px;vertical-align:middle;background:${bg}">${title}</td>`:''}
+        <td style="text-align:center;font-weight:700;font-size:13px;border:1px solid var(--border2);padding:8px;color:${label==='우승'?'#b45309':label==='준우승'?'#475569':'#6b7280'}">${label}</td>
+        <td style="border:1px solid var(--border2);padding:8px;font-size:13px">${getClub(team)}</td>
+        <td style="border:1px solid var(--border2);padding:8px;font-size:13px;font-weight:600">${getTeamName(team)}</td>
+      </tr>`;
+    });
+    colorIdx++;
+
+    shareText += `\n[${title}]\n`;
+    shareText += `우승: ${winner?getTeamName(winner):'미결정'}\n`;
+    shareText += `준우승: ${runnerUp?getTeamName(runnerUp):'미결정'}\n`;
+    if(third.length) shareText += `3위: ${third.map(getTeamName).join(', ')}\n`;
+  });
+
+  const html = `<div style="overflow-x:auto">
+    <table style="width:100%;border-collapse:collapse;font-size:13px">
+      <thead>
+        <tr style="background:var(--surface3)">
+          <th style="border:1px solid var(--border2);padding:8px 10px;font-size:11px;color:var(--text2);font-weight:700">종목</th>
+          <th style="border:1px solid var(--border2);padding:8px 10px;font-size:11px;color:var(--text2);font-weight:700">순위</th>
+          <th style="border:1px solid var(--border2);padding:8px 10px;font-size:11px;color:var(--text2);font-weight:700">소속</th>
+          <th style="border:1px solid var(--border2);padding:8px 10px;font-size:11px;color:var(--text2);font-weight:700">성명</th>
+        </tr>
+      </thead>
+      <tbody>${rows}</tbody>
+    </table>
+  </div>`;
+
+  return { html, shareText: shareText + '\n📱 ChaChaPing' };
+};
+
+window.showAllResults = () => {
+  const t = window._statusTourney;
+  const { html, shareText } = window._buildResultsTable(t);
+  window._shareAllText = shareText;
   document.getElementById('all-results-content').innerHTML = html;
   openModal('modal-all-results');
+};
+
+// 구장리그 목록에서 결과 바로 보기
+window.showLeagueAllResults = async (tid) => {
+  try {
+    const snap = await getDoc(doc(db,'tournaments',tid));
+    if(!snap.exists()) { showToast('불러오기 실패'); return; }
+    const t = {id:tid,...snap.data()};
+    const { html, shareText } = window._buildResultsTable(t);
+    window._shareAllText = shareText;
+    document.getElementById('all-results-content').innerHTML = `<div style="font-size:15px;font-weight:700;margin-bottom:12px">${t.name}</div>` + html;
+    openModal('modal-all-results');
+  } catch(e){ showToast('불러오기 실패: '+e.message); }
 };
 
 window.shareAllResults = async () => {
