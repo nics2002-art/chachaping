@@ -2606,7 +2606,7 @@ window.openVisitStats = async () => {
 window.saveTeamGameScore = async (mi, gi) => {
   const group = window._curGroup;
   const ev = window._curGroupEv;
-  const t = window.curTourney || window._statusTourney;
+  const t = window.curTourney || window._statusTourney || window._bracketTourney;
   if(!group || !ev || !t) return;
 
   // 메모리에서 세트 점수 읽기
@@ -2630,15 +2630,19 @@ window.saveTeamGameScore = async (mi, gi) => {
       const groups = (e.groups||[]).map(g => {
         if(g.no !== group.no) return g;
         const matchResults = [...(g.matchResults||[])];
-        if(!matchResults[mi]) matchResults[mi] = {results:[]};
-        const mr = {...matchResults[mi], results: [...(matchResults[mi].results||[])]};
-        mr.results[gi] = {winsA, winsB, sets};
+        // 중간 빈자리 null로 채우기
+        while(matchResults.length <= mi) matchResults.push(null);
+        if(!matchResults[mi]) matchResults[mi] = {gameResults:[]};
+        const mr = {...matchResults[mi], gameResults: [...(matchResults[mi].gameResults||[])]};
+        // 게임 결과 중간 빈자리 처리
+        while(mr.gameResults.length <= gi) mr.gameResults.push(null);
+        mr.gameResults[gi] = {wa:winsA, wb:winsB, sets};
         // 전체 경기 승수 재계산
         const formatArr2 = (ev.teamFormat||'단단단').split('');
         let totalA=0, totalB=0;
         formatArr2.forEach((_,idx)=>{
-          const r = mr.results[idx];
-          if(r){ if(r.winsA>r.winsB)totalA++; else if(r.winsB>r.winsA)totalB++; }
+          const r = mr.gameResults[idx];
+          if(r){ if(r.wa>r.wb)totalA++; else if(r.wb>r.wa)totalB++; }
         });
         mr.winsA = totalA; mr.winsB = totalB;
         matchResults[mi] = mr;
@@ -2676,7 +2680,7 @@ window.clearTeamGameScore = async (mi, gi) => {
   // 2. DB 초기화
   const group = window._curGroup;
   const ev = window._curGroupEv;
-  const t = window.curTourney || window._statusTourney;
+  const t = window.curTourney || window._statusTourney || window._bracketTourney;
   if(group && ev && t) {
     try {
       const snap = await getDoc(doc(db,'tournaments',t.id));
@@ -2688,10 +2692,10 @@ window.clearTeamGameScore = async (mi, gi) => {
             const matchResults = [...(g.matchResults||[])];
             if(matchResults[mi]) {
               const mr = {...matchResults[mi]};
-              if(mr.results) {
-                const results = [...(mr.results||[])];
-                results[gi] = {winsA:0, winsB:0, sets:[]};
-                mr.results = results;
+              if(mr.gameResults) {
+                const gameResults = [...(mr.gameResults||[])];
+                gameResults[gi] = {wa:0, wb:0, sets:[]};
+                mr.gameResults = gameResults;
               }
               matchResults[mi] = mr;
             }
@@ -7206,18 +7210,20 @@ window.renderMatchList = () => {
                 ${Array.from({length:5},(_,si)=>{
                   const va = parseInt(gmscores[si+'a']||'');
                   const vb = parseInt(gmscores[si+'b']||'');
-                  return `<div style="display:grid;grid-template-columns:auto 1fr auto 1fr;align-items:center;gap:4px;margin-bottom:4px">
-                    <span style="font-size:11px;color:var(--text3);min-width:28px">${si+1}세트</span>
-                    <input type="number" min="0" max="99" placeholder="0"
-                      value="${isNaN(va)||!gmscores[si+'a']?'':va}"
-                      style="width:100%;padding:4px;border:1px solid var(--border);border-radius:6px;text-align:center;font-size:13px;background:var(--surface)"
-                      oninput="if(!window._matchScores)window._matchScores={};if(!window._matchScores['${mi}_${gi}'])window._matchScores['${mi}_${gi}']={};window._matchScores['${mi}_${gi}']['${si}a']=this.value">
-                    <span style="font-size:12px;color:var(--text3);text-align:center">:</span>
-                    <input type="number" min="0" max="99" placeholder="0"
-                      value="${isNaN(vb)||!gmscores[si+'b']?'':vb}"
-                      style="width:100%;padding:4px;border:1px solid var(--border);border-radius:6px;text-align:center;font-size:13px;background:var(--surface)"
-                      oninput="if(!window._matchScores)window._matchScores={};if(!window._matchScores['${mi}_${gi}'])window._matchScores['${mi}_${gi}']={};window._matchScores['${mi}_${gi}']['${si}b']=this.value">
-                  </div>`;
+                  const valA = (isNaN(va)||!gmscores[si+'a']) ? '' : va;
+                  const valB = (isNaN(vb)||!gmscores[si+'b']) ? '' : vb;
+                  const oninputA = "var k='"+mi+"_"+gi+"';if(!window._matchScores)window._matchScores={};if(!window._matchScores[k])window._matchScores[k]={};window._matchScores[k]['"+si+"a']=this.value";
+                  const oninputB = "var k='"+mi+"_"+gi+"';if(!window._matchScores)window._matchScores={};if(!window._matchScores[k])window._matchScores[k]={};window._matchScores[k]['"+si+"b']=this.value";
+                  return '<div style="display:grid;grid-template-columns:auto 1fr auto 1fr;align-items:center;gap:4px;margin-bottom:4px">'
+                    +'<span style="font-size:11px;color:var(--text3);min-width:28px">'+(si+1)+'세트</span>'
+                    +'<input type="number" min="0" max="99" placeholder="0" value="'+valA+'"'
+                    +' style="width:100%;padding:4px;border:1px solid var(--border);border-radius:6px;text-align:center;font-size:13px;background:var(--surface)"'
+                    +' oninput="'+oninputA+'">'
+                    +'<span style="font-size:12px;color:var(--text3);text-align:center">:</span>'
+                    +'<input type="number" min="0" max="99" placeholder="0" value="'+valB+'"'
+                    +' style="width:100%;padding:4px;border:1px solid var(--border);border-radius:6px;text-align:center;font-size:13px;background:var(--surface)"'
+                    +' oninput="'+oninputB+'">'
+                    +'</div>';
                 }).join('')}
               </div>
             ` : gdone ? (() => {
