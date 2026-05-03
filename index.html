@@ -6793,17 +6793,21 @@ window.renderMatchList = () => {
               </div>
             </div>
             ${gdone ? (() => {
-              const sets = Object.entries(gmscores).filter(([k])=>k.endsWith('a')).map(([k,va])=>{
-                const si = k.replace('a','');
-                const vb = gmscores[si+'b']||0;
-                return va>0||vb>0 ? `<div style="display:flex;justify-content:center;align-items:center;gap:8px;padding:2px 0;font-size:11px">
-                  <span style="color:var(--text3);width:30px;text-align:right">${parseInt(si)+1}세트</span>
-                  <span style="color:${parseInt(va)>parseInt(vb)?'var(--accent)':'var(--text3)'};font-weight:${parseInt(va)>parseInt(vb)?700:400};width:24px;text-align:right">${va}</span>
-                  <span style="color:var(--text3)">:</span>
-                  <span style="color:${parseInt(vb)>parseInt(va)?'var(--pink)':'var(--text3)'};font-weight:${parseInt(vb)>parseInt(va)?700:400};width:24px;text-align:left">${vb}</span>
-                </div>` : '';
-              }).filter(Boolean).join('');
-              return sets ? `<div style="margin-top:6px;padding-top:6px;border-top:1px solid var(--border)">${sets}</div>` : '';
+              const totalSets = 5;
+              const setItems = Array.from({length: totalSets}, (_,si) => {
+                const va = parseInt(gmscores[si+'a']||0);
+                const vb = parseInt(gmscores[si+'b']||0);
+                const played = va > 0 || vb > 0;
+                const aWin = va > vb;
+                const bWin = vb > va;
+                return `<span style="display:inline-flex;align-items:center;gap:3px;${played?'':'opacity:0.35'}">
+                  <span style="font-size:10px;color:var(--text3)">${si+1}세트</span>
+                  <span style="font-size:11px;font-weight:${aWin?700:400};color:${aWin?'var(--accent)':'var(--text3)'}">${va}</span>
+                  <span style="font-size:10px;color:var(--text3)">:</span>
+                  <span style="font-size:11px;font-weight:${bWin?700:400};color:${bWin?'var(--pink)':'var(--text3)'}">${vb}</span>
+                </span>`;
+              }).join('<span style="color:var(--border);padding:0 4px">|</span>');
+              return `<div style="margin-top:6px;padding-top:6px;border-top:1px solid var(--border);text-align:center">${setItems}</div>`;
             })() : ''}
           </div>`;
         }).join('')}
