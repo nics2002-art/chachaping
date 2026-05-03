@@ -4559,7 +4559,8 @@ window.openMypage = async () => {
       const t = {id:docSnap.id, ...docSnap.data()};
       const isLeague = t.leagueType === 'league';
       (t.events||[]).forEach(ev => {
-        const myPlayers = (ev.players||[]).filter(p=>p.addedBy===user.uid);
+        const myName = window.currentUserData?.name || '';
+        const myPlayers = (ev.players||[]).filter(p=>p.addedBy===user.uid && p.name===myName);
         if(!myPlayers.length) return;
         const myIds = myPlayers.map(p=>p.id);
         const entries = ev.entries||[];
