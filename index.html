@@ -1034,6 +1034,7 @@ body { font-family: 'Noto Sans KR', sans-serif; background: var(--bg); color: va
       <div class="header-title" id="ranking-title"></div>
       <div class="header-sub" id="ranking-sub"></div>
     </div>
+    <button id="ranking-prev-btn" class="btn btn-ghost btn-sm" onclick="goPrevFromRanking()" style="display:none;font-size:12px">이전</button>
   </div>
   <div class="content">
     <!-- 대각선 매트릭스 표 -->
@@ -3560,6 +3561,21 @@ window.openGroupMatchByIdx = (gIdx) => {
 
 
 
+
+window.goPrevFromRanking = () => {
+  const prev = window._rankingPrevPage;
+  if(!prev) return;
+  if(prev === 'match') {
+    const g = window._curRankingGroup;
+    const gt = window._curRankingEntries;
+    const ev = window._curRankingEv;
+    if(g && gt && ev) openGroupMatch(g, gt, ev);
+  } else {
+    goPage('pg-status');
+    const savedTabIdx = window._statusTabIdx || 0;
+    setTimeout(() => showStatusTab(savedTabIdx), 100);
+  }
+};
 window.goBackFromRanking = () => {
   const g = window._curRankingGroup;
   const gt = window._curRankingEntries;
@@ -3592,6 +3608,11 @@ window.openGroupMatchFromRanking = (matchIdx) => {
   setTimeout(() => openScoreboard(matchIdx, nameA, nameB), 300);
 };
 window.openGroupRanking = (group, groupEntries, ev) => {
+  // 이전 화면 기억
+  const currentPage = document.querySelector('.page.active')?.id;
+  window._rankingPrevPage = currentPage === 'pg-match' ? 'match' : 'status';
+  const prevBtn = document.getElementById('ranking-prev-btn');
+  if(prevBtn) prevBtn.style.display = '';
   // 경기 이동을 위해 캐시
   window._curRankingGroup = group;
   window._curRankingEntries = groupEntries;
