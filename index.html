@@ -2613,14 +2613,18 @@ window.showStatusTab = (idx) => {
     const slots = [...groupEntries];
     while (slots.length < gts) slots.push(null);
 
-    // 승인 완료 시 순위 계산
+    // 승인 완료 + 모든 경기 완료 시에만 순위 계산
     let rankMap = {};
     if(g.matchStatus === 'approved' && g.matchResults && g.matchResults.length) {
       const mo = generateMatchOrder(groupEntries.length);
-      const ranked = calcGroupRankings(groupEntries, g.matchResults, mo);
-      ranked.forEach((teamIdx, rank) => {
-        if(groupEntries[teamIdx]) rankMap[groupEntries[teamIdx].no] = rank+1;
-      });
+      const totalMatches = mo.length;
+      const completedMatches = (g.matchResults||[]).filter(r => r && (r.isForfeit || r.winsA > 0 || r.winsB > 0)).length;
+      if(completedMatches >= totalMatches) {
+        const ranked = calcGroupRankings(groupEntries, g.matchResults, mo);
+        ranked.forEach((teamIdx, rank) => {
+          if(groupEntries[teamIdx]) rankMap[groupEntries[teamIdx].no] = rank+1;
+        });
+      }
     }
 
     const teamsHtml = slots.map(en => {
@@ -3170,7 +3174,8 @@ window.addTeamEntry = async () => {
 
   // 소속: 팀원 첫번째 클럽 대표
   const teamClub = members[0].club;
-  const entryNo = (ev.entries||[]).length+1;
+  const allEntries = (window.curTourney.events||[]).reduce((acc,e)=>acc.concat(e.entries||[]),[]);
+  const entryNo = allEntries.length+1;
   const entry = {entryNo, type:'team', memberIds:members.map(m=>m.id), club:teamClub};
   ev.players=[...(ev.players||[]),...members];
   ev.entries=[...(ev.entries||[]),entry];
@@ -3202,7 +3207,8 @@ window.addPlayer = async () => {
 
   const pid = 'P'+Date.now()+Math.random();
   const player = {id:pid, name, rank, club, addedBy: window.currentUser?.uid||'guest'};
-  const entryNo = (ev.entries||[]).length + 1;
+  const allEntries2 = (window.curTourney.events||[]).reduce((acc,e)=>acc.concat(e.entries||[]),[]);
+  const entryNo = allEntries2.length + 1;
   const entry = {entryNo, type:'solo', memberIds:[pid], club};
   ev.players = [...(ev.players||[]), player];
   ev.entries = [...(ev.entries||[]), entry];
