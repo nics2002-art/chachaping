@@ -1159,9 +1159,11 @@ body { font-family: 'Noto Sans KR', sans-serif; background: var(--bg); color: va
       <input class="form-input" id="tourney-notice-input" placeholder="공지 내용 입력">
     </div>
     <div style="display:flex;gap:6px;flex-wrap:wrap;margin-bottom:12px">
-      ${['경기 입장하세요','잠시 대기 바랍니다','점심 식사 후 속개','접수 마감됩니다','시상식 준비 바랍니다'].map(t=>
-        `<button class="btn btn-ghost btn-sm" onclick="document.getElementById('tourney-notice-input').value='${t}'">${t}</button>`
-      ).join('')}
+      <button class="btn btn-ghost btn-sm" onclick="document.getElementById('tourney-notice-input').value='경기 입장하세요'">경기 입장하세요</button>
+      <button class="btn btn-ghost btn-sm" onclick="document.getElementById('tourney-notice-input').value='잠시 대기 바랍니다'">잠시 대기 바랍니다</button>
+      <button class="btn btn-ghost btn-sm" onclick="document.getElementById('tourney-notice-input').value='점심 식사 후 속개'">점심 식사 후 속개</button>
+      <button class="btn btn-ghost btn-sm" onclick="document.getElementById('tourney-notice-input').value='접수 마감됩니다'">접수 마감됩니다</button>
+      <button class="btn btn-ghost btn-sm" onclick="document.getElementById('tourney-notice-input').value='시상식 준비 바랍니다'">시상식 준비 바랍니다</button>
     </div>
     <button class="btn btn-primary btn-full" onclick="sendTourneyNotice()">📢 공지 전송</button>
   </div>
