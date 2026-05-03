@@ -4100,7 +4100,8 @@ window.autoFormatDate = (input) => {
 
 // ── 유틸 ────────────────────────────────────────────────
 window.openGroupRankingByIdx = (gIdx) => {
-  const ev = (window._statusEvents||[])[window._statusTabIdx||0];
+  const ev = (window._statusEvents||[])[window._statusTabIdx||0]
+          || (window.curTourney?.events||[])[window._statusTabIdx||0];
   if(!ev) return;
   const g = (ev.groups||[])[gIdx];
   if(!g) return;
@@ -4116,7 +4117,8 @@ window.openGroupRankingByIdx = (gIdx) => {
 };
 
 window.openGroupMatchByIdx = (gIdx) => {
-  const ev = (window._statusEvents||[])[window._statusTabIdx||0];
+  const ev = (window._statusEvents||[])[window._statusTabIdx||0]
+          || (window.curTourney?.events||[])[window._statusTabIdx||0];
   if(!ev) return;
   const g = (ev.groups||[])[gIdx];
   if(!g) return;
