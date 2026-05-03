@@ -2564,6 +2564,20 @@ window.openVisitStats = async () => {
 
 
 // ── 점수 초기화 ─────────────────────────────────────
+
+window.clearTeamGameScore = (mi, gi) => {
+  if(!confirm(`${mi+1}경기 ${gi+1}게임 점수를 초기화할까요?`)) return;
+  // 메모리에서 초기화
+  if(window._matchScores) {
+    Object.keys(window._matchScores).forEach(k => {
+      if(k.startsWith(`${mi}_${gi}_`)) delete window._matchScores[k];
+    });
+    delete window._matchScores[`${mi}_${gi}`];
+  }
+  if(window._gameForfeit) delete window._gameForfeit[`${mi}_${gi}`];
+  renderMatchList();
+  showToast(`${gi+1}게임 점수 초기화됐어요`);
+};
 window.clearGroupScores = async () => {
   const group = window._clearTargetGroup;
   const ev = window._clearTargetEv;
@@ -6762,7 +6776,9 @@ window.renderMatchList = () => {
                   <button class="btn btn-primary btn-sm" style="font-size:10px"
                     onclick="openTeamGameScoreboard(${mi},${gi},'${pNameA}','${pNameB}')">🏓 점수판</button>
                   <button class="btn btn-ghost btn-sm" style="font-size:10px;color:var(--pink)"
-                    onclick="openGameForfeitModal(${mi},${gi},'${pNameA}','${pNameB}')">기권</button>`:''}
+                    onclick="openGameForfeitModal(${mi},${gi},'${pNameA}','${pNameB}')">기권</button>
+                  ${window._curMatchIsOwner && gdone ? `<button onclick="clearTeamGameScore(${mi},${gi})" style="font-size:10px;color:var(--pink);background:none;border:1px solid var(--pink);border-radius:6px;padding:2px 6px;cursor:pointer">🗑</button>` : ''}
+                `:''}
               </div>
             </div>
             <div style="display:flex;align-items:center;gap:6px">
@@ -6776,6 +6792,19 @@ window.renderMatchList = () => {
                 <div style="font-size:18px;font-weight:700;color:var(--pink)">${wb}</div>
               </div>
             </div>
+            ${gdone ? (() => {
+              const sets = Object.entries(gmscores).filter(([k])=>k.endsWith('a')).map(([k,va])=>{
+                const si = k.replace('a','');
+                const vb = gmscores[si+'b']||0;
+                return va>0||vb>0 ? `<div style="display:flex;justify-content:center;align-items:center;gap:8px;padding:2px 0;font-size:11px">
+                  <span style="color:var(--text3);width:30px;text-align:right">${parseInt(si)+1}세트</span>
+                  <span style="color:${parseInt(va)>parseInt(vb)?'var(--accent)':'var(--text3)'};font-weight:${parseInt(va)>parseInt(vb)?700:400};width:24px;text-align:right">${va}</span>
+                  <span style="color:var(--text3)">:</span>
+                  <span style="color:${parseInt(vb)>parseInt(va)?'var(--pink)':'var(--text3)'};font-weight:${parseInt(vb)>parseInt(va)?700:400};width:24px;text-align:left">${vb}</span>
+                </div>` : '';
+              }).filter(Boolean).join('');
+              return sets ? `<div style="margin-top:6px;padding-top:6px;border-top:1px solid var(--border)">${sets}</div>` : '';
+            })() : ''}
           </div>`;
         }).join('')}
       </div>`;
