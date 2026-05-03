@@ -8162,7 +8162,14 @@ window.goPage = (id) => {
     'pg-ranking':'tourney', 'pg-notice-all':'tourney', 'pg-club':'league', 'pg-calendar':'home',
     'pg-profile-edit':'mypage', 'pg-diary':'home'
   };
-  const activeTab = tabMap[id];
+  // 구장리그에서 진입한 페이지는 league 탭 활성화
+  const leaguePages = ['pg-status','pg-bracket','pg-match','pg-lineup','pg-ranking','pg-notice-all','pg-tourney'];
+  const isLeagueContext = leaguePages.includes(id) && (
+    window._statusTourney?.leagueType === 'league' ||
+    window._bracketTourney?.leagueType === 'league' ||
+    window.curTourney?.leagueType === 'league'
+  );
+  const activeTab = isLeagueContext ? 'league' : tabMap[id];
   if(activeTab){
     document.querySelectorAll('.tabbar-item').forEach(el=>el.classList.remove('active'));
     document.getElementById('tab-'+activeTab)?.classList.add('active');
