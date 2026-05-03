@@ -1083,7 +1083,7 @@ body { font-family: 'Noto Sans KR', sans-serif; background: var(--bg); color: va
       <div class="header-sub" id="status-sub"></div>
     </div>
     <div style="display:flex;gap:4px">
-      <button class="btn btn-ghost btn-sm" id="tourney-notice-btn" onclick="openTourneyNoticeModal()" style="display:none">📢 공지</button>
+      <button class="btn btn-ghost btn-sm" id="status-notice-btn" onclick="openTourneyNoticeModal()" style="display:none">📢 공지</button>
       <button class="btn btn-ghost btn-sm" id="results-btn" onclick="showAllResults()" style="display:none">🏆 결과</button>
       <button class="btn btn-ghost btn-sm" id="bracket-btn" onclick="openBracketPage()" style="display:none">본선</button>
       <button class="btn btn-danger btn-sm" id="close-tourney-btn" onclick="closeTourneyScores()" style="display:none">🔒 종료</button>
@@ -2864,7 +2864,7 @@ window.openTourneyStatus = async (id, force) => {
   startTourneyNoticeListener(id);
 
   // 공지 버튼 - 관리자만
-  const noticeBtn = document.getElementById('tourney-notice-btn');
+  const noticeBtn = document.getElementById('status-notice-btn');
   if(noticeBtn) noticeBtn.style.display = isTourneyAdmin(t) ? '' : 'none';
   document.getElementById('tourney-notice-section').style.display = '';
 
