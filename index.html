@@ -5710,15 +5710,20 @@ window.openMatchLineup = (mi, ai, bi, targetTi) => {
   if(!window._teamMatchLineups) window._teamMatchLineups = {};
   if(!window._teamMatchLineups[mi]) window._teamMatchLineups[mi] = {};
 
-  // ★ 이미 저장 완료된 팀이면 "저장됨 + 초기화" 화면
+  // ★ 이미 저장 완료된 팀이면
   const savedKey = '_saved_'+targetTi;
-  if(window._teamMatchLineups[mi][savedKey]) {
+  const otherSavedKey = '_saved_'+(targetTi===0?1:0);
+  const thisSaved = window._teamMatchLineups[mi][savedKey];
+  const bothSaved = thisSaved && window._teamMatchLineups[mi][otherSavedKey];
+  const isAdmin = isTourneyAdmin(window.curTourney||window._statusTourney||window._bracketTourney||{});
+
+  if(thisSaved) {
     document.getElementById('match-lineup-content').innerHTML =
       `<div style="text-align:center;padding:20px">
         <div style="font-size:14px;font-weight:700;color:${color};margin-bottom:8px">${mi+1}경기 · ${teamLabel}</div>
-        <div style="font-size:13px;color:var(--text3);margin-bottom:20px">순번이 저장됐습니다.<br>상대팀이 저장을 완료하면 공개됩니다.</div>
-        <button class="btn btn-ghost btn-sm" style="color:var(--pink);border-color:var(--pink)"
-          onclick="resetMatchLineup(${mi},${targetTi},${ai},${bi})">🗑 순번 초기화</button>
+        <div style="font-size:13px;color:var(--text3);margin-bottom:20px">순번이 저장됐습니다.<br>${bothSaved?'양팀 순번이 공개됐습니다.':'상대팀이 저장을 완료하면 공개됩니다.'}</div>
+        ${!bothSaved ? `<button class="btn btn-ghost btn-sm" style="color:var(--pink);border-color:var(--pink)"
+          onclick="resetMatchLineup(${mi},${targetTi},${ai},${bi})">🗑 순번 초기화</button>` : ''}
       </div>`;
     document.getElementById('modal-match-lineup').classList.remove('hidden');
     return;
@@ -8113,17 +8118,27 @@ window.renderMatchList = () => {
             <div style="font-size:14px;font-weight:700;color:var(--accent)">${labels[ai]}</div>
             <div style="font-size:11px;color:var(--text)">${nameA}</div>
             ${h2hB?`<div style="font-size:10px;color:var(--text3)">vs전적 ${h2hB.wins}승 ${h2hB.losses}패</div>`:''}
-            <button class="btn btn-ghost btn-sm" style="font-size:10px;margin-top:4px" onclick="openMatchLineup(${mi},${ai},${bi},0)">
-              ${lineupForMatch['_saved_0'] ? '✅ 순서' : '👥 순서'}
-            </button>
+            ${(() => {
+              const bothSaved = lineupForMatch['_saved_0'] && lineupForMatch['_saved_1'];
+              const canEdit = !bothSaved || _curMatchIsOwner;
+              return `<button class="btn btn-ghost btn-sm" style="font-size:10px;margin-top:4px;${bothSaved && !_curMatchIsOwner ? 'opacity:0.4;cursor:not-allowed' : ''}"
+                onclick="${canEdit ? `openMatchLineup(${mi},${ai},${bi},0)` : `showToast('양팀 순번 확정됐어요. 관리자만 수정 가능합니다')`}">
+                ${lineupForMatch['_saved_0'] ? '✅ 순서' : '👥 순서'}
+              </button>`;
+            })()}
           </div>
           <div style="font-size:18px;font-weight:700;color:var(--text3)">${gameWinsA} : ${gameWinsB}</div>
           <div style="flex:1;text-align:center">
             <div style="font-size:14px;font-weight:700;color:var(--pink)">${labels[bi]}</div>
             <div style="font-size:11px;color:var(--text)">${nameB}</div>
-            <button class="btn btn-ghost btn-sm" style="font-size:10px;margin-top:4px" onclick="openMatchLineup(${mi},${ai},${bi},1)">
-              ${lineupForMatch['_saved_1'] ? '✅ 순서' : '👥 순서'}
-            </button>
+            ${(() => {
+              const bothSaved = lineupForMatch['_saved_0'] && lineupForMatch['_saved_1'];
+              const canEdit = !bothSaved || _curMatchIsOwner;
+              return `<button class="btn btn-ghost btn-sm" style="font-size:10px;margin-top:4px;${bothSaved && !_curMatchIsOwner ? 'opacity:0.4;cursor:not-allowed' : ''}"
+                onclick="${canEdit ? `openMatchLineup(${mi},${ai},${bi},1)` : `showToast('양팀 순번 확정됐어요. 관리자만 수정 가능합니다')`}">
+                ${lineupForMatch['_saved_1'] ? '✅ 순서' : '👥 순서'}
+              </button>`;
+            })()}
           </div>
         </div>
         ${formatArr.map((type, gi) => {
