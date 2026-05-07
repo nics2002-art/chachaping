@@ -1336,12 +1336,13 @@ body { font-family: 'Noto Sans KR', sans-serif; background: var(--bg); color: va
 
 <!-- ==================== 점수판 모달 ==================== -->
 <div class="modal-bg hidden" id="modal-scoreboard">
-  <div class="modal" style="padding-top:0">
-    <div style="position:sticky;top:0;background:var(--surface);z-index:10;padding:16px 0 4px;margin-bottom:4px">
+  <div class="modal" style="padding:0;display:flex;flex-direction:column;max-height:92vh">
+    <div style="flex-shrink:0;background:var(--surface);padding:16px 16px 8px;border-bottom:1px solid var(--border)">
       <div class="modal-handle"></div>
       <button class="modal-close" onclick="closeModal('modal-scoreboard')">✕</button>
       <div class="modal-title" id="sb-title">점수판</div>
     </div>
+    <div style="overflow-y:auto;flex:1;padding:16px 16px 32px">
 
     <!-- 세트 스코어 -->
     <div style="display:flex;justify-content:center;align-items:center;gap:16px;margin-bottom:16px">
@@ -1406,6 +1407,7 @@ body { font-family: 'Noto Sans KR', sans-serif; background: var(--bg); color: va
 
     <!-- 저장 버튼 -->
     <button class="btn btn-success btn-full" style="margin-top:12px" onclick="sbSave()">✅ 점수 저장</button>
+    </div>
   </div>
 </div>
 
@@ -6995,6 +6997,10 @@ window.showFullBracket = () => {
 
 
 window.showResultBracket = () => {
+  // 혹시 열려있는 팝업 닫기
+  document.getElementById('rb-score-popup').style.display = 'none';
+  document.getElementById('rb-score-popup-bg').style.display = 'none';
+
   const ev = window._bracketEv || {};
   const br = ev.bracket || [];
   const sz = ev.bracketSize || br.length;
