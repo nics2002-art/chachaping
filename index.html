@@ -9820,15 +9820,32 @@ function initBracketPinchZoom(wrapperId, svgId) {
     if(e.touches.length === 0) { isDragging = false; touchActive = false; }
   });
 
-  // 더블탭 → 리셋 (핀치/드래그 중이 아닐 때만)
-  let lastTap = 0;
+  // 탭 감지 (움직임 없을 때만)
+  let lastTap = 0, lastTapTarget = null;
   wrap.addEventListener('touchend', e => {
-    if(moved) return; // 움직임 있었으면 더블탭 아님
+    if(moved) return; // 드래그/핀치 후엔 탭 무시
+    if(e.touches.length !== 0) return; // 아직 손가락 남아있으면 무시
+    if(e.changedTouches.length !== 1) return; // 단일 탭만
+
     const now = Date.now();
-    if(now - lastTap < 300 && e.changedTouches.length === 1 && e.touches.length === 0) {
-      scale=1; translateX=0; translateY=0; applyTransform();
+    const target = e.changedTouches[0].target;
+    const slot = target.closest ? target.closest('[data-matchkey]') : null;
+
+    if(now - lastTap < 300) {
+      // 더블탭
+      if(slot) {
+        // 슬롯 더블탭 → 점수 팝업 (dblclick 이벤트 트리거)
+        slot.dispatchEvent(new MouseEvent('dblclick', {bubbles:true, cancelable:true}));
+      } else {
+        // 빈공간 더블탭 → 줌 리셋
+        scale=1; translateX=0; translateY=0; applyTransform();
+      }
+      lastTap = 0; // 초기화
+    } else {
+      // 단일 탭 → 클릭 이벤트 허용 (기본 동작)
+      lastTap = now;
+      lastTapTarget = target;
     }
-    lastTap = now;
   });
 }
 // ────────────────────────────────────────────────────────
