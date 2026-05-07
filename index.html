@@ -4687,6 +4687,59 @@ window.openGroupRanking = (group, groupEntries, ev) => {
 };
 
 
+
+window.confirmMatchLineup = async (mi, targetTi) => {
+  // 저장 완료 플래그 세팅
+  if(!window._teamMatchLineups[mi]) window._teamMatchLineups[mi] = {};
+  window._teamMatchLineups[mi]['_saved_'+targetTi] = true;
+  await closeMatchLineupModal();
+};
+
+window.resetMatchLineup = async (mi, targetTi, ai, bi) => {
+  if(!confirm('순번을 초기화할까요?')) return;
+  if(!window._teamMatchLineups[mi]) window._teamMatchLineups[mi] = {};
+  // 해당 팀 순번 + 저장 플래그 삭제
+  const lineup = window._teamMatchLineups[mi];
+  Object.keys(lineup).forEach(k => {
+    if(k.startsWith(targetTi+'_') || k === '_saved_'+targetTi) delete lineup[k];
+  });
+  // 상대팀 저장 플래그도 초기화 (양팀 비공개 상태로)
+  const otherTi = targetTi === 0 ? 1 : 0;
+  delete lineup['_saved_'+otherTi];
+
+  // DB 저장
+  const ev = window._curGroupEv;
+  const group = window._curGroup;
+  const t = window.curTourney || window._statusTourney || window._bracketTourney;
+  if(ev && group && t) {
+    try {
+      const snap = await getDoc(doc(db,'tournaments',t.id));
+      if(snap.exists()) {
+        const events = (snap.data().events||[]).map(e => {
+          if(e.id !== ev.id) return e;
+          const groups = (e.groups||[]).map(g => {
+            if(g.no !== group.no) return g;
+            return {...g, teamMatchLineups: window._teamMatchLineups};
+          });
+          return {...e, groups};
+        });
+        await updateDoc(doc(db,'tournaments',t.id), {events});
+        t.events = events;
+        _cache.del('tourney_'+t.id);
+        const updatedEv = events.find(e=>e.id===ev.id);
+        if(updatedEv) {
+          window._curGroupEv = updatedEv;
+          const updatedGroup = (updatedEv.groups||[]).find(g=>g.no===group.no);
+          if(updatedGroup) window._curGroup = updatedGroup;
+        }
+      }
+    } catch(e) { showToast('초기화 실패: '+e.message); return; }
+  }
+
+  document.getElementById('modal-match-lineup').classList.add('hidden');
+  showToast('순번 초기화됐어요');
+  renderMatchList();
+};
 window.saveManualRanking = async () => {
   const group = window._curRankingGroup;
   const ev = window._curRankingEv;
@@ -5657,6 +5710,20 @@ window.openMatchLineup = (mi, ai, bi, targetTi) => {
   if(!window._teamMatchLineups) window._teamMatchLineups = {};
   if(!window._teamMatchLineups[mi]) window._teamMatchLineups[mi] = {};
 
+  // ★ 이미 저장 완료된 팀이면 "저장됨 + 초기화" 화면
+  const savedKey = '_saved_'+targetTi;
+  if(window._teamMatchLineups[mi][savedKey]) {
+    document.getElementById('match-lineup-content').innerHTML =
+      `<div style="text-align:center;padding:20px">
+        <div style="font-size:14px;font-weight:700;color:${color};margin-bottom:8px">${mi+1}경기 · ${teamLabel}</div>
+        <div style="font-size:13px;color:var(--text3);margin-bottom:20px">순번이 저장됐습니다.<br>상대팀이 저장을 완료하면 공개됩니다.</div>
+        <button class="btn btn-ghost btn-sm" style="color:var(--pink);border-color:var(--pink)"
+          onclick="resetMatchLineup(${mi},${targetTi},${ai},${bi})">🗑 순번 초기화</button>
+      </div>`;
+    document.getElementById('modal-match-lineup').classList.remove('hidden');
+    return;
+  }
+
   const renderLineupModal = () => {
     const lineup = window._teamMatchLineups[mi];
 
@@ -5760,7 +5827,7 @@ window.openMatchLineup = (mi, ai, bi, targetTi) => {
       html += `</div></div>`;
     });
 
-    html += `<button class="btn btn-success btn-full" onclick="closeMatchLineupModal()">확인</button>`;
+    html += `<button class="btn btn-success btn-full" onclick="confirmMatchLineup(${mi},${targetTi})">확인</button>`;
     document.getElementById('match-lineup-content').innerHTML = html;
     document.getElementById('modal-match-lineup').classList.remove('hidden');
   };
@@ -8046,23 +8113,25 @@ window.renderMatchList = () => {
             <div style="font-size:14px;font-weight:700;color:var(--accent)">${labels[ai]}</div>
             <div style="font-size:11px;color:var(--text)">${nameA}</div>
             ${h2hB?`<div style="font-size:10px;color:var(--text3)">vs전적 ${h2hB.wins}승 ${h2hB.losses}패</div>`:''}
-            <button class="btn btn-ghost btn-sm" style="font-size:10px;margin-top:4px" onclick="openMatchLineup(${mi},${ai},${bi},0)">👥 순서</button>
+            <button class="btn btn-ghost btn-sm" style="font-size:10px;margin-top:4px" onclick="openMatchLineup(${mi},${ai},${bi},0)">
+              ${lineupForMatch['_saved_0'] ? '✅ 순서' : '👥 순서'}
+            </button>
           </div>
           <div style="font-size:18px;font-weight:700;color:var(--text3)">${gameWinsA} : ${gameWinsB}</div>
           <div style="flex:1;text-align:center">
             <div style="font-size:14px;font-weight:700;color:var(--pink)">${labels[bi]}</div>
             <div style="font-size:11px;color:var(--text)">${nameB}</div>
-            <button class="btn btn-ghost btn-sm" style="font-size:10px;margin-top:4px" onclick="openMatchLineup(${mi},${ai},${bi},1)">👥 순서</button>
+            <button class="btn btn-ghost btn-sm" style="font-size:10px;margin-top:4px" onclick="openMatchLineup(${mi},${ai},${bi},1)">
+              ${lineupForMatch['_saved_1'] ? '✅ 순서' : '👥 순서'}
+            </button>
           </div>
         </div>
         ${formatArr.map((type, gi) => {
           const {wa, wb, done: gdone, gmscores} = gameResults[gi];
-          // 선수 이름 가져오기 - 양팀 다 오더 확정 시에만 공개
+          // 선수 이름 가져오기 - 양팀 모두 저장 완료 시에만 공개
           const tA = teams[ai], tB = teams[bi];
-          const lineupA = lineupForMatch; // 전체 lineup 객체
-          const bothConfirmed = tA.members.every((_,gIdx) => lineupForMatch['0_'+gIdx] !== undefined || true) &&
-            Object.keys(lineupForMatch).some(k=>k.startsWith('0_')) &&
-            Object.keys(lineupForMatch).some(k=>k.startsWith('1_'));
+          const lineupA = lineupForMatch;
+          const bothConfirmed = lineupForMatch['_saved_0'] && lineupForMatch['_saved_1'];
           const getPlayerName = (ti, gi2) => {
             if(!bothConfirmed) return '?';
             const lineup = lineupForMatch[ti+'_'+gi2];
