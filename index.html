@@ -1007,7 +1007,7 @@ body { font-family: 'Noto Sans KR', sans-serif; background: var(--bg); color: va
     <div id="result-bracket-content" style="min-width:max-content"></div>
   </div>
   <!-- 세트 점수 팝업 -->
-  <div id="rb-score-popup" style="display:none;position:fixed;top:50%;left:50%;transform:translate(-50%,-50%);z-index:500;background:var(--surface);border-radius:16px;min-width:260px;width:90vw;max-width:400px;max-height:85vh;display:flex;flex-direction:column;box-shadow:0 8px 40px rgba(0,0,0,0.3);border:1px solid var(--border)">
+  <div id="rb-score-popup" style="display:none;position:fixed;top:50%;left:50%;transform:translate(-50%,-50%);z-index:500;background:var(--surface);border-radius:16px;min-width:260px;width:90vw;max-width:400px;max-height:85vh;flex-direction:column;box-shadow:0 8px 40px rgba(0,0,0,0.3);border:1px solid var(--border)">
     <div style="display:flex;justify-content:space-between;align-items:center;padding:16px 20px 12px;border-bottom:1px solid var(--border);flex-shrink:0;margin-bottom:04px">
       <div style="font-size:14px;font-weight:700" id="rb-popup-title">세트 점수</div>
       <button onclick="document.getElementById('rb-score-popup').style.display='none'" style="background:none;border:none;font-size:20px;cursor:pointer;color:var(--text2)">✕</button>
@@ -6996,10 +6996,25 @@ window.showFullBracket = () => {
 
 
 
-window.showResultBracket = () => {
+window.showResultBracket = async () => {
   // 혹시 열려있는 팝업 닫기
   document.getElementById('rb-score-popup').style.display = 'none';
   document.getElementById('rb-score-popup-bg').style.display = 'none';
+
+  // ★ DB에서 최신 데이터 가져오기
+  const t = window._bracketTourney || window.curTourney || window._statusTourney;
+  if(t) {
+    try {
+      const snap = await getDoc(doc(db,'tournaments',t.id));
+      if(snap.exists()) {
+        t.events = snap.data().events||[];
+        _cache.del('tourney_'+t.id);
+        const evId = (window._bracketEv||{}).id;
+        const freshEv = t.events.find(e=>e.id===evId);
+        if(freshEv) window._bracketEv = freshEv;
+      }
+    } catch(e) {}
+  }
 
   const ev = window._bracketEv || {};
   const br = ev.bracket || [];
@@ -7285,7 +7300,7 @@ window.showRbScorePopup = function(mk, bm, sz) {
       }
       document.getElementById('rb-popup-content').innerHTML = html;
     }
-    document.getElementById('rb-score-popup').style.display = 'block';
+    document.getElementById('rb-score-popup').style.display = 'flex';
     document.getElementById('rb-score-popup-bg').style.display = 'block';
 };
 
@@ -7370,7 +7385,7 @@ window.showFbScorePopup = (mk, bm, sz) => {
     });
   }
   document.getElementById('rb-popup-content').innerHTML = html;
-  document.getElementById('rb-score-popup').style.display = 'block';
+  document.getElementById('rb-score-popup').style.display = 'flex';
   document.getElementById('rb-score-popup-bg').style.display = 'block';
 };
 
