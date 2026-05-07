@@ -1007,7 +1007,7 @@ body { font-family: 'Noto Sans KR', sans-serif; background: var(--bg); color: va
     <div id="result-bracket-content" style="min-width:max-content"></div>
   </div>
   <!-- 세트 점수 팝업 -->
-  <div id="rb-score-popup" style="display:none;position:fixed;top:50%;left:50%;transform:translate(-50%,-50%);z-index:500;background:var(--surface);border-radius:16px;padding:20px;min-width:260px;box-shadow:0 8px 40px rgba(0,0,0,0.3);border:1px solid var(--border)">
+  <div id="rb-score-popup" style="display:none;position:fixed;top:50%;left:50%;transform:translate(-50%,-50%);z-index:500;background:var(--surface);border-radius:16px;padding:20px;min-width:260px;max-width:90vw;max-height:80vh;overflow-y:auto;box-shadow:0 8px 40px rgba(0,0,0,0.3);border:1px solid var(--border)">
     <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:14px">
       <div style="font-size:14px;font-weight:700" id="rb-popup-title">세트 점수</div>
       <button onclick="document.getElementById('rb-score-popup').style.display='none'" style="background:none;border:none;font-size:20px;cursor:pointer;color:var(--text2)">✕</button>
