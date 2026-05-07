@@ -1336,13 +1336,12 @@ body { font-family: 'Noto Sans KR', sans-serif; background: var(--bg); color: va
 
 <!-- ==================== 점수판 모달 ==================== -->
 <div class="modal-bg hidden" id="modal-scoreboard">
-  <div class="modal" style="max-height:90vh;display:flex;flex-direction:column;overflow:hidden">
-    <div style="flex-shrink:0;position:sticky;top:0;background:var(--surface);z-index:10;padding-bottom:4px">
+  <div class="modal" style="padding-top:0">
+    <div style="position:sticky;top:0;background:var(--surface);z-index:10;padding:16px 0 4px;margin-bottom:4px">
       <div class="modal-handle"></div>
       <button class="modal-close" onclick="closeModal('modal-scoreboard')">✕</button>
       <div class="modal-title" id="sb-title">점수판</div>
     </div>
-    <div style="overflow-y:auto;flex:1;padding:0 16px 24px">
 
     <!-- 세트 스코어 -->
     <div style="display:flex;justify-content:center;align-items:center;gap:16px;margin-bottom:16px">
@@ -1407,7 +1406,6 @@ body { font-family: 'Noto Sans KR', sans-serif; background: var(--bg); color: va
 
     <!-- 저장 버튼 -->
     <button class="btn btn-success btn-full" style="margin-top:12px" onclick="sbSave()">✅ 점수 저장</button>
-    </div><!-- end scroll area -->
   </div>
 </div>
 
