@@ -9753,9 +9753,11 @@ function initBracketPinchZoom(wrapperId, svgId) {
   let translateX = 0, translateY = 0;
   let isDragging = false, lastX = 0, lastY = 0;
   let lastDist = null;
+  let touchActive = false;
 
-  // 기존 overflow 제거 (핀치줌이 대신함)
-  wrap.style.overflow = 'visible';
+  // overflow hidden으로 영역 벗어나는 것 방지
+  wrap.style.overflow = 'hidden';
+  wrap.style.touchAction = 'none'; // 브라우저 기본 터치 동작(스와이프 뒤로가기 등) 차단
 
   function applyTransform() {
     svg.style.transform = `translate(${translateX}px, ${translateY}px) scale(${scale})`;
@@ -9770,40 +9772,53 @@ function initBracketPinchZoom(wrapperId, svgId) {
   }
 
   wrap.addEventListener('touchstart', e => {
-    if(e.touches.length === 2) { lastDist = getDist(e.touches); e.preventDefault(); }
-    else if(e.touches.length === 1) { isDragging=true; lastX=e.touches[0].clientX; lastY=e.touches[0].clientY; }
+    e.preventDefault(); // 모든 터치에서 기본 동작 차단
+    touchActive = true;
+    if(e.touches.length === 2) {
+      lastDist = getDist(e.touches);
+      isDragging = false;
+    } else if(e.touches.length === 1) {
+      isDragging = true;
+      lastX = e.touches[0].clientX;
+      lastY = e.touches[0].clientY;
+    }
   }, {passive:false});
 
   wrap.addEventListener('touchmove', e => {
+    e.preventDefault();
     if(e.touches.length === 2) {
-      e.preventDefault();
-      const dist=getDist(e.touches), mid=getMid(e.touches);
-      const rect=wrap.getBoundingClientRect();
-      const newScale=Math.min(maxScale,Math.max(minScale,scale*(dist/(lastDist||dist))));
-      const pivotX=mid.x-rect.left-translateX, pivotY=mid.y-rect.top-translateY;
-      translateX -= pivotX*(newScale/scale-1);
-      translateY -= pivotY*(newScale/scale-1);
-      scale=newScale; lastDist=dist; applyTransform();
-    } else if(e.touches.length===1 && isDragging) {
-      e.preventDefault();
-      translateX+=e.touches[0].clientX-lastX; translateY+=e.touches[0].clientY-lastY;
-      lastX=e.touches[0].clientX; lastY=e.touches[0].clientY; applyTransform();
+      isDragging = false;
+      const dist = getDist(e.touches), mid = getMid(e.touches);
+      const rect = wrap.getBoundingClientRect();
+      const newScale = Math.min(maxScale, Math.max(minScale, scale * (dist / (lastDist||dist))));
+      const pivotX = mid.x - rect.left - translateX;
+      const pivotY = mid.y - rect.top  - translateY;
+      translateX -= pivotX * (newScale/scale - 1);
+      translateY -= pivotY * (newScale/scale - 1);
+      scale = newScale; lastDist = dist;
+      applyTransform();
+    } else if(e.touches.length === 1 && isDragging) {
+      translateX += e.touches[0].clientX - lastX;
+      translateY += e.touches[0].clientY - lastY;
+      lastX = e.touches[0].clientX;
+      lastY = e.touches[0].clientY;
+      applyTransform();
     }
   }, {passive:false});
 
   wrap.addEventListener('touchend', e => {
-    if(e.touches.length<2) lastDist=null;
-    if(e.touches.length===0) isDragging=false;
+    if(e.touches.length < 2) lastDist = null;
+    if(e.touches.length === 0) { isDragging = false; touchActive = false; }
   });
 
   // 더블탭 → 리셋
-  let lastTap=0;
+  let lastTap = 0;
   wrap.addEventListener('touchend', e => {
-    const now=Date.now();
-    if(now-lastTap<300 && e.changedTouches.length===1) {
+    const now = Date.now();
+    if(now - lastTap < 300 && e.changedTouches.length === 1) {
       scale=1; translateX=0; translateY=0; applyTransform();
     }
-    lastTap=now;
+    lastTap = now;
   });
 }
 // ────────────────────────────────────────────────────────
