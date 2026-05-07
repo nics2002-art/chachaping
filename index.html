@@ -956,7 +956,7 @@ body { font-family: 'Noto Sans KR', sans-serif; background: var(--bg); color: va
     <div style="display:flex;gap:4px;flex-shrink:0">
       <button class="btn btn-ghost btn-sm" id="bracket-fulltree-btn" style="display:none" onclick="showFullBracket()">대진표</button>
       <button class="btn btn-ghost btn-sm" onclick="showResultBracket()">결과판</button>
-      <button class="btn btn-ghost btn-sm" id="bracket-waiting-btn" style="display:none" onclick="showWaitingList()">대기목록</button>
+      <button class="btn btn-ghost btn-sm" id="bracket-waiting-btn" style="display:none" onclick="showWaitingList()">대기</button>
       <button class="btn btn-ghost btn-sm" id="bracket-gen-btn" style="display:none" onclick="openGenerateBracketModal()">생성</button>
       <button id="bracket-clear-all-btn" onclick="clearAllScores()" style="display:none;font-size:11px;color:var(--pink);background:none;border:1px solid var(--pink);border-radius:6px;padding:4px 8px;cursor:pointer">🗑 전체초기화</button>
     </div>
@@ -1098,7 +1098,7 @@ body { font-family: 'Noto Sans KR', sans-serif; background: var(--bg); color: va
     </div>
     <div style="display:flex;gap:4px">
       <button class="btn btn-ghost btn-sm" id="status-notice-btn" onclick="openTourneyNoticeModal()" style="display:none">📢 공지</button>
-
+      <button class="btn btn-ghost btn-sm" id="status-waiting-btn" onclick="showGroupWaitingList()" style="display:none">대기</button>
       <button class="btn btn-ghost btn-sm" id="bracket-btn" onclick="openBracketPage()" style="display:none">본선</button>
       <button class="btn btn-danger btn-sm" id="close-tourney-btn" onclick="closeTourneyScores()" style="display:none">🔒 종료</button>
     </div>
@@ -3420,6 +3420,8 @@ window.openTourneyStatus = async (id, force) => {
   const isStatusOwner = isTourneyAdmin(t);
   const isGubang = t.allowGuest === true;
   document.getElementById('bracket-btn').style.display = hasApproved ? '' : 'none';
+  const statusWaitingBtn = document.getElementById('status-waiting-btn');
+  if(statusWaitingBtn) statusWaitingBtn.style.display = '';
   const resultsBtnEl = document.getElementById('results-btn');
   if(resultsBtnEl) resultsBtnEl.style.display = hasBracket ? '' : 'none';
   document.getElementById('close-tourney-btn').style.display = (isStatusOwner && isGubang && t.status!=='locked') ? '' : 'none';
@@ -6595,6 +6597,131 @@ window.shareAllResults = async () => {
     showToast('결과가 클립보드에 복사됐어요!');
   }
 };
+window.showGroupWaitingList = () => {
+  const t = window._statusTourney || window.curTourney;
+  const events = window._statusEvents || t?.events || [];
+  const tabIdx = window._statusTabIdx || 0;
+  const ev = events[tabIdx];
+  if(!ev) return;
+
+  const entries = ev.entries || [];
+  const players = ev.players || [];
+  const isTeam = (ev.teamSize||1) > 1;
+
+  // 미진행 경기 수집
+  const waitingMatches = [];
+
+  (ev.groups||[]).forEach(g => {
+    const entryNos = g.entryNos || [];
+    const teams = entryNos.map(no => {
+      const en = entries.find(e=>e.entryNo===no);
+      if(!en) return null;
+      const members = (en.memberIds||[]).map(mid=>players.find(p=>p.id===mid)).filter(Boolean);
+      return {no, members, club: en.club||members[0]?.club||'-', entryNo:no};
+    }).filter(Boolean);
+
+    if(teams.length < 2) return;
+
+    const matchOrder = generateMatchOrder(teams.length);
+    const rawResults = g.matchResults || [];
+
+    matchOrder.forEach((pair, mi) => {
+      const [ai, bi] = pair;
+      const r = rawResults.find(r=>r&&r.matchNo===mi+1) || rawResults[mi];
+      // 결과 없거나 점수 0:0이면 미진행
+      const hasDone = r && (r.isForfeit || r.winsA > 0 || r.winsB > 0 ||
+        (r.gameResults && r.gameResults.some(gr=>gr&&(gr.wa>0||gr.wb>0))));
+      if(hasDone) return;
+
+      const tA = teams[ai], tB = teams[bi];
+      if(!tA || !tB) return;
+
+      waitingMatches.push({
+        groupNo: g.no,
+        matchNo: mi+1,
+        tA, tB,
+        group: g,
+        groupEntries: teams,
+        mi
+      });
+    });
+  });
+
+  if(!waitingMatches.length) {
+    showToast('미진행 경기가 없어요 🎉');
+    return;
+  }
+
+  // 미진행 경기를 조별로 정렬
+  waitingMatches.sort((a,b) => a.groupNo - b.groupNo || a.matchNo - b.matchNo);
+
+  const getName = team => team.members.map(m=>m.name).join(', ');
+
+  let html = '<div style="padding:16px">';
+  html += `<div style="font-size:14px;font-weight:700;color:var(--text);margin-bottom:16px">미진행 경기 ${waitingMatches.length}개</div>`;
+
+  let lastGroup = null;
+  waitingMatches.forEach(({groupNo, matchNo, tA, tB, group, groupEntries, mi}) => {
+    if(lastGroup !== groupNo) {
+      if(lastGroup !== null) html += '</div>';
+      html += `<div style="font-size:12px;font-weight:700;color:var(--accent);margin:12px 0 6px">${groupNo}조</div><div>`;
+      lastGroup = groupNo;
+    }
+    const nameA = getName(tA), nameB = getName(tB);
+    html += `<div style="display:flex;align-items:center;justify-content:space-between;
+      padding:12px;background:var(--surface);border-radius:10px;margin-bottom:8px;
+      border:1.5px solid var(--accent);cursor:pointer"
+      onclick="openGroupMatchFromStatus(${JSON.stringify(groupNo)}, ${mi})">
+      <div style="flex:1;min-width:0">
+        <div style="font-size:12px;color:var(--text3);margin-bottom:2px">${matchNo}경기</div>
+        <div style="font-size:13px;font-weight:700;color:var(--accent);overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${nameA}</div>
+      </div>
+      <div style="font-size:12px;color:var(--text3);margin:0 8px">vs</div>
+      <div style="flex:1;min-width:0;text-align:right">
+        <div style="font-size:13px;font-weight:700;color:var(--pink);overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${nameB}</div>
+      </div>
+    </div>`;
+  });
+  if(lastGroup !== null) html += '</div>';
+  html += '</div>';
+
+  // 모달로 표시
+  document.getElementById('notice-all-content').innerHTML = html;
+  goPage('pg-notice-all');
+  document.getElementById('notice-all-title').textContent = '예선 대기 경기';
+};
+
+window.openGroupMatchFromStatus = (groupNo, mi) => {
+  const t = window._statusTourney || window.curTourney;
+  const events = window._statusEvents || t?.events || [];
+  const tabIdx = window._statusTabIdx || 0;
+  const ev = events[tabIdx];
+  if(!ev) return;
+
+  const g = (ev.groups||[]).find(g=>g.no===groupNo);
+  if(!g) return;
+
+  const entries = ev.entries||[];
+  const players = ev.players||[];
+  const groupEntries = (g.entryNos||[]).map(no=>{
+    const en = entries.find(e=>e.entryNo===no);
+    if(!en) return null;
+    const members = (en.memberIds||[]).map(mid=>players.find(p=>p.id===mid)).filter(Boolean);
+    return {no, members, club:en.club||members[0]?.club||'-', memberIds:en.memberIds||[], entryNo:no};
+  }).filter(Boolean);
+
+  const matchOrder = generateMatchOrder(groupEntries.length);
+  const pair = matchOrder[mi];
+  if(!pair) return;
+
+  const nameA = groupEntries[pair[0]]?.members?.map(m=>m.name).join(', ')||'?';
+  const nameB = groupEntries[pair[1]]?.members?.map(m=>m.name).join(', ')||'?';
+
+  openGroupMatch(g, groupEntries, ev);
+  if((ev.teamSize||1) > 1) return;
+  setTimeout(() => openScoreboard(mi, nameA, nameB), 300);
+};
+
 window.showWaitingList = () => {
   const ev = window._bracketEv || {};
   const bracket = ev.bracket || [];
@@ -8542,7 +8669,7 @@ window.openBracketPage = () => {
 
   const isOwner = isTourneyAdmin(t);
   document.getElementById('bracket-gen-btn').style.display = isOwner ? '' : 'none';
-  document.getElementById('bracket-waiting-btn').style.display = isOwner ? '' : 'none';
+  document.getElementById('bracket-waiting-btn').style.display = '';
   document.getElementById('bracket-fulltree-btn').style.display = isOwner ? '' : 'none';
   const clearAllBtn = document.getElementById('bracket-clear-all-btn');
   if(clearAllBtn) clearAllBtn.style.display = window.currentUser?.email === SUPER_ADMIN_EMAIL ? '' : 'none';
